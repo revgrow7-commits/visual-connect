@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Home, BookOpen, Kanban, Users, User } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -10,7 +11,7 @@ const items = [
   { label: "Perfil", icon: User, path: "/perfil" },
 ];
 
-const MobileNav = () => {
+const MobileNav = memo(() => {
   const location = useLocation();
 
   return (
@@ -35,6 +36,8 @@ const MobileNav = () => {
       </div>
     </nav>
   );
-};
+});
+
+MobileNav.displayName = "MobileNav";
 
 export default MobileNav;

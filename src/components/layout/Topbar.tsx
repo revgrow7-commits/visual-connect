@@ -1,17 +1,14 @@
+import { memo } from "react";
 import { Bell, Search, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logoIndustria from "@/assets/logo-industria-visual.png";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
 
 interface TopbarProps {
   onToggleSidebar: () => void;
 }
 
-const Topbar = ({ onToggleSidebar }: TopbarProps) => {
-  const [notifications] = useState(3);
-
+const Topbar = memo(({ onToggleSidebar }: TopbarProps) => {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-16 border-b border-border bg-card flex items-center px-4 gap-4">
       <Button
@@ -43,11 +40,9 @@ const Topbar = ({ onToggleSidebar }: TopbarProps) => {
       <div className="flex items-center gap-2 ml-auto">
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
-          {notifications > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
-              {notifications}
-            </span>
-          )}
+          <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+            3
+          </span>
         </Button>
 
         <div className="h-8 w-8 rounded-full gradient-bordo flex items-center justify-center">
@@ -56,6 +51,8 @@ const Topbar = ({ onToggleSidebar }: TopbarProps) => {
       </div>
     </header>
   );
-};
+});
+
+Topbar.displayName = "Topbar";
 
 export default Topbar;
