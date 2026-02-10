@@ -42,6 +42,7 @@ interface Comunicado {
   likes_count: number;
   dislikes_count: number;
   comentarios_count: number;
+  image_url: string | null;
 }
 
 interface Comentario {
@@ -357,6 +358,13 @@ const NoticiasPage = () => {
                     {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: ptBR })}
                   </span>
                 </div>
+
+                {/* Poster Image */}
+                {c.image_url && (
+                  <div className="mb-3 -mx-6 -mt-1">
+                    <img src={c.image_url} alt={`Cartaz: ${c.titulo}`} className="w-full max-h-80 object-cover" />
+                  </div>
+                )}
 
                 {/* Body */}
                 <h3 className="font-semibold text-foreground mb-1">{c.titulo}</h3>

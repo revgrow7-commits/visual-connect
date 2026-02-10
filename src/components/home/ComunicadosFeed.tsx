@@ -18,6 +18,7 @@ interface Comunicado {
   likes_count: number;
   dislikes_count: number;
   comentarios_count: number;
+  image_url: string | null;
 }
 
 const categoriaCores: Record<string, string> = {
@@ -92,6 +93,11 @@ const ComunicadosFeed = () => {
                 {formatDistanceToNow(new Date(item.created_at), { addSuffix: true, locale: ptBR })}
               </span>
             </div>
+            {item.image_url && (
+              <div className="-mx-4 mb-2">
+                <img src={item.image_url} alt={item.titulo} className="w-full max-h-40 object-cover rounded" />
+              </div>
+            )}
             <h3 className="font-semibold text-sm text-foreground mb-1">{item.titulo}</h3>
             {item.conteudo && (
               <p className="text-xs text-muted-foreground leading-relaxed mb-3 line-clamp-2">{item.conteudo}</p>

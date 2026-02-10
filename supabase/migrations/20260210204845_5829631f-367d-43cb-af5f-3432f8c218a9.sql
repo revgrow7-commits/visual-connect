@@ -1,0 +1,1 @@
+ALTER TABLE public.comunicados ADD COLUMN image_url TEXT;
