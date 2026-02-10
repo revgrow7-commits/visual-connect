@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, ArrowRight, Send, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Send, CheckCircle2, Link2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import StepCompliance from "@/components/admissao/StepCompliance";
 import StepDadosPessoais, { type DadosPessoaisData } from "@/components/admissao/StepDadosPessoais";
@@ -28,6 +29,7 @@ const steps = [
 
 const RhAdmissaoPage = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [submitted, setSubmitted] = useState(false);
 
@@ -111,9 +113,14 @@ const RhAdmissaoPage = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Formulário de Pré-Admissão</h1>
-        <p className="text-sm text-muted-foreground mt-1">Preencha todas as etapas para concluir sua admissão.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Formulário de Pré-Admissão</h1>
+          <p className="text-sm text-muted-foreground mt-1">Preencha todas as etapas para concluir sua admissão.</p>
+        </div>
+        <Button variant="outline" onClick={() => navigate("/rh/gerar-link")}>
+          <Link2 className="h-4 w-4 mr-2" /> Gerar Link de Formulário
+        </Button>
       </div>
 
       {/* Stepper */}
