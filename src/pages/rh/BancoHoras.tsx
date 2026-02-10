@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Clock, TrendingUp, AlertTriangle, Download, Search, CalendarClock, RefreshCw, Loader2, Users } from "lucide-react";
+import { Clock, TrendingUp, AlertTriangle, Download, Search, CalendarClock, RefreshCw, Loader2, Users, Brain } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import BancoHorasAIReport from "@/components/banco-horas/BancoHorasAIReport";
 
 interface SecullumTotais {
   Colunas: string[];
@@ -197,6 +198,7 @@ const BancoHorasPage = () => {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="equipe">Painel RH / Admin</TabsTrigger>
+          <TabsTrigger value="analise" className="gap-1.5"><Brain className="h-4 w-4" /> Análise IA</TabsTrigger>
           <TabsTrigger value="meu">Meu Banco</TabsTrigger>
         </TabsList>
 
@@ -336,6 +338,11 @@ const BancoHorasPage = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ===== ANÁLISE IA ===== */}
+        <TabsContent value="analise" className="space-y-4">
+          <BancoHorasAIReport data={parsed} competencia={competencia} />
         </TabsContent>
 
         {/* ===== MEU BANCO ===== */}
