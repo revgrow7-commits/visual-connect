@@ -8,13 +8,14 @@ const corsHeaders = {
 
 const AUTH_HOST = "autenticador.secullum.com.br";
 const PONTO_HOST = "pontowebintegracaoexterna.secullum.com.br";
+const REQUEST_TIMEOUT_MS = 30_000; // 30s timeout per Secullum API call
 
 // Cache TTL in minutes per action type
 const CACHE_TTL: Record<string, number> = {
-  funcionarios: 60,      // 1 hour
-  totais: 30,            // 30 min
-  detalhes: 30,          // 30 min
-  "totais-todos": 30,   // 30 min
+  funcionarios: 60,
+  totais: 30,
+  detalhes: 30,
+  "totais-todos": 30,
 };
 
 function getSupabaseAdmin() {
@@ -34,10 +35,8 @@ async function getCache(cacheKey: string): Promise<any | null> {
 
     if (error || !data) return null;
 
-    // Check expiry
     if (new Date(data.expires_at) < new Date()) {
-      // Expired - delete async, return null
-      sb.from("secullum_cache").delete().eq("cache_key", cacheKey).then(() => {});
+      sb.from("secullum_cache").delete().eq("cache_key", cacheKey).then(() => {}).catch(() => {});
       return null;
     }
 
@@ -61,16 +60,40 @@ async function setCache(cacheKey: string, value: any, ttlMinutes: number): Promi
   }
 }
 
-async function getToken(): Promise<string> {
-  let token = Deno.env.get("SECULLUM_TOKEN") || "";
+/** Fetch with timeout to prevent hanging on Secullum API */
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
-  const testRes = await fetch(`https://${AUTH_HOST}/ContasSecullumExterno/ListarBancos`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+async function getSecullumToken(): Promise<string> {
+  const storedToken = Deno.env.get("SECULLUM_TOKEN") || "";
 
-  if (testRes.ok) return token;
+  // Test if stored token is still valid
+  if (storedToken) {
+    try {
+      const testRes = await fetchWithTimeout(
+        `https://${AUTH_HOST}/ContasSecullumExterno/ListarBancos`,
+        { headers: { Authorization: `Bearer ${storedToken}` } },
+        10_000 // shorter timeout for token validation
+      );
+      if (testRes.ok) {
+        await testRes.text(); // consume body
+        return storedToken;
+      }
+      await testRes.text(); // consume body even on failure
+    } catch {
+      // Token test failed, proceed to generate new one
+    }
+  }
 
-  console.log("Secullum token expired, generating new one...");
+  console.log("Secullum token expired or missing, generating new one...");
   const username = Deno.env.get("SECULLUM_USERNAME");
   const password = Deno.env.get("SECULLUM_PASSWORD");
 
@@ -85,7 +108,7 @@ async function getToken(): Promise<string> {
     client_id: "3",
   });
 
-  const tokenRes = await fetch(`https://${AUTH_HOST}/Token`, {
+  const tokenRes = await fetchWithTimeout(`https://${AUTH_HOST}/Token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
@@ -93,57 +116,69 @@ async function getToken(): Promise<string> {
 
   if (!tokenRes.ok) {
     const errText = await tokenRes.text();
-    throw new Error(`Failed to generate token: ${tokenRes.status} - ${errText}`);
+    throw new Error(`Failed to generate Secullum token: ${tokenRes.status} - ${errText}`);
   }
 
   const tokenData = await tokenRes.json();
   return tokenData.access_token;
 }
 
-async function listarBancos(token: string) {
-  const res = await fetch(`https://${AUTH_HOST}/ContasSecullumExterno/ListarBancos`, {
-    headers: { Authorization: `Bearer ${token}` },
+async function listarBancos(secToken: string) {
+  const res = await fetchWithTimeout(`https://${AUTH_HOST}/ContasSecullumExterno/ListarBancos`, {
+    headers: { Authorization: `Bearer ${secToken}` },
   });
-  if (!res.ok) throw new Error(`ListarBancos failed: ${res.status}`);
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(`ListarBancos failed: ${res.status} - ${t}`);
+  }
   return res.json();
 }
 
-async function listarFuncionarios(token: string, banco: string) {
-  const res = await fetch(`https://${PONTO_HOST}/IntegracaoExterna/Funcionarios`, {
+async function listarFuncionarios(secToken: string, banco: string) {
+  const res = await fetchWithTimeout(`https://${PONTO_HOST}/IntegracaoExterna/Funcionarios`, {
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${secToken}`,
       secullumbancoselecionado: banco,
     },
   });
-  if (!res.ok) throw new Error(`ListarFuncionarios failed: ${res.status}`);
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(`ListarFuncionarios failed: ${res.status} - ${t}`);
+  }
   return res.json();
 }
 
-async function calcularTotais(token: string, banco: string, pis: string, dataInicial: string, dataFinal: string) {
-  const res = await fetch(`https://${PONTO_HOST}/IntegracaoExterna/Calcular/SomenteTotais`, {
+async function calcularTotais(secToken: string, banco: string, pis: string, dataInicial: string, dataFinal: string) {
+  const res = await fetchWithTimeout(`https://${PONTO_HOST}/IntegracaoExterna/Calcular/SomenteTotais`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${secToken}`,
       secullumbancoselecionado: banco,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ FuncionarioPis: pis, DataInicial: dataInicial, DataFinal: dataFinal }),
   });
-  if (!res.ok) throw new Error(`CalcularTotais failed: ${res.status}`);
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(`CalcularTotais failed for PIS ${pis}: ${res.status} - ${t}`);
+  }
   return res.json();
 }
 
-async function calcularDetalhes(token: string, banco: string, pis: string, dataInicial: string, dataFinal: string) {
-  const res = await fetch(`https://${PONTO_HOST}/IntegracaoExterna/Calcular`, {
+async function calcularDetalhes(secToken: string, banco: string, pis: string, dataInicial: string, dataFinal: string) {
+  const res = await fetchWithTimeout(`https://${PONTO_HOST}/IntegracaoExterna/Calcular`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${secToken}`,
       secullumbancoselecionado: banco,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ FuncionarioPis: pis, DataInicial: dataInicial, DataFinal: dataFinal }),
   });
-  if (!res.ok) throw new Error(`CalcularDetalhes failed: ${res.status}`);
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(`CalcularDetalhes failed for PIS ${pis}: ${res.status} - ${t}`);
+  }
   return res.json();
 }
 
@@ -153,7 +188,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    // === AUTH CHECK: Verify JWT and require admin role ===
+    // === AUTH CHECK ===
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -168,8 +203,8 @@ const handler = async (req: Request): Promise<Response> => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+    const jwtToken = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(jwtToken);
     if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -179,8 +214,9 @@ const handler = async (req: Request): Promise<Response> => {
 
     const userId = claimsData.claims.sub;
 
-    // Check admin role
-    const { data: roleData } = await supabaseAuth
+    // Check admin role using service role to avoid RLS issues
+    const sbAdmin = getSupabaseAdmin();
+    const { data: roleData } = await sbAdmin
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
@@ -206,11 +242,19 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Build cache key based on action + body params
+    // Parse body for POST requests
     let bodyData: any = {};
     if (req.method === "POST") {
-      bodyData = await req.json();
+      try {
+        bodyData = await req.json();
+      } catch {
+        return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
+
     const cacheKey = `secullum:${action}:${JSON.stringify(bodyData)}`;
 
     // Check cache first (unless refresh requested)
@@ -226,12 +270,13 @@ const handler = async (req: Request): Promise<Response> => {
     }
     console.log(`Cache MISS for ${action}, calling Secullum API...`);
 
-    const token = await getToken();
+    // Get Secullum API token (renamed to avoid shadowing JWT token)
+    const secToken = await getSecullumToken();
 
     // Get banco
-    const bancos = await listarBancos(token);
+    const bancos = await listarBancos(secToken);
     if (!Array.isArray(bancos) || bancos.length === 0) {
-      return new Response(JSON.stringify({ error: "No bancos found" }), {
+      return new Response(JSON.stringify({ error: "No bancos found in Secullum" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -243,7 +288,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     switch (action) {
       case "funcionarios": {
-        result = await listarFuncionarios(token, banco);
+        result = await listarFuncionarios(secToken, banco);
         break;
       }
 
@@ -255,7 +300,7 @@ const handler = async (req: Request): Promise<Response> => {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-        result = await calcularTotais(token, banco, pis, dataInicial, dataFinal);
+        result = await calcularTotais(secToken, banco, pis, dataInicial, dataFinal);
         break;
       }
 
@@ -267,7 +312,7 @@ const handler = async (req: Request): Promise<Response> => {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-        result = await calcularDetalhes(token, banco, pis, dataInicial, dataFinal);
+        result = await calcularDetalhes(secToken, banco, pis, dataInicial, dataFinal);
         break;
       }
 
@@ -280,10 +325,16 @@ const handler = async (req: Request): Promise<Response> => {
           });
         }
 
-        const funcionarios = await listarFuncionarios(token, banco);
+        const funcionarios = await listarFuncionarios(secToken, banco);
+        if (!Array.isArray(funcionarios) || funcionarios.length === 0) {
+          result = [];
+          break;
+        }
+
         const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
         const BATCH_SIZE = 6;
         const results: any[] = [];
+        let errors = 0;
 
         for (let i = 0; i < funcionarios.length; i += BATCH_SIZE) {
           const batch = funcionarios.slice(i, i + BATCH_SIZE);
@@ -291,27 +342,41 @@ const handler = async (req: Request): Promise<Response> => {
             batch.map(async (func: any) => {
               const pis = func.NumeroPis || func.Pis || func.pis;
               if (!pis) return null;
-              const totais = await calcularTotais(token, banco, String(pis), dataInicial, dataFinal);
-              return {
-                funcionario: {
-                  Nome: func.Nome,
-                  NumeroPis: pis,
-                  Cargo: func.Funcao?.Descricao || "",
-                  Departamento: func.Departamento?.Descricao || "",
-                  Email: func.Email || "",
-                  Empresa: func.Empresa?.Nome || "",
-                  Unidade: func.Empresa?.Uf || "",
-                },
-                totais,
-              };
+              try {
+                const totais = await calcularTotais(secToken, banco, String(pis), dataInicial, dataFinal);
+                return {
+                  funcionario: {
+                    Nome: func.Nome || "Sem nome",
+                    NumeroPis: pis,
+                    Cargo: func.Funcao?.Descricao || "",
+                    Departamento: func.Departamento?.Descricao || "",
+                    Email: func.Email || "",
+                    Empresa: func.Empresa?.Nome || "",
+                    Unidade: func.Empresa?.Uf || "",
+                  },
+                  totais,
+                };
+              } catch (e) {
+                console.error(`Error for PIS ${pis}:`, e);
+                errors++;
+                return null;
+              }
             })
           );
           for (const r of batchResults) {
             if (r.status === "fulfilled" && r.value) results.push(r.value);
-            else if (r.status === "rejected") console.error("Batch error:", r.reason);
+            else if (r.status === "rejected") {
+              console.error("Batch error:", r.reason);
+              errors++;
+            }
           }
-          if (i + BATCH_SIZE < funcionarios.length) await delay(100);
+          if (i + BATCH_SIZE < funcionarios.length) await delay(150);
         }
+
+        if (errors > 0) {
+          console.warn(`totais-todos completed with ${errors} errors out of ${funcionarios.length} employees`);
+        }
+
         result = results;
         break;
       }
@@ -333,8 +398,9 @@ const handler = async (req: Request): Promise<Response> => {
     });
   } catch (error: any) {
     console.error("Secullum proxy error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+    const statusCode = error.message?.includes("timeout") || error.name === "AbortError" ? 504 : 500;
+    return new Response(JSON.stringify({ error: error.message || "Internal server error" }), {
+      status: statusCode,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
