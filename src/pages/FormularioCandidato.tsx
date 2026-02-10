@@ -128,7 +128,6 @@ const FormularioCandidato = () => {
       });
 
       if (error) {
-        console.error("Error saving colaborador:", error);
         toast({ title: "Erro ao enviar", description: "Não foi possível salvar seus dados. Tente novamente.", variant: "destructive" });
         setSubmitting(false);
         return;
@@ -145,7 +144,6 @@ const FormularioCandidato = () => {
       setStep("done");
       toast({ title: "Formulário enviado!", description: "Seus dados foram recebidos pelo RH." });
     } catch (err) {
-      console.error("Submit error:", err);
       toast({ title: "Erro inesperado", description: "Tente novamente mais tarde.", variant: "destructive" });
     } finally {
       setSubmitting(false);

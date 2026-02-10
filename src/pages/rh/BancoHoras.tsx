@@ -83,7 +83,13 @@ const BancoHorasPage = () => {
       const dataFinal = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      // Get the user's JWT for authenticated access
+      const { data: { session } } = await (await import("@/integrations/supabase/client")).supabase.auth.getSession();
+      const authToken = session?.access_token;
+      if (!authToken) {
+        throw new Error("Sessão expirada. Faça login novamente.");
+      }
 
       const refreshParam = forceRefresh ? "&refresh=true" : "";
       const res = await fetch(
@@ -92,7 +98,7 @@ const BancoHorasPage = () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${supabaseKey}`,
+            Authorization: `Bearer ${authToken}`,
           },
           body: JSON.stringify({ dataInicial, dataFinal }),
         }
@@ -106,7 +112,6 @@ const BancoHorasPage = () => {
       const results = await res.json();
       setData(Array.isArray(results) ? results : []);
     } catch (e: any) {
-      console.error("Error fetching banco de horas:", e);
       setError(e.message);
       toast({ title: "Erro na integração Secullum", description: e.message, variant: "destructive" });
     } finally {
