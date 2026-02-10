@@ -16,6 +16,7 @@ export interface DadosProfissionaisData {
   dataAdmissao: Date | undefined;
   jornada: string;
   horario: string;
+  escala: string;
 }
 
 interface Props {
@@ -34,18 +35,18 @@ const StepDadosProfissionais = ({ data, onChange }: Props) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="cargo">Cargo / Função</Label>
+          <Label htmlFor="cargo">Cargo / Função *</Label>
           <Input id="cargo" value={data.cargo} onChange={(e) => update("cargo", e.target.value)} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="setor">Setor / Departamento</Label>
+          <Label htmlFor="setor">Setor / Departamento *</Label>
           <Input id="setor" value={data.setor} onChange={(e) => update("setor", e.target.value)} />
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Unidade</Label>
+          <Label>Unidade *</Label>
           <Select value={data.unidade} onValueChange={(v) => update("unidade", v)}>
             <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
             <SelectContent>
@@ -55,7 +56,7 @@ const StepDadosProfissionais = ({ data, onChange }: Props) => {
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Tipo de Contratação</Label>
+          <Label>Tipo de Contratação *</Label>
           <Select value={data.tipoContratacao} onValueChange={(v) => update("tipoContratacao", v)}>
             <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
             <SelectContent>
@@ -68,9 +69,9 @@ const StepDadosProfissionais = ({ data, onChange }: Props) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Data de Admissão</Label>
+          <Label>Data de Admissão *</Label>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !data.dataAdmissao && "text-muted-foreground")}>
@@ -84,12 +85,19 @@ const StepDadosProfissionais = ({ data, onChange }: Props) => {
           </Popover>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="jornada">Jornada</Label>
+          <Label htmlFor="jornada">Jornada *</Label>
           <Input id="jornada" value={data.jornada} onChange={(e) => update("jornada", e.target.value)} placeholder="44h semanais" />
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="horario">Horário</Label>
+          <Label htmlFor="horario">Horário *</Label>
           <Input id="horario" value={data.horario} onChange={(e) => update("horario", e.target.value)} placeholder="08:00 às 17:48" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="escala">Escala</Label>
+          <Input id="escala" value={data.escala} onChange={(e) => update("escala", e.target.value)} placeholder="Se houver, ex: 12x36" />
         </div>
       </div>
     </div>

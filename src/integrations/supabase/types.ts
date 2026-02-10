@@ -16,17 +16,21 @@ export type Database = {
     Tables: {
       colaboradores: {
         Row: {
+          adicionais: string | null
           agencia: string | null
           bairro: string | null
           banco: string | null
+          beneficios: Json | null
           cargo: string | null
           cep: string | null
           cidade: string | null
           complemento: string | null
           compliance_aceito: boolean | null
+          compliance_hash: string | null
           compliance_ip: string | null
           compliance_timestamp: string | null
           compliance_user_agent: string | null
+          compliance_versao: string | null
           conta: string | null
           conta_tipo: string | null
           cpf: string | null
@@ -34,11 +38,15 @@ export type Database = {
           data_admissao: string | null
           data_nascimento: string | null
           dependentes: Json | null
+          documentos_extras: Json | null
           email_pessoal: string | null
           endereco: string | null
+          escala: string | null
           estado: string | null
           estado_civil: string | null
+          horario: string | null
           id: string
+          jornada: string | null
           nacionalidade: string | null
           naturalidade_cidade: string | null
           naturalidade_uf: string | null
@@ -52,6 +60,7 @@ export type Database = {
           rg: string | null
           rg_orgao: string | null
           rg_uf: string | null
+          salario_base: string | null
           saude: Json | null
           setor: string | null
           sexo: string | null
@@ -63,17 +72,21 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          adicionais?: string | null
           agencia?: string | null
           bairro?: string | null
           banco?: string | null
+          beneficios?: Json | null
           cargo?: string | null
           cep?: string | null
           cidade?: string | null
           complemento?: string | null
           compliance_aceito?: boolean | null
+          compliance_hash?: string | null
           compliance_ip?: string | null
           compliance_timestamp?: string | null
           compliance_user_agent?: string | null
+          compliance_versao?: string | null
           conta?: string | null
           conta_tipo?: string | null
           cpf?: string | null
@@ -81,11 +94,15 @@ export type Database = {
           data_admissao?: string | null
           data_nascimento?: string | null
           dependentes?: Json | null
+          documentos_extras?: Json | null
           email_pessoal?: string | null
           endereco?: string | null
+          escala?: string | null
           estado?: string | null
           estado_civil?: string | null
+          horario?: string | null
           id?: string
+          jornada?: string | null
           nacionalidade?: string | null
           naturalidade_cidade?: string | null
           naturalidade_uf?: string | null
@@ -99,6 +116,7 @@ export type Database = {
           rg?: string | null
           rg_orgao?: string | null
           rg_uf?: string | null
+          salario_base?: string | null
           saude?: Json | null
           setor?: string | null
           sexo?: string | null
@@ -110,17 +128,21 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          adicionais?: string | null
           agencia?: string | null
           bairro?: string | null
           banco?: string | null
+          beneficios?: Json | null
           cargo?: string | null
           cep?: string | null
           cidade?: string | null
           complemento?: string | null
           compliance_aceito?: boolean | null
+          compliance_hash?: string | null
           compliance_ip?: string | null
           compliance_timestamp?: string | null
           compliance_user_agent?: string | null
+          compliance_versao?: string | null
           conta?: string | null
           conta_tipo?: string | null
           cpf?: string | null
@@ -128,11 +150,15 @@ export type Database = {
           data_admissao?: string | null
           data_nascimento?: string | null
           dependentes?: Json | null
+          documentos_extras?: Json | null
           email_pessoal?: string | null
           endereco?: string | null
+          escala?: string | null
           estado?: string | null
           estado_civil?: string | null
+          horario?: string | null
           id?: string
+          jornada?: string | null
           nacionalidade?: string | null
           naturalidade_cidade?: string | null
           naturalidade_uf?: string | null
@@ -146,6 +172,7 @@ export type Database = {
           rg?: string | null
           rg_orgao?: string | null
           rg_uf?: string | null
+          salario_base?: string | null
           saude?: Json | null
           setor?: string | null
           sexo?: string | null

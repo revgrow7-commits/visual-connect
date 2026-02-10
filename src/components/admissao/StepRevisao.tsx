@@ -1,5 +1,6 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Check, X } from "lucide-react";
 import type { DadosPessoaisData } from "./StepDadosPessoais";
@@ -9,6 +10,7 @@ import type { DadosProfissionaisData } from "./StepDadosProfissionais";
 import type { DadosBancariosData } from "./StepDadosBancarios";
 import type { Dependente } from "./StepDependentes";
 import type { SaudeData } from "./StepSaude";
+import type { SalarioBeneficiosData } from "./StepSalarioBeneficios";
 import { format } from "date-fns";
 
 interface ComplianceData {
@@ -21,6 +23,7 @@ interface ComplianceData {
 interface RevisaoConfirmacao {
   dadosVerdadeiros: boolean;
   termosAceitos: boolean;
+  assinaturaNome: string;
 }
 
 interface Props {
@@ -30,6 +33,7 @@ interface Props {
   endereco: EnderecoData;
   profissionais: DadosProfissionaisData;
   bancarios: DadosBancariosData;
+  salarioBeneficios: SalarioBeneficiosData;
   dependentes: Dependente[];
   saude: SaudeData;
   confirmacao: RevisaoConfirmacao;
@@ -52,10 +56,18 @@ const Field = ({ label, value }: { label: string; value: string | undefined }) =
 
 const fmt = (d: Date | undefined) => d ? format(d, "dd/MM/yyyy") : "—";
 
-const StepRevisao = ({ compliance, dadosPessoais, documentos, endereco, profissionais, bancarios, dependentes, saude, confirmacao, onConfirmacaoChange }: Props) => {
+const StepRevisao = ({ compliance, dadosPessoais, documentos, endereco, profissionais, bancarios, salarioBeneficios, dependentes, saude, confirmacao, onConfirmacaoChange }: Props) => {
   const CompBadge = ({ ok }: { ok: boolean }) => ok
     ? <Badge variant="default" className="text-xs"><Check className="h-3 w-3 mr-1" />Aceito</Badge>
     : <Badge variant="destructive" className="text-xs"><X className="h-3 w-3 mr-1" />Pendente</Badge>;
+
+  const beneficiosList = [
+    salarioBeneficios.vt && "VT",
+    salarioBeneficios.vrVa && "VR/VA",
+    salarioBeneficios.planoSaude && "Plano de Saúde",
+    salarioBeneficios.wellhub && "Wellhub",
+    salarioBeneficios.outros,
+  ].filter(Boolean).join(", ") || "—";
 
   return (
     <div className="space-y-6">
@@ -87,6 +99,8 @@ const StepRevisao = ({ compliance, dadosPessoais, documentos, endereco, profissi
         <Field label="Título de Eleitor" value={documentos.tituloEleitor} />
         <Field label="CTPS" value={documentos.ctpsNumero ? `${documentos.ctpsNumero} / ${documentos.ctpsSerie}` : undefined} />
         <Field label="CNH" value={documentos.cnhNumero || undefined} />
+        {documentos.avsecCredencial && <Field label="AVSEC" value={`${documentos.avsecCredencial} — val. ${fmt(documentos.avsecValidade)}`} />}
+        {documentos.antecedentesStatus && <Field label="Antecedentes" value={documentos.antecedentesStatus} />}
       </Section>
 
       <Section title="Endereço e Contato">
@@ -104,6 +118,13 @@ const StepRevisao = ({ compliance, dadosPessoais, documentos, endereco, profissi
         <Field label="Contratação" value={profissionais.tipoContratacao} />
         <Field label="Admissão" value={fmt(profissionais.dataAdmissao)} />
         <Field label="Jornada" value={profissionais.jornada} />
+        {profissionais.escala && <Field label="Escala" value={profissionais.escala} />}
+      </Section>
+
+      <Section title="Salário e Benefícios">
+        <Field label="Salário Base" value={salarioBeneficios.salarioBase} />
+        <Field label="Adicionais" value={salarioBeneficios.adicionais || undefined} />
+        <Field label="Benefícios" value={beneficiosList} />
       </Section>
 
       <Section title="Dados Bancários">
@@ -148,6 +169,22 @@ const StepRevisao = ({ compliance, dadosPessoais, documentos, endereco, profissi
           <Label htmlFor="termosAceitos" className="text-sm cursor-pointer">
             Confirmo que li e aceito os termos de compliance
           </Label>
+        </div>
+
+        <div className="border-t pt-4 space-y-2">
+          <Label htmlFor="assinaturaNome" className="text-sm font-semibold">
+            Assinatura Eletrônica — Digite seu nome completo *
+          </Label>
+          <Input
+            id="assinaturaNome"
+            value={confirmacao.assinaturaNome}
+            onChange={(e) => onConfirmacaoChange({ ...confirmacao, assinaturaNome: e.target.value })}
+            placeholder="Seu nome completo como assinatura"
+            className="font-serif italic text-base"
+          />
+          <p className="text-xs text-muted-foreground">
+            Data/hora: {format(new Date(), "dd/MM/yyyy 'às' HH:mm")}
+          </p>
         </div>
       </div>
     </div>
