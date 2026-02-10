@@ -11,9 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
-  Plus, Trash2, GripVertical, Video, FileText, CheckSquare, Pencil, ChevronDown, ChevronUp,
+  Plus, Trash2, GripVertical, Video, FileText, CheckSquare, Pencil, ChevronDown, ChevronUp, Sparkles, Loader2,
 } from "lucide-react";
-
 type Etapa = {
   id?: string;
   titulo: string;
@@ -54,6 +53,9 @@ export default function AdminTrilhas() {
   const [editingTrilha, setEditingTrilha] = useState<Trilha | null>(null);
   const [expandedTrilha, setExpandedTrilha] = useState<string | null>(null);
   const [etapas, setEtapas] = useState<Record<string, Etapa[]>>({});
+  const [generating, setGenerating] = useState(false);
+  const [openAiDialog, setOpenAiDialog] = useState(false);
+  const [aiForm, setAiForm] = useState({ cargo: "", unidade: "Todas" });
 
   // Form state
   const [form, setForm] = useState({ nome: "", descricao: "", cargo: "", unidade: "Todas" });
@@ -182,16 +184,80 @@ export default function AdminTrilhas() {
     setOpenEtapaDialog(true);
   };
 
+  const handleGenerateAi = async () => {
+    if (!aiForm.cargo) {
+      toast({ title: "Informe o cargo", variant: "destructive" });
+      return;
+    }
+    setGenerating(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-trilha`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ cargo: aiForm.cargo, unidade: aiForm.unidade }),
+      });
+      const result = await resp.json();
+      if (!resp.ok) throw new Error(result.error || "Erro ao gerar");
+      toast({ title: `Trilha "${result.nome}" criada com ${result.etapas_count} etapas!` });
+      setOpenAiDialog(false);
+      setAiForm({ cargo: "", unidade: "Todas" });
+      fetchTrilhas();
+    } catch (err: any) {
+      toast({ title: "Erro ao gerar trilha", description: err.message, variant: "destructive" });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   if (loading) return <div className="text-center py-8 text-muted-foreground">Carregando...</div>;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Trilhas de Onboarding</h2>
-        <Dialog open={openDialog} onOpenChange={(o) => { setOpenDialog(o); if (!o) { setEditingTrilha(null); setForm({ nome: "", descricao: "", cargo: "", unidade: "Todas" }); } }}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="gap-1.5"><Plus className="h-4 w-4" /> Nova Trilha</Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Dialog open={openAiDialog} onOpenChange={setOpenAiDialog}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline" className="gap-1.5">
+                <Sparkles className="h-4 w-4" /> Gerar com IA
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" /> Gerar Trilha com IA</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">A IA criará automaticamente uma trilha completa com etapas personalizadas com base no cargo e na base de conhecimento da empresa.</p>
+              <div className="space-y-4">
+                <div>
+                  <Label>Cargo</Label>
+                  <Input value={aiForm.cargo} onChange={(e) => setAiForm({ ...aiForm, cargo: e.target.value })} placeholder="Ex: Designer Gráfico, Instalador, PCP..." />
+                </div>
+                <div>
+                  <Label>Unidade</Label>
+                  <Select value={aiForm.unidade} onValueChange={(v) => setAiForm({ ...aiForm, unidade: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Todas">Todas</SelectItem>
+                      <SelectItem value="POA">POA</SelectItem>
+                      <SelectItem value="SP">SP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={handleGenerateAi} className="w-full gap-2" disabled={generating}>
+                  {generating ? <><Loader2 className="h-4 w-4 animate-spin" /> Gerando...</> : <><Sparkles className="h-4 w-4" /> Gerar Trilha</>}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={openDialog} onOpenChange={(o) => { setOpenDialog(o); if (!o) { setEditingTrilha(null); setForm({ nome: "", descricao: "", cargo: "", unidade: "Todas" }); } }}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1.5"><Plus className="h-4 w-4" /> Nova Trilha</Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingTrilha ? "Editar Trilha" : "Nova Trilha"}</DialogTitle>
@@ -223,7 +289,8 @@ export default function AdminTrilhas() {
               <Button onClick={handleSaveTrilha} className="w-full">Salvar</Button>
             </div>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       {trilhas.length === 0 ? (
