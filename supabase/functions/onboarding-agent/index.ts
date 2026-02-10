@@ -120,14 +120,16 @@ ${RAG_CONTEXT}
 - Produto Smart Signage e suas linhas
 - Dúvidas específicas sobre departamentos`;
 
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GOOGLE_GEMINI_API_KEY não está configurada");
 
     const { messages, cargo } = await req.json();
 
@@ -142,21 +144,23 @@ serve(async (req) => {
       ? `${SYSTEM_PROMPT}\n\n## CONTEXTO DO COLABORADOR:\nCargo: ${cargo}\nAdapte suas respostas considerando as responsabilidades e o contexto deste cargo.`
       : SYSTEM_PROMPT;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemContent },
-          ...messages,
-        ],
-        stream: true,
-      }),
-    });
+    // Convert OpenAI-style messages to Gemini format
+    const geminiContents = messages.map((m: any) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }));
+
+    const response = await fetch(
+      `${GEMINI_API_URL}/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemContent }] },
+          contents: geminiContents,
+        }),
+      }
+    );
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -164,17 +168,60 @@ serve(async (req) => {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos insuficientes. Adicione créditos em Configurações." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
       const errText = await response.text();
-      console.error("AI error:", response.status, errText);
+      console.error("Gemini error:", response.status, errText);
       throw new Error("Erro ao comunicar com o assistente");
     }
 
-    return new Response(response.body, {
+    // Transform Gemini SSE stream to OpenAI-compatible SSE stream
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        let buffer = "";
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+
+            let newlineIdx: number;
+            while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
+              let line = buffer.slice(0, newlineIdx);
+              buffer = buffer.slice(newlineIdx + 1);
+              if (line.endsWith("\r")) line = line.slice(0, -1);
+              if (!line.startsWith("data: ") || line.trim() === "") continue;
+
+              const jsonStr = line.slice(6).trim();
+              if (!jsonStr) continue;
+
+              try {
+                const parsed = JSON.parse(jsonStr);
+                const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                  // Emit OpenAI-compatible SSE chunk
+                  const chunk = JSON.stringify({
+                    choices: [{ delta: { content: text } }],
+                  });
+                  controller.enqueue(encoder.encode(`data: ${chunk}\n\n`));
+                }
+              } catch {
+                // skip malformed lines
+              }
+            }
+          }
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+        } catch (e) {
+          console.error("Stream error:", e);
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (error: any) {

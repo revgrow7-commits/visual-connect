@@ -62,14 +62,16 @@ Responda SEMPRE em JSON com a seguinte estrutura:
   "sugestoes": ["dicas extras para o designer finalizar"]
 }`;
 
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GOOGLE_GEMINI_API_KEY não está configurada");
 
     const { tema, tom, detalhes, gerarImagem } = await req.json();
 
@@ -87,21 +89,18 @@ ${detalhes ? `- Detalhes adicionais: ${detalhes}` : ""}
 
 Gere a especificação completa do cartaz em JSON.`;
 
-    // Step 1: Generate poster spec with text model
-    const specResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-    });
+    // Step 1: Generate poster spec with Gemini
+    const specResponse = await fetch(
+      `${GEMINI_API_URL}/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        }),
+      }
+    );
 
     if (!specResponse.ok) {
       if (specResponse.status === 429) {
@@ -109,18 +108,13 @@ Gere a especificação completa do cartaz em JSON.`;
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (specResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos insuficientes. Adicione créditos em Configurações." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
       const errText = await specResponse.text();
-      console.error("AI spec error:", specResponse.status, errText);
+      console.error("Gemini spec error:", specResponse.status, errText);
       throw new Error("Erro ao gerar especificação");
     }
 
     const specData = await specResponse.json();
-    const rawContent = specData.choices?.[0]?.message?.content || "";
+    const rawContent = specData.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
     // Parse JSON from response (may be wrapped in markdown code block)
     let spec: any;
@@ -133,7 +127,7 @@ Gere a especificação completa do cartaz em JSON.`;
 
     let imageUrl: string | null = null;
 
-    // Step 2: Optionally generate an image preview
+    // Step 2: Optionally generate an image preview with Gemini image model
     if (gerarImagem) {
       const imagePrompt = `Create a corporate internal communication poster with the following specifications:
 Title: "${spec.titulo || tema}"
@@ -149,22 +143,27 @@ Include the title text "${spec.titulo || tema}" prominently displayed.
 Ultra high resolution corporate poster design.`;
 
       try {
-        const imgResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash-image",
-            messages: [{ role: "user", content: imagePrompt }],
-            modalities: ["image", "text"],
-          }),
-        });
+        const imgResponse = await fetch(
+          `${GEMINI_API_URL}/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [{ text: imagePrompt }] }],
+              generationConfig: {
+                responseModalities: ["TEXT", "IMAGE"],
+              },
+            }),
+          }
+        );
 
         if (imgResponse.ok) {
           const imgData = await imgResponse.json();
-          imageUrl = imgData.choices?.[0]?.message?.images?.[0]?.image_url?.url || null;
+          const parts = imgData.candidates?.[0]?.content?.parts || [];
+          const imagePart = parts.find((p: any) => p.inlineData);
+          if (imagePart?.inlineData) {
+            imageUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
+          }
         } else {
           console.error("Image generation failed:", imgResponse.status);
         }
