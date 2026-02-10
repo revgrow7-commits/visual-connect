@@ -393,6 +393,127 @@ export type Database = {
         }
         Relationships: []
       }
+      onboarding_etapas: {
+        Row: {
+          conteudo_url: string | null
+          created_at: string
+          descricao: string | null
+          id: string
+          obrigatoria: boolean
+          ordem: number
+          tipo: string
+          titulo: string
+          trilha_id: string
+          updated_at: string
+        }
+        Insert: {
+          conteudo_url?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          obrigatoria?: boolean
+          ordem?: number
+          tipo?: string
+          titulo: string
+          trilha_id: string
+          updated_at?: string
+        }
+        Update: {
+          conteudo_url?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          obrigatoria?: boolean
+          ordem?: number
+          tipo?: string
+          titulo?: string
+          trilha_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_etapas_trilha_id_fkey"
+            columns: ["trilha_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_trilhas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_progresso: {
+        Row: {
+          concluida: boolean
+          concluida_em: string | null
+          created_at: string
+          etapa_id: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          concluida?: boolean
+          concluida_em?: string | null
+          created_at?: string
+          etapa_id: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          concluida?: boolean
+          concluida_em?: string | null
+          created_at?: string
+          etapa_id?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_progresso_etapa_id_fkey"
+            columns: ["etapa_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_etapas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_trilhas: {
+        Row: {
+          ativo: boolean
+          cargo: string
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          id: string
+          nome: string
+          unidade: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cargo: string
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+          unidade?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cargo?: string
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
+          unidade?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

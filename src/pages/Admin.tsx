@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Settings, Upload, Newspaper, Users, Heart, ShieldCheck } from "lucide-react";
+import { Settings, Upload, Newspaper, Users, Heart, ShieldCheck, GraduationCap } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import AdminComunicados from "@/components/admin/AdminComunicados";
 import AdminColaboradores from "@/components/admin/AdminColaboradores";
 import AdminBeneficios from "@/components/admin/AdminBeneficios";
 import AdminUsuarios from "@/components/admin/AdminUsuarios";
+import AdminTrilhas from "@/components/admin/AdminTrilhas";
 
 const AdminPage = () => {
   const [tab, setTab] = useState("comunicados");
@@ -36,6 +37,9 @@ const AdminPage = () => {
           <TabsTrigger value="usuarios" className="gap-1.5">
             <ShieldCheck className="h-4 w-4" /> Usuários
           </TabsTrigger>
+          <TabsTrigger value="trilhas" className="gap-1.5">
+            <GraduationCap className="h-4 w-4" /> Trilhas
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="comunicados">
@@ -49,6 +53,9 @@ const AdminPage = () => {
         </TabsContent>
         <TabsContent value="usuarios">
           <AdminUsuarios />
+        </TabsContent>
+        <TabsContent value="trilhas">
+          <AdminTrilhas />
         </TabsContent>
       </Tabs>
     </div>
