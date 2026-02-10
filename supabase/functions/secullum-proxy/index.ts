@@ -282,7 +282,7 @@ const handler = async (req: Request): Promise<Response> => {
 
         const funcionarios = await listarFuncionarios(token, banco);
         const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
-        const BATCH_SIZE = 2;
+        const BATCH_SIZE = 6;
         const results: any[] = [];
 
         for (let i = 0; i < funcionarios.length; i += BATCH_SIZE) {
@@ -310,7 +310,7 @@ const handler = async (req: Request): Promise<Response> => {
             if (r.status === "fulfilled" && r.value) results.push(r.value);
             else if (r.status === "rejected") console.error("Batch error:", r.reason);
           }
-          if (i + BATCH_SIZE < funcionarios.length) await delay(300);
+          if (i + BATCH_SIZE < funcionarios.length) await delay(100);
         }
         result = results;
         break;
