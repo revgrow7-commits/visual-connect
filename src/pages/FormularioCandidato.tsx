@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { CheckCircle2, ArrowRight, ArrowLeft, Send, PartyPopper } from "lucide-react";
+import { CheckCircle2, ArrowRight, ArrowLeft, Send, PartyPopper, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,9 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import logoIndustria from "@/assets/logo-industria-visual.png";
 
 const camposGenericos = [
@@ -30,7 +30,6 @@ const camposGenericos = [
   { id: "pix", label: "Chave PIX", tipo: "texto", obrigatorio: true },
 ];
 
-// Simulated extra fields for specific profiles
 const camposEspecificos = [
   { id: "cnhCategoria", label: "Categoria da CNH", tipo: "selecao", obrigatorio: false, opcoes: ["A", "B", "AB", "C", "D", "E"] },
   { id: "cnhValidade", label: "Validade da CNH", tipo: "data", obrigatorio: false },
@@ -48,6 +47,7 @@ const FormularioCandidato = () => {
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [ndFields, setNdFields] = useState<Set<string>>(new Set());
   const [termos, setTermos] = useState({ lgpd: false, veracidade: false });
+  const [submitting, setSubmitting] = useState(false);
 
   const sections = [
     { title: "Dados Pessoais", campos: camposGenericos.slice(0, 6) },
@@ -77,13 +77,79 @@ const FormularioCandidato = () => {
     });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!termos.lgpd || !termos.veracidade) {
       toast({ title: "Aceite obrigatório", description: "Aceite os termos para enviar o formulário.", variant: "destructive" });
       return;
     }
-    setStep("done");
-    toast({ title: "Formulário enviado!", description: "Seus dados foram recebidos pelo RH." });
+
+    setSubmitting(true);
+
+    try {
+      // Find the recruitment link by token
+      let recruitmentLinkId: string | null = null;
+      if (token) {
+        const { data: linkData } = await supabase
+          .from("recruitment_links")
+          .select("id")
+          .eq("token", token)
+          .maybeSingle();
+        recruitmentLinkId = linkData?.id || null;
+      }
+
+      // Build the N/D-aware complementary data
+      const complementarData: Record<string, string> = {};
+      camposEspecificos.forEach((c) => {
+        complementarData[c.id] = ndFields.has(c.id) ? "N/D" : (formData[c.id] || "");
+      });
+
+      // Insert into colaboradores table
+      const { error } = await supabase.from("colaboradores").insert({
+        recruitment_link_id: recruitmentLinkId,
+        nome: formData.nome || "",
+        cpf: formData.cpf,
+        rg: formData.rg,
+        data_nascimento: formData.dataNascimento || null,
+        sexo: formData.estadoCivil,
+        email_pessoal: formData.email,
+        telefone_celular: formData.telefone,
+        cep: formData.cep,
+        endereco: formData.endereco,
+        banco: formData.banco,
+        agencia: formData.agencia,
+        conta: formData.conta,
+        pix: formData.pix,
+        saude: complementarData,
+        compliance_aceito: true,
+        compliance_ip: "",
+        compliance_user_agent: navigator.userAgent,
+        compliance_timestamp: new Date().toISOString(),
+        status: "pendente",
+      });
+
+      if (error) {
+        console.error("Error saving colaborador:", error);
+        toast({ title: "Erro ao enviar", description: "Não foi possível salvar seus dados. Tente novamente.", variant: "destructive" });
+        setSubmitting(false);
+        return;
+      }
+
+      // Update recruitment link status to "preenchido"
+      if (recruitmentLinkId) {
+        await supabase
+          .from("recruitment_links")
+          .update({ status: "preenchido" })
+          .eq("id", recruitmentLinkId);
+      }
+
+      setStep("done");
+      toast({ title: "Formulário enviado!", description: "Seus dados foram recebidos pelo RH." });
+    } catch (err) {
+      console.error("Submit error:", err);
+      toast({ title: "Erro inesperado", description: "Tente novamente mais tarde.", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const renderField = (campo: typeof camposGenericos[0] & { opcoes?: string[] }) => {
@@ -133,7 +199,6 @@ const FormularioCandidato = () => {
         <Card className="max-w-lg w-full text-center shadow-xl">
           <CardContent className="pt-10 pb-8 px-8 space-y-6">
             <img src={logoIndustria} alt="Indústria Visual" className="h-28 mx-auto" />
-            
             <div className="space-y-3">
               <div className="flex items-center justify-center gap-2">
                 <PartyPopper className="h-6 w-6 text-primary" />
@@ -144,22 +209,20 @@ const FormularioCandidato = () => {
                 Agora você faz parte do time da Indústria Visual!
               </p>
             </div>
-
             <div className="bg-muted/50 rounded-lg p-5 text-left space-y-3">
               <h3 className="font-semibold text-sm text-foreground">Nossa Cultura</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Na <strong className="text-foreground">Indústria Visual</strong>, acreditamos que grandes resultados nascem de pessoas comprometidas, criativas e apaixonadas pelo que fazem. 
+                Na <strong className="text-foreground">Indústria Visual</strong>, acreditamos que grandes resultados nascem de pessoas comprometidas, criativas e apaixonadas pelo que fazem.
                 Valorizamos a <strong className="text-foreground">colaboração</strong>, a <strong className="text-foreground">inovação</strong> e o <strong className="text-foreground">respeito</strong> entre todos os membros do time.
               </p>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Nossos pilares são: <strong className="text-foreground">excelência operacional</strong>, <strong className="text-foreground">transparência</strong> nas relações e <strong className="text-foreground">desenvolvimento contínuo</strong>. 
+                Nossos pilares são: <strong className="text-foreground">excelência operacional</strong>, <strong className="text-foreground">transparência</strong> nas relações e <strong className="text-foreground">desenvolvimento contínuo</strong>.
                 Aqui, cada pessoa faz a diferença e contribui para construirmos algo grandioso juntos.
               </p>
               <p className="text-sm font-medium text-primary">
                 Bem-vindo(a) à família Indústria Visual! 🚀
               </p>
             </div>
-
             <Button size="lg" className="w-full" onClick={() => setStep("form")}>
               Preencher Formulário de Admissão <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
@@ -194,14 +257,12 @@ const FormularioCandidato = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
-        {/* Header */}
         <div className="text-center space-y-2">
           <img src={logoIndustria} alt="Indústria Visual" className="h-16 mx-auto" />
           <h1 className="text-xl font-bold text-foreground">Formulário de Admissão</h1>
           <p className="text-sm text-muted-foreground">Preencha seus dados para completar sua admissão.</p>
         </div>
 
-        {/* Progress */}
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span className="font-medium text-primary">{sections[currentSection].title}</span>
@@ -210,7 +271,6 @@ const FormularioCandidato = () => {
           <Progress value={progress} className="h-2" />
         </div>
 
-        {/* Fields */}
         <Card>
           <CardContent className="pt-6 space-y-4">
             <h2 className="text-base font-semibold text-foreground">{sections[currentSection].title}</h2>
@@ -223,7 +283,6 @@ const FormularioCandidato = () => {
               {sections[currentSection].campos.map(renderField)}
             </div>
 
-            {/* Termos na última seção */}
             {currentSection === totalSections - 1 && (
               <div className="border-t pt-4 space-y-3 mt-4">
                 <div className="flex items-start gap-3">
@@ -243,7 +302,6 @@ const FormularioCandidato = () => {
           </CardContent>
         </Card>
 
-        {/* Navigation */}
         <div className="flex justify-between">
           <Button variant="outline" onClick={() => setCurrentSection((s) => s - 1)} disabled={currentSection === 0}>
             <ArrowLeft className="h-4 w-4 mr-2" /> Anterior
@@ -253,8 +311,9 @@ const FormularioCandidato = () => {
               Próximo <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           ) : (
-            <Button onClick={handleSubmit} disabled={!termos.lgpd || !termos.veracidade}>
-              <Send className="h-4 w-4 mr-2" /> Enviar Formulário
+            <Button onClick={handleSubmit} disabled={!termos.lgpd || !termos.veracidade || submitting}>
+              {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+              {submitting ? "Enviando..." : "Enviar Formulário"}
             </Button>
           )}
         </div>

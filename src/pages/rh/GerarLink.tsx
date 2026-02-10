@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CampoPersonalizado {
   id: string;
@@ -82,7 +83,7 @@ const GerarLinkPage = () => {
     setCamposExtras((prev) => prev.map((c) => (c.id === id ? { ...c, [field]: value } : c)));
   };
 
-  const gerarLink = () => {
+  const gerarLink = async () => {
     if (!nomeCandidato || !emailCandidato || !cargoCandidato || !unidadeCandidato) {
       toast({ title: "Campos obrigatórios", description: "Preencha todos os campos obrigatórios.", variant: "destructive" });
       return;
@@ -92,8 +93,26 @@ const GerarLinkPage = () => {
     const expira = new Date(hoje);
     expira.setDate(expira.getDate() + parseInt(expiracao));
 
+    // Save to database
+    const { data, error } = await supabase.from("recruitment_links").insert([{
+      candidato_nome: nomeCandidato,
+      candidato_email: emailCandidato,
+      cargo: cargoCandidato,
+      unidade: unidadeCandidato,
+      token,
+      expira_em: expira.toISOString(),
+      status: "ativo",
+      campos_extras: camposExtras as any,
+    }]).select().single();
+
+    if (error) {
+      console.error("Error creating link:", error);
+      toast({ title: "Erro ao gerar link", description: "Não foi possível salvar o link. Tente novamente.", variant: "destructive" });
+      return;
+    }
+
     const novoLink: LinkGerado = {
-      id: crypto.randomUUID(),
+      id: data.id,
       candidato: nomeCandidato,
       email: emailCandidato,
       cargo: cargoCandidato,
@@ -108,7 +127,7 @@ const GerarLinkPage = () => {
     setLinks((prev) => [novoLink, ...prev]);
     setDialogOpen(false);
     resetForm();
-    toast({ title: "Link gerado!", description: `Link enviado para ${emailCandidato}.` });
+    toast({ title: "Link gerado!", description: `Link criado para ${emailCandidato}.` });
   };
 
   const resetForm = () => {
