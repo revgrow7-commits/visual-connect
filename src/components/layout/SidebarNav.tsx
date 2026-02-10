@@ -87,7 +87,7 @@ const SidebarNav = ({ open, onClose }: SidebarNavProps) => {
 
       <aside
         className={cn(
-          "fixed top-16 left-0 z-40 h-[calc(100vh-4rem)] w-64 bg-sidebar border-r border-sidebar-border overflow-y-auto transition-transform duration-300",
+          "fixed top-16 left-0 z-40 h-[calc(100vh-4rem)] w-64 bg-sidebar border-r border-sidebar-border overflow-y-auto transition-transform duration-300 contain-paint",
           "lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full"
         )}
