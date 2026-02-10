@@ -21,6 +21,8 @@ import ContratosPage from "./pages/rh/Contratos";
 import EndomarketingPage from "./pages/Endomarketing";
 import PerfilPage from "./pages/Perfil";
 import AdminPage from "./pages/Admin";
+import GerarLinkPage from "./pages/rh/GerarLink";
+import FormularioCandidato from "./pages/FormularioCandidato";
 
 const queryClient = new QueryClient();
 
@@ -45,10 +47,12 @@ const App = () => (
             <Route path="/rh/colaboradores" element={<ColaboradoresPage />} />
             <Route path="/rh/banco-horas" element={<BancoHorasPage />} />
             <Route path="/rh/contratos" element={<ContratosPage />} />
+            <Route path="/rh/gerar-link" element={<GerarLinkPage />} />
             <Route path="/endomarketing" element={<EndomarketingPage />} />
             <Route path="/perfil" element={<PerfilPage />} />
             <Route path="/admin" element={<AdminPage />} />
           </Route>
+          <Route path="/formulario/:token" element={<FormularioCandidato />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

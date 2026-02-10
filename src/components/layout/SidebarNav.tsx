@@ -12,6 +12,7 @@ import {
   Users,
   Clock,
   FileText,
+  Link2,
   Megaphone,
   User,
   Settings,
@@ -42,6 +43,7 @@ const rhNav = [
   { label: "Colaboradores", icon: Users, path: "/rh/colaboradores" },
   { label: "Banco de Horas", icon: Clock, path: "/rh/banco-horas" },
   { label: "Contratos", icon: FileText, path: "/rh/contratos" },
+  { label: "Gerar Link", icon: Link2, path: "/rh/gerar-link" },
 ];
 
 const extraNav = [
