@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,18 +10,67 @@ const corsHeaders = {
 const AUTH_HOST = "autenticador.secullum.com.br";
 const PONTO_HOST = "pontowebintegracaoexterna.secullum.com.br";
 
+// Cache TTL in minutes per action type
+const CACHE_TTL: Record<string, number> = {
+  funcionarios: 60,      // 1 hour
+  totais: 30,            // 30 min
+  detalhes: 30,          // 30 min
+  "totais-todos": 30,   // 30 min
+};
+
+function getSupabaseAdmin() {
+  const url = Deno.env.get("SUPABASE_URL")!;
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  return createClient(url, key);
+}
+
+async function getCache(cacheKey: string): Promise<any | null> {
+  try {
+    const sb = getSupabaseAdmin();
+    const { data, error } = await sb
+      .from("secullum_cache")
+      .select("data, expires_at")
+      .eq("cache_key", cacheKey)
+      .maybeSingle();
+
+    if (error || !data) return null;
+
+    // Check expiry
+    if (new Date(data.expires_at) < new Date()) {
+      // Expired - delete async, return null
+      sb.from("secullum_cache").delete().eq("cache_key", cacheKey).then(() => {});
+      return null;
+    }
+
+    return data.data;
+  } catch {
+    return null;
+  }
+}
+
+async function setCache(cacheKey: string, value: any, ttlMinutes: number): Promise<void> {
+  try {
+    const sb = getSupabaseAdmin();
+    const expires_at = new Date(Date.now() + ttlMinutes * 60 * 1000).toISOString();
+
+    await sb.from("secullum_cache").upsert(
+      { cache_key: cacheKey, data: value, expires_at, created_at: new Date().toISOString() },
+      { onConflict: "cache_key" }
+    );
+  } catch (e) {
+    console.error("Cache write error:", e);
+  }
+}
+
 async function getToken(): Promise<string> {
-  // Try stored token first
   let token = Deno.env.get("SECULLUM_TOKEN") || "";
 
-  // Validate token by listing bancos
   const testRes = await fetch(`https://${AUTH_HOST}/ContasSecullumExterno/ListarBancos`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
   if (testRes.ok) return token;
 
-  // Token expired, generate new one
   console.log("Secullum token expired, generating new one...");
   const username = Deno.env.get("SECULLUM_USERNAME");
   const password = Deno.env.get("SECULLUM_PASSWORD");
@@ -48,8 +98,7 @@ async function getToken(): Promise<string> {
   }
 
   const tokenData = await tokenRes.json();
-  token = tokenData.access_token;
-  return token;
+  return tokenData.access_token;
 }
 
 async function listarBancos(token: string) {
@@ -107,6 +156,34 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
+    const skipCache = url.searchParams.get("refresh") === "true";
+
+    if (!action) {
+      return new Response(JSON.stringify({ error: "Missing action parameter" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Build cache key based on action + body params
+    let bodyData: any = {};
+    if (req.method === "POST") {
+      bodyData = await req.json();
+    }
+    const cacheKey = `secullum:${action}:${JSON.stringify(bodyData)}`;
+
+    // Check cache first (unless refresh requested)
+    if (!skipCache) {
+      const cached = await getCache(cacheKey);
+      if (cached !== null) {
+        console.log(`Cache HIT for ${action}`);
+        return new Response(JSON.stringify(cached), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json", "X-Cache": "HIT" },
+        });
+      }
+    }
+    console.log(`Cache MISS for ${action}, calling Secullum API...`);
 
     const token = await getToken();
 
@@ -130,8 +207,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
 
       case "totais": {
-        const body = await req.json();
-        const { pis, dataInicial, dataFinal } = body;
+        const { pis, dataInicial, dataFinal } = bodyData;
         if (!pis || !dataInicial || !dataFinal) {
           return new Response(JSON.stringify({ error: "Missing pis, dataInicial, or dataFinal" }), {
             status: 400,
@@ -143,8 +219,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
 
       case "detalhes": {
-        const body = await req.json();
-        const { pis, dataInicial, dataFinal } = body;
+        const { pis, dataInicial, dataFinal } = bodyData;
         if (!pis || !dataInicial || !dataFinal) {
           return new Response(JSON.stringify({ error: "Missing pis, dataInicial, or dataFinal" }), {
             status: 400,
@@ -156,8 +231,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
 
       case "totais-todos": {
-        const body = await req.json();
-        const { dataInicial, dataFinal } = body;
+        const { dataInicial, dataFinal } = bodyData;
         if (!dataInicial || !dataFinal) {
           return new Response(JSON.stringify({ error: "Missing dataInicial or dataFinal" }), {
             status: 400,
@@ -165,15 +239,11 @@ const handler = async (req: Request): Promise<Response> => {
           });
         }
 
-        // Get all employees
         const funcionarios = await listarFuncionarios(token, banco);
-        
         const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
-        
-        // Process in parallel batches of 2 (Secullum rate-limits at higher concurrency)
         const BATCH_SIZE = 2;
         const results: any[] = [];
-        
+
         for (let i = 0; i < funcionarios.length; i += BATCH_SIZE) {
           const batch = funcionarios.slice(i, i + BATCH_SIZE);
           const batchResults = await Promise.allSettled(
@@ -199,7 +269,6 @@ const handler = async (req: Request): Promise<Response> => {
             if (r.status === "fulfilled" && r.value) results.push(r.value);
             else if (r.status === "rejected") console.error("Batch error:", r.reason);
           }
-          // Small delay between batches to avoid rate limiting
           if (i + BATCH_SIZE < funcionarios.length) await delay(300);
         }
         result = results;
@@ -213,9 +282,13 @@ const handler = async (req: Request): Promise<Response> => {
         });
     }
 
+    // Store in cache
+    const ttl = CACHE_TTL[action] || 30;
+    await setCache(cacheKey, result, ttl);
+
     return new Response(JSON.stringify(result), {
       status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json", "X-Cache": "MISS" },
     });
   } catch (error: any) {
     console.error("Secullum proxy error:", error);

@@ -73,7 +73,7 @@ const BancoHorasPage = () => {
   const [data, setData] = useState<SecullumResult[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = async (forceRefresh = false) => {
     setLoading(true);
     setError(null);
     try {
@@ -85,8 +85,9 @@ const BancoHorasPage = () => {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+      const refreshParam = forceRefresh ? "&refresh=true" : "";
       const res = await fetch(
-        `${supabaseUrl}/functions/v1/secullum-proxy?action=totais-todos`,
+        `${supabaseUrl}/functions/v1/secullum-proxy?action=totais-todos${refreshParam}`,
         {
           method: "POST",
           headers: {
@@ -173,7 +174,7 @@ const BancoHorasPage = () => {
           </h1>
           <p className="text-muted-foreground text-sm">Integração Secullum · Dados em tempo real via Ponto Web</p>
         </div>
-        <Button variant="outline" onClick={fetchData} disabled={loading}>
+        <Button variant="outline" onClick={() => fetchData(true)} disabled={loading}>
           {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
           Atualizar
         </Button>
