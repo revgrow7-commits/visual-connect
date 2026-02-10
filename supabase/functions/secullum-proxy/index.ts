@@ -168,28 +168,39 @@ const handler = async (req: Request): Promise<Response> => {
         // Get all employees
         const funcionarios = await listarFuncionarios(token, banco);
         
-        // Calculate totals for each employee
-        const results = [];
-        for (const func of funcionarios) {
-          try {
-            const pis = func.NumeroPis || func.Pis || func.pis;
-            if (!pis) continue;
-            const totais = await calcularTotais(token, banco, String(pis), dataInicial, dataFinal);
-            results.push({
-              funcionario: {
-                Nome: func.Nome,
-                NumeroPis: pis,
-                Cargo: func.Funcao?.Descricao || "",
-                Departamento: func.Departamento?.Descricao || "",
-                Email: func.Email || "",
-                Empresa: func.Empresa?.Nome || "",
-                Unidade: func.Empresa?.Uf || "",
-              },
-              totais,
-            });
-          } catch (e) {
-            console.error(`Error calculating for ${func.Nome}:`, e);
+        const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+        
+        // Process in parallel batches of 2 (Secullum rate-limits at higher concurrency)
+        const BATCH_SIZE = 2;
+        const results: any[] = [];
+        
+        for (let i = 0; i < funcionarios.length; i += BATCH_SIZE) {
+          const batch = funcionarios.slice(i, i + BATCH_SIZE);
+          const batchResults = await Promise.allSettled(
+            batch.map(async (func: any) => {
+              const pis = func.NumeroPis || func.Pis || func.pis;
+              if (!pis) return null;
+              const totais = await calcularTotais(token, banco, String(pis), dataInicial, dataFinal);
+              return {
+                funcionario: {
+                  Nome: func.Nome,
+                  NumeroPis: pis,
+                  Cargo: func.Funcao?.Descricao || "",
+                  Departamento: func.Departamento?.Descricao || "",
+                  Email: func.Email || "",
+                  Empresa: func.Empresa?.Nome || "",
+                  Unidade: func.Empresa?.Uf || "",
+                },
+                totais,
+              };
+            })
+          );
+          for (const r of batchResults) {
+            if (r.status === "fulfilled" && r.value) results.push(r.value);
+            else if (r.status === "rejected") console.error("Batch error:", r.reason);
           }
+          // Small delay between batches to avoid rate limiting
+          if (i + BATCH_SIZE < funcionarios.length) await delay(300);
         }
         result = results;
         break;
