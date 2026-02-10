@@ -14,6 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
+      banco_horas: {
+        Row: {
+          b_cred: string | null
+          b_deb: string | null
+          b_saldo: string | null
+          b_total: string | null
+          carga: string | null
+          cargo: string | null
+          competencia: string
+          created_at: string
+          departamento: string | null
+          email: string | null
+          ex100: string | null
+          ex60: string | null
+          ex80: string | null
+          faltas: string | null
+          id: string
+          imported_at: string
+          imported_by: string | null
+          nome: string
+          normais: string | null
+          pis: string
+          raw_data: Json | null
+          saldo_decimal: number | null
+          unidade: string | null
+          updated_at: string
+        }
+        Insert: {
+          b_cred?: string | null
+          b_deb?: string | null
+          b_saldo?: string | null
+          b_total?: string | null
+          carga?: string | null
+          cargo?: string | null
+          competencia: string
+          created_at?: string
+          departamento?: string | null
+          email?: string | null
+          ex100?: string | null
+          ex60?: string | null
+          ex80?: string | null
+          faltas?: string | null
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          nome: string
+          normais?: string | null
+          pis: string
+          raw_data?: Json | null
+          saldo_decimal?: number | null
+          unidade?: string | null
+          updated_at?: string
+        }
+        Update: {
+          b_cred?: string | null
+          b_deb?: string | null
+          b_saldo?: string | null
+          b_total?: string | null
+          carga?: string | null
+          cargo?: string | null
+          competencia?: string
+          created_at?: string
+          departamento?: string | null
+          email?: string | null
+          ex100?: string | null
+          ex60?: string | null
+          ex80?: string | null
+          faltas?: string | null
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          nome?: string
+          normais?: string | null
+          pis?: string
+          raw_data?: Json | null
+          saldo_decimal?: number | null
+          unidade?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cartazes_endomarketing: {
         Row: {
           created_at: string
