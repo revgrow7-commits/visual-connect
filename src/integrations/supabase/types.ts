@@ -193,14 +193,100 @@ export type Database = {
           },
         ]
       }
+      comunicado_comentarios: {
+        Row: {
+          autor_nome: string
+          comunicado_id: string
+          conteudo: string
+          created_at: string
+          id: string
+          moderado: boolean
+          parent_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          autor_nome?: string
+          comunicado_id: string
+          conteudo: string
+          created_at?: string
+          id?: string
+          moderado?: boolean
+          parent_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          autor_nome?: string
+          comunicado_id?: string
+          conteudo?: string
+          created_at?: string
+          id?: string
+          moderado?: boolean
+          parent_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comunicado_comentarios_comunicado_id_fkey"
+            columns: ["comunicado_id"]
+            isOneToOne: false
+            referencedRelation: "comunicados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comunicado_comentarios_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "comunicado_comentarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comunicado_likes: {
+        Row: {
+          comunicado_id: string
+          created_at: string
+          id: string
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          comunicado_id: string
+          created_at?: string
+          id?: string
+          tipo: string
+          user_id: string
+        }
+        Update: {
+          comunicado_id?: string
+          created_at?: string
+          id?: string
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comunicado_likes_comunicado_id_fkey"
+            columns: ["comunicado_id"]
+            isOneToOne: false
+            referencedRelation: "comunicados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comunicados: {
         Row: {
           categoria: string
+          comentarios_count: number
           conteudo: string | null
           created_at: string
           created_by: string | null
+          dislikes_count: number
           fixado: boolean
           id: string
+          likes_count: number
           status: string
           titulo: string
           unidade: string
@@ -208,11 +294,14 @@ export type Database = {
         }
         Insert: {
           categoria?: string
+          comentarios_count?: number
           conteudo?: string | null
           created_at?: string
           created_by?: string | null
+          dislikes_count?: number
           fixado?: boolean
           id?: string
+          likes_count?: number
           status?: string
           titulo: string
           unidade?: string
@@ -220,11 +309,14 @@ export type Database = {
         }
         Update: {
           categoria?: string
+          comentarios_count?: number
           conteudo?: string | null
           created_at?: string
           created_by?: string | null
+          dislikes_count?: number
           fixado?: boolean
           id?: string
+          likes_count?: number
           status?: string
           titulo?: string
           unidade?: string
