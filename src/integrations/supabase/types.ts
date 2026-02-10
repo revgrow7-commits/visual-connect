@@ -166,6 +166,45 @@ export type Database = {
           },
         ]
       }
+      comunicados: {
+        Row: {
+          categoria: string
+          conteudo: string | null
+          created_at: string
+          created_by: string | null
+          fixado: boolean
+          id: string
+          status: string
+          titulo: string
+          unidade: string
+          updated_at: string
+        }
+        Insert: {
+          categoria?: string
+          conteudo?: string | null
+          created_at?: string
+          created_by?: string | null
+          fixado?: boolean
+          id?: string
+          status?: string
+          titulo: string
+          unidade?: string
+          updated_at?: string
+        }
+        Update: {
+          categoria?: string
+          conteudo?: string | null
+          created_at?: string
+          created_by?: string | null
+          fixado?: boolean
+          id?: string
+          status?: string
+          titulo?: string
+          unidade?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
