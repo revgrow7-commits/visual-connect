@@ -10,6 +10,7 @@ import StepDadosPessoais, { type DadosPessoaisData } from "@/components/admissao
 import StepDocumentos, { type DocumentosData } from "@/components/admissao/StepDocumentos";
 import StepEndereco, { type EnderecoData } from "@/components/admissao/StepEndereco";
 import StepDadosProfissionais, { type DadosProfissionaisData } from "@/components/admissao/StepDadosProfissionais";
+import StepSalarioBeneficios, { type SalarioBeneficiosData } from "@/components/admissao/StepSalarioBeneficios";
 import StepDadosBancarios, { type DadosBancariosData } from "@/components/admissao/StepDadosBancarios";
 import StepDependentes, { type Dependente } from "@/components/admissao/StepDependentes";
 import StepSaude, { type SaudeData } from "@/components/admissao/StepSaude";
@@ -21,6 +22,7 @@ const steps = [
   "Documentos",
   "Endereço",
   "Profissional",
+  "Salário",
   "Bancário",
   "Dependentes",
   "Saúde",
@@ -46,6 +48,8 @@ const RhAdmissaoPage = () => {
     cpf: "", rg: "", rgOrgao: "", rgUf: "", rgDataEmissao: undefined, pisPasep: "",
     tituloEleitor: "", ctpsNumero: "", ctpsSerie: "", ctpsUf: "",
     cnhNumero: "", cnhCategoria: "", cnhValidade: undefined,
+    avsecCredencial: "", avsecValidade: undefined,
+    antecedentesStatus: "", antecedentesDataEmissao: undefined,
   });
 
   const [endereco, setEndereco] = useState<EnderecoData>({
@@ -54,7 +58,11 @@ const RhAdmissaoPage = () => {
   });
 
   const [profissionais, setProfissionais] = useState<DadosProfissionaisData>({
-    cargo: "", setor: "", unidade: "", tipoContratacao: "", dataAdmissao: undefined, jornada: "", horario: "",
+    cargo: "", setor: "", unidade: "", tipoContratacao: "", dataAdmissao: undefined, jornada: "", horario: "", escala: "",
+  });
+
+  const [salarioBeneficios, setSalarioBeneficios] = useState<SalarioBeneficiosData>({
+    salarioBase: "", adicionais: "", vt: false, vrVa: false, planoSaude: false, wellhub: false, outros: "",
   });
 
   const [bancarios, setBancarios] = useState<DadosBancariosData>({
@@ -68,12 +76,12 @@ const RhAdmissaoPage = () => {
   });
 
   const [confirmacao, setConfirmacao] = useState({
-    dadosVerdadeiros: false, termosAceitos: false,
+    dadosVerdadeiros: false, termosAceitos: false, assinaturaNome: "",
   });
 
   const canAdvanceFromCompliance = compliance.lgpd && compliance.confidencialidade && compliance.monitoramento;
 
-  const canSubmit = confirmacao.dadosVerdadeiros && confirmacao.termosAceitos;
+  const canSubmit = confirmacao.dadosVerdadeiros && confirmacao.termosAceitos && confirmacao.assinaturaNome.trim().length > 3;
 
   const next = () => {
     if (currentStep === 0 && !canAdvanceFromCompliance) {
@@ -87,7 +95,7 @@ const RhAdmissaoPage = () => {
 
   const submit = () => {
     if (!canSubmit) {
-      toast({ title: "Confirmação necessária", description: "Marque as confirmações para enviar.", variant: "destructive" });
+      toast({ title: "Confirmação necessária", description: "Preencha a assinatura e marque as confirmações.", variant: "destructive" });
       return;
     }
     setSubmitted(true);
@@ -112,18 +120,16 @@ const RhAdmissaoPage = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Formulário de Pré-Admissão</h1>
           <p className="text-sm text-muted-foreground mt-1">Preencha todas as etapas para concluir sua admissão.</p>
         </div>
         <Button variant="outline" onClick={() => navigate("/rh/gerar-link")}>
-          <Link2 className="h-4 w-4 mr-2" /> Gerar Link de Formulário
+          <Link2 className="h-4 w-4 mr-2" /> Gerar Link
         </Button>
       </div>
 
-      {/* Stepper */}
       <div className="space-y-3">
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium text-primary">
@@ -153,24 +159,33 @@ const RhAdmissaoPage = () => {
         </div>
       </div>
 
-      {/* Content */}
       <Card>
         <CardContent className="pt-6">
           {currentStep === 0 && <StepCompliance data={compliance} onChange={setCompliance} />}
           {currentStep === 1 && <StepDadosPessoais data={dadosPessoais} onChange={setDadosPessoais} />}
-          {currentStep === 2 && <StepDocumentos data={documentos} onChange={setDocumentos} />}
+          {currentStep === 2 && (
+            <StepDocumentos
+              data={documentos}
+              onChange={setDocumentos}
+              tipoContratacao={profissionais.tipoContratacao}
+              cargo={profissionais.cargo}
+              unidade={profissionais.unidade}
+            />
+          )}
           {currentStep === 3 && <StepEndereco data={endereco} onChange={setEndereco} />}
           {currentStep === 4 && <StepDadosProfissionais data={profissionais} onChange={setProfissionais} />}
-          {currentStep === 5 && <StepDadosBancarios data={bancarios} onChange={setBancarios} />}
-          {currentStep === 6 && <StepDependentes data={dependentes} onChange={setDependentes} />}
-          {currentStep === 7 && <StepSaude data={saude} onChange={setSaude} />}
-          {currentStep === 8 && (
+          {currentStep === 5 && <StepSalarioBeneficios data={salarioBeneficios} onChange={setSalarioBeneficios} />}
+          {currentStep === 6 && <StepDadosBancarios data={bancarios} onChange={setBancarios} />}
+          {currentStep === 7 && <StepDependentes data={dependentes} onChange={setDependentes} />}
+          {currentStep === 8 && <StepSaude data={saude} onChange={setSaude} />}
+          {currentStep === 9 && (
             <StepRevisao
               compliance={compliance}
               dadosPessoais={dadosPessoais}
               documentos={documentos}
               endereco={endereco}
               profissionais={profissionais}
+              salarioBeneficios={salarioBeneficios}
               bancarios={bancarios}
               dependentes={dependentes}
               saude={saude}
@@ -181,7 +196,6 @@ const RhAdmissaoPage = () => {
         </CardContent>
       </Card>
 
-      {/* Navigation */}
       <div className="flex justify-between">
         <Button variant="outline" onClick={prev} disabled={currentStep === 0}>
           <ArrowLeft className="h-4 w-4 mr-2" /> Anterior
