@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Outlet } from "react-router-dom";
 import Topbar from "./Topbar";
 import SidebarNav from "./SidebarNav";
 import MobileNav from "./MobileNav";
 
-const AppLayout = () => {
+const AppLayout = memo(() => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -19,6 +19,8 @@ const AppLayout = () => {
       <MobileNav />
     </div>
   );
-};
+});
+
+AppLayout.displayName = "AppLayout";
 
 export default AppLayout;
