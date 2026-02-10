@@ -1,1 +1,4 @@
 project_id = "ezewikxdukboalcybrfs"
+
+[functions.secullum-proxy]
+verify_jwt = false
