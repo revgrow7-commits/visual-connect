@@ -363,6 +363,36 @@ export type Database = {
         }
         Relationships: []
       }
+      onboarding_conversas: {
+        Row: {
+          cargo: string | null
+          created_at: string
+          id: string
+          mensagens: Json
+          titulo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cargo?: string | null
+          created_at?: string
+          id?: string
+          mensagens?: Json
+          titulo?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cargo?: string | null
+          created_at?: string
+          id?: string
+          mensagens?: Json
+          titulo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
