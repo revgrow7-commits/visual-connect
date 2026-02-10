@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      cartazes_endomarketing: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          detalhes: string | null
+          id: string
+          image_url: string | null
+          spec: Json
+          tema: string
+          titulo: string
+          tom: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          detalhes?: string | null
+          id?: string
+          image_url?: string | null
+          spec?: Json
+          tema: string
+          titulo: string
+          tom?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          detalhes?: string | null
+          id?: string
+          image_url?: string | null
+          spec?: Json
+          tema?: string
+          titulo?: string
+          tom?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       colaboradores: {
         Row: {
           adicionais: string | null
