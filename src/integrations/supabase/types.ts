@@ -325,6 +325,7 @@ export type Database = {
           dislikes_count: number
           fixado: boolean
           id: string
+          image_url: string | null
           likes_count: number
           status: string
           titulo: string
@@ -340,6 +341,7 @@ export type Database = {
           dislikes_count?: number
           fixado?: boolean
           id?: string
+          image_url?: string | null
           likes_count?: number
           status?: string
           titulo: string
@@ -355,6 +357,7 @@ export type Database = {
           dislikes_count?: number
           fixado?: boolean
           id?: string
+          image_url?: string | null
           likes_count?: number
           status?: string
           titulo?: string

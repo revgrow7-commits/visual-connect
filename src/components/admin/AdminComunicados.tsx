@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Loader2, ThumbsUp, MessageCircle, ShieldAlert, Eye, EyeOff } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, ThumbsUp, MessageCircle, ShieldAlert, Eye, EyeOff, Sparkles, Image as ImageIcon } from "lucide-react";
 
 interface Comunicado {
   id: string;
@@ -26,6 +26,7 @@ interface Comunicado {
   likes_count: number;
   dislikes_count: number;
   comentarios_count: number;
+  image_url: string | null;
 }
 
 interface Comentario {
@@ -48,6 +49,8 @@ const AdminComunicados = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Comunicado | null>(null);
   const [saving, setSaving] = useState(false);
+  const [generatingPoster, setGeneratingPoster] = useState<string | null>(null);
+  const [posterPreview, setPosterPreview] = useState<{ id: string; url: string } | null>(null);
 
   const [form, setForm] = useState({
     titulo: "",
@@ -126,6 +129,35 @@ const AdminComunicados = () => {
     const newStatus = c.status === "ativo" ? "inativo" : "ativo";
     await supabase.from("comunicados").update({ status: newStatus }).eq("id", c.id);
     fetchComunicados();
+  };
+
+  const handleGeneratePoster = async (c: Comunicado) => {
+    setGeneratingPoster(c.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("endomarketing-agent", {
+        body: {
+          tema: c.titulo,
+          tom: "motivacional",
+          detalhes: c.conteudo || "",
+          gerarImagem: true,
+        },
+      });
+      if (error) throw error;
+      if (data?.imageUrl) {
+        // Save image_url to the comunicado
+        await supabase.from("comunicados").update({ image_url: data.imageUrl }).eq("id", c.id);
+        setPosterPreview({ id: c.id, url: data.imageUrl });
+        toast({ title: "Cartaz gerado com sucesso!", description: "O cartaz foi vinculado ao comunicado." });
+        fetchComunicados();
+      } else {
+        toast({ title: "Cartaz gerado sem imagem", description: "A IA não conseguiu gerar a imagem. Tente novamente.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: "Erro ao gerar cartaz", description: e.message, variant: "destructive" });
+    } finally {
+      setGeneratingPoster(null);
+    }
   };
 
   const toggleModeration = async (comment: Comentario) => {
@@ -213,6 +245,18 @@ const AdminComunicados = () => {
         </Dialog>
       </CardHeader>
       <CardContent>
+        {/* Poster Preview Dialog */}
+        {posterPreview && (
+          <Dialog open={!!posterPreview} onOpenChange={() => setPosterPreview(null)}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Cartaz Gerado</DialogTitle>
+              </DialogHeader>
+              <img src={posterPreview.url} alt="Cartaz gerado pela IA" className="w-full rounded-lg" />
+            </DialogContent>
+          </Dialog>
+        )}
+
         <Tabs defaultValue="comunicados">
           <TabsList className="mb-4">
             <TabsTrigger value="comunicados">Comunicados ({comunicados.length})</TabsTrigger>
@@ -227,6 +271,7 @@ const AdminComunicados = () => {
                   <TableHead>Categoria</TableHead>
                   <TableHead>Unidade</TableHead>
                   <TableHead>Engajamento</TableHead>
+                  <TableHead>Cartaz</TableHead>
                   <TableHead>Data</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
@@ -234,13 +279,13 @@ const AdminComunicados = () => {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={7} className="h-24 text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="h-24 text-center text-muted-foreground">Carregando...</TableCell></TableRow>
                 ) : comunicados.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="h-24 text-center text-muted-foreground">Nenhum comunicado.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="h-24 text-center text-muted-foreground">Nenhum comunicado.</TableCell></TableRow>
                 ) : (
                   comunicados.map((c) => (
                     <TableRow key={c.id}>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium max-w-[200px] truncate">
                         {c.fixado && <Badge variant="outline" className="mr-1 text-[10px]">📌</Badge>}
                         {c.titulo}
                       </TableCell>
@@ -252,6 +297,33 @@ const AdminComunicados = () => {
                           <span className="flex items-center gap-0.5"><MessageCircle className="h-3 w-3" />{c.comentarios_count || 0}</span>
                         </div>
                       </TableCell>
+                      <TableCell>
+                        {c.image_url ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs gap-1 text-primary"
+                            onClick={() => setPosterPreview({ id: c.id, url: c.image_url! })}
+                          >
+                            <ImageIcon className="h-3 w-3" /> Ver
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs gap-1"
+                            onClick={() => handleGeneratePoster(c)}
+                            disabled={generatingPoster === c.id}
+                          >
+                            {generatingPoster === c.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Sparkles className="h-3 w-3" />
+                            )}
+                            {generatingPoster === c.id ? "Gerando..." : "Gerar"}
+                          </Button>
+                        )}
+                      </TableCell>
                       <TableCell>{formatDate(c.created_at)}</TableCell>
                       <TableCell>
                         <Button variant="ghost" size="sm" className="text-xs" onClick={() => toggleStatus(c)}>
@@ -260,6 +332,17 @@ const AdminComunicados = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
+                          {c.image_url ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Regerar cartaz"
+                              onClick={() => handleGeneratePoster(c)}
+                              disabled={generatingPoster === c.id}
+                            >
+                              {generatingPoster === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 text-primary" />}
+                            </Button>
+                          ) : null}
                           <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => handleDelete(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                         </div>
