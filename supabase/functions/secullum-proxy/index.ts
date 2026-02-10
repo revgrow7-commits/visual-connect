@@ -332,7 +332,7 @@ const handler = async (req: Request): Promise<Response> => {
         }
 
         const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
-        const BATCH_SIZE = 6;
+        const BATCH_SIZE = 12;
         const results: any[] = [];
         let errors = 0;
 

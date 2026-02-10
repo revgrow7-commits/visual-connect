@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Clock, TrendingUp, AlertTriangle, Download, Search, CalendarClock, RefreshCw, Loader2, Users, Brain } from "lucide-react";
+import { useState } from "react";
+import { Clock, TrendingUp, AlertTriangle, Download, Search, RefreshCw, Loader2, Users, Brain } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import BancoHorasAIReport from "@/components/banco-horas/BancoHorasAIReport";
 
 interface SecullumTotais {
@@ -28,7 +30,6 @@ interface SecullumResult {
   totais: SecullumTotais;
 }
 
-// Parse "HH:MM" string into decimal hours
 function parseHoras(val: string): number {
   if (!val || val === "") return 0;
   const negative = val.startsWith("-");
@@ -41,7 +42,6 @@ function parseHoras(val: string): number {
   return negative ? -total : total;
 }
 
-// Get value from Colunas/Totais arrays by column name
 function getTotal(data: SecullumTotais, colName: string): string {
   const idx = data.Colunas?.indexOf(colName);
   if (idx === undefined || idx < 0) return "00:00";
@@ -53,13 +53,41 @@ const formatHoras = (h: number) => {
   return `${sign}${Math.abs(h).toFixed(1)}h`;
 };
 
-const formatHorasStr = (val: string) => {
-  if (!val || val === "" || val === "00:00") return "0h";
-  return val.replace(":", "h") + "m";
-};
-
 const getInitials = (name: string) =>
   name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
+
+async function fetchSecullumData(competencia: string, forceRefresh: boolean): Promise<SecullumResult[]> {
+  const [year, month] = competencia.split("-").map(Number);
+  const dataInicial = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const dataFinal = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+  const { data: { session } } = await supabase.auth.getSession();
+  const authToken = session?.access_token;
+  if (!authToken) throw new Error("Sessão expirada. Faça login novamente.");
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const refreshParam = forceRefresh ? "&refresh=true" : "";
+  const res = await fetch(
+    `${supabaseUrl}/functions/v1/secullum-proxy?action=totais-todos${refreshParam}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ dataInicial, dataFinal }),
+    }
+  );
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || `HTTP ${res.status}`);
+  }
+
+  const results = await res.json();
+  return Array.isArray(results) ? results : [];
+}
 
 const BancoHorasPage = () => {
   const { toast } = useToast();
@@ -70,65 +98,30 @@ const BancoHorasPage = () => {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
 
-  const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<SecullumResult[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const { data: rawData = [], isLoading: loading, error, refetch } = useQuery({
+    queryKey: ["banco-horas", competencia],
+    queryFn: () => fetchSecullumData(competencia, false),
+    staleTime: 10 * 60 * 1000, // 10 min — avoid re-fetching on navigation
+    gcTime: 15 * 60 * 1000,
+    retry: 1,
+    meta: { errorMessage: "Erro na integração Secullum" },
+  });
 
-  const fetchData = async (forceRefresh = false) => {
-    setLoading(true);
-    setError(null);
+  const handleRefresh = async () => {
     try {
-      const [year, month] = competencia.split("-").map(Number);
-      const dataInicial = `${year}-${String(month).padStart(2, "0")}-01`;
-      const lastDay = new Date(year, month, 0).getDate();
-      const dataFinal = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-
-      // Get the user's JWT for authenticated access
-      const { data: { session } } = await (await import("@/integrations/supabase/client")).supabase.auth.getSession();
-      const authToken = session?.access_token;
-      if (!authToken) {
-        throw new Error("Sessão expirada. Faça login novamente.");
-      }
-
-      const refreshParam = forceRefresh ? "&refresh=true" : "";
-      const res = await fetch(
-        `${supabaseUrl}/functions/v1/secullum-proxy?action=totais-todos${refreshParam}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${authToken}`,
-          },
-          body: JSON.stringify({ dataInicial, dataFinal }),
-        }
-      );
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `HTTP ${res.status}`);
-      }
-
-      const results = await res.json();
-      setData(Array.isArray(results) ? results : []);
+      const results = await fetchSecullumData(competencia, true);
+      // Manually update the query cache with fresh data
+      const { QueryClient } = await import("@tanstack/react-query");
+      // Use refetch which will use the queryFn
+      await refetch();
     } catch (e: any) {
-      setError(e.message);
       toast({ title: "Erro na integração Secullum", description: e.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [competencia]);
-
-  // Parse the data
-  const parsed = data.map((item) => {
+  const parsed = rawData.map((item) => {
     const func = item.funcionario;
     const t = item.totais;
-
     const normais = getTotal(t, "Normais");
     const faltas = getTotal(t, "Faltas");
     const ex60 = getTotal(t, "Ex60%");
@@ -147,16 +140,7 @@ const BancoHorasPage = () => {
       departamento: func.Departamento,
       unidade: func.Unidade,
       pis: func.NumeroPis,
-      normais,
-      faltas,
-      ex60,
-      ex80,
-      ex100,
-      bSaldo,
-      bTotal,
-      bCred,
-      bDeb,
-      carga,
+      normais, faltas, ex60, ex80, ex100, bSaldo, bTotal, bCred, bDeb, carga,
       saldoDecimal: parseHoras(bSaldo),
     };
   });
@@ -180,7 +164,7 @@ const BancoHorasPage = () => {
           </h1>
           <p className="text-muted-foreground text-sm">Integração Secullum · Dados em tempo real via Ponto Web</p>
         </div>
-        <Button variant="outline" onClick={() => fetchData(true)} disabled={loading}>
+        <Button variant="outline" onClick={handleRefresh} disabled={loading}>
           {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
           Atualizar
         </Button>
@@ -190,7 +174,7 @@ const BancoHorasPage = () => {
         <Card className="border-destructive">
           <CardContent className="p-4 text-sm text-destructive">
             <AlertTriangle className="h-4 w-4 inline mr-2" />
-            Erro na integração Secullum: {error}
+            Erro na integração Secullum: {(error as Error).message}
           </CardContent>
         </Card>
       )}
@@ -202,7 +186,6 @@ const BancoHorasPage = () => {
           <TabsTrigger value="meu">Meu Banco</TabsTrigger>
         </TabsList>
 
-        {/* ===== PAINEL RH ===== */}
         <TabsContent value="equipe" className="space-y-4">
           {/* Summary cards */}
           <div className="grid gap-4 sm:grid-cols-4">
@@ -340,12 +323,10 @@ const BancoHorasPage = () => {
           </Card>
         </TabsContent>
 
-        {/* ===== ANÁLISE IA ===== */}
         <TabsContent value="analise" className="space-y-4">
           <BancoHorasAIReport data={parsed} competencia={competencia} />
         </TabsContent>
 
-        {/* ===== MEU BANCO ===== */}
         <TabsContent value="meu" className="space-y-6">
           <Card className="border-dashed">
             <CardContent className="p-8 text-center text-muted-foreground">
