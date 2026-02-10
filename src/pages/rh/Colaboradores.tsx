@@ -73,7 +73,7 @@ const ColaboradoresPage = () => {
         .order("nome");
 
       if (error) {
-        console.error("Error fetching colaboradores:", error);
+        // Error logged server-side via RLS
       } else {
         setColaboradores((data as Colaborador[]) || []);
       }

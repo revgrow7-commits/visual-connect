@@ -88,7 +88,7 @@ const GerarLinkPage = () => {
       toast({ title: "Campos obrigatórios", description: "Preencha todos os campos obrigatórios.", variant: "destructive" });
       return;
     }
-    const token = Math.random().toString(36).substring(2, 14);
+    const token = crypto.randomUUID();
     const hoje = new Date();
     const expira = new Date(hoje);
     expira.setDate(expira.getDate() + parseInt(expiracao));
@@ -106,7 +106,6 @@ const GerarLinkPage = () => {
     }]).select().single();
 
     if (error) {
-      console.error("Error creating link:", error);
       toast({ title: "Erro ao gerar link", description: "Não foi possível salvar o link. Tente novamente.", variant: "destructive" });
       return;
     }
