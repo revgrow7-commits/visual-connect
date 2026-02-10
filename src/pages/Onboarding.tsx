@@ -12,16 +12,20 @@ import {
   ChevronRight,
   MessageSquare,
   Sparkles,
+  ListChecks,
+  Bot,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import ReactMarkdown from "react-markdown";
+import OnboardingTrilhas from "@/components/onboarding/OnboardingTrilhas";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -160,6 +164,7 @@ Por onde você gostaria de começar? Ou pode me fazer qualquer pergunta! 😊`,
 };
 
 export default function OnboardingPage() {
+  const [activeTab, setActiveTab] = useState("trilhas");
   const { user } = useAuth();
   const { toast } = useToast();
   const [messages, setMessages] = useState<Msg[]>([WELCOME_MSG]);
@@ -253,115 +258,103 @@ export default function OnboardingPage() {
             <GraduationCap className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold flex items-center gap-2">
-              Assistente de Onboarding <Sparkles className="h-5 w-5 text-primary" />
-            </h1>
-            <p className="text-sm text-muted-foreground">Seu guia para conhecer a Indústria Visual</p>
+            <h1 className="text-xl font-bold">Onboarding</h1>
+            <p className="text-sm text-muted-foreground">Trilhas de integração e assistente IA</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={handleNewConversation} className="gap-2">
-          <RefreshCw className="h-4 w-4" /> Nova Conversa
-        </Button>
+        {activeTab === "assistente" && (
+          <Button variant="outline" size="sm" onClick={handleNewConversation} className="gap-2">
+            <RefreshCw className="h-4 w-4" /> Nova Conversa
+          </Button>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
-        {/* Chat Area */}
-        <Card className="flex flex-col h-[calc(100vh-14rem)]">
-          {/* Chat Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Conversa</span>
-            </div>
-            <Badge variant="outline" className="text-xs">{msgCount} mensagens</Badge>
-          </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="trilhas" className="gap-1.5">
+            <ListChecks className="h-4 w-4" /> Minhas Trilhas
+          </TabsTrigger>
+          <TabsTrigger value="assistente" className="gap-1.5">
+            <Bot className="h-4 w-4" /> Assistente IA
+          </TabsTrigger>
+        </TabsList>
 
-          {/* Messages */}
-          <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-            <div className="space-y-4 max-w-3xl mx-auto">
-              {messages.map((msg, i) => (
-                <div
-                  key={i}
-                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
-                      msg.role === "user"
-                        ? "bg-primary text-primary-foreground rounded-br-md"
-                        : "bg-muted rounded-bl-md"
-                    }`}
-                  >
-                    {msg.role === "assistant" ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1">
-                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+        <TabsContent value="trilhas">
+          <OnboardingTrilhas />
+        </TabsContent>
+
+        <TabsContent value="assistente">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
+            {/* Chat Area */}
+            <Card className="flex flex-col h-[calc(100vh-18rem)]">
+              <div className="flex items-center justify-between px-4 py-3 border-b">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Conversa</span>
+                </div>
+                <Badge variant="outline" className="text-xs">{msgCount} mensagens</Badge>
+              </div>
+              <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+                <div className="space-y-4 max-w-3xl mx-auto">
+                  {messages.map((msg, i) => (
+                    <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                      <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${msg.role === "user" ? "bg-primary text-primary-foreground rounded-br-md" : "bg-muted rounded-bl-md"}`}>
+                        {msg.role === "assistant" ? (
+                          <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1">
+                            <ReactMarkdown>{msg.content}</ReactMarkdown>
+                          </div>
+                        ) : (
+                          <p>{msg.content}</p>
+                        )}
                       </div>
-                    ) : (
-                      <p>{msg.content}</p>
-                    )}
-                  </div>
+                    </div>
+                  ))}
+                  {isLoading && messages[messages.length - 1]?.role === "user" && (
+                    <div className="flex justify-start">
+                      <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3">
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ))}
-              {isLoading && messages[messages.length - 1]?.role === "user" && (
-                <div className="flex justify-start">
-                  <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3">
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  </div>
-                </div>
-              )}
+              </ScrollArea>
+              <div className="p-4 border-t">
+                <form onSubmit={(e) => { e.preventDefault(); send(input); }} className="flex gap-2">
+                  <Input ref={inputRef} placeholder="Digite sua pergunta..." value={input} onChange={(e) => setInput(e.target.value)} disabled={isLoading} className="flex-1" />
+                  <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </form>
+              </div>
+            </Card>
+
+            {/* Topics Sidebar */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold">Tópicos de Ajuda</h2>
+              </div>
+              <p className="text-xs text-muted-foreground">Clique em um tópico para saber mais</p>
+              <div className="space-y-2">
+                {TOPICS.map((topic) => (
+                  <Card key={topic.title} className="cursor-pointer hover:shadow-card-hover transition-shadow" onClick={() => handleTopicClick(topic.prompt)}>
+                    <CardContent className="flex items-center gap-3 p-4">
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <topic.icon className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold">{topic.title}</p>
+                        <p className="text-xs text-muted-foreground">{topic.description}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </div>
-          </ScrollArea>
-
-          {/* Input */}
-          <div className="p-4 border-t">
-            <form
-              onSubmit={(e) => { e.preventDefault(); send(input); }}
-              className="flex gap-2"
-            >
-              <Input
-                ref={inputRef}
-                placeholder="Digite sua pergunta..."
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                disabled={isLoading}
-                className="flex-1"
-              />
-              <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
-                <Send className="h-4 w-4" />
-              </Button>
-            </form>
           </div>
-        </Card>
-
-        {/* Topics Sidebar */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold">Tópicos de Ajuda</h2>
-          </div>
-          <p className="text-xs text-muted-foreground">Clique em um tópico para saber mais</p>
-
-          <div className="space-y-2">
-            {TOPICS.map((topic) => (
-              <Card
-                key={topic.title}
-                className="cursor-pointer hover:shadow-card-hover transition-shadow"
-                onClick={() => handleTopicClick(topic.prompt)}
-              >
-                <CardContent className="flex items-center gap-3 p-4">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <topic.icon className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold">{topic.title}</p>
-                    <p className="text-xs text-muted-foreground">{topic.description}</p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
