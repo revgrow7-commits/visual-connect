@@ -1,5 +1,6 @@
 import { Bell, Search, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import logoIndustria from "@/assets/logo-industria-visual.png";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
@@ -23,12 +24,9 @@ const Topbar = ({ onToggleSidebar }: TopbarProps) => {
       </Button>
 
       <div className="flex items-center gap-3 min-w-0">
-        <div className="gradient-bordo rounded-lg p-1.5 flex items-center justify-center">
-          <span className="text-primary-foreground font-bold text-sm tracking-tight">IV</span>
-        </div>
+        <img src={logoIndustria} alt="Indústria Visual" className="h-9 w-auto" />
         <div className="hidden sm:block">
-          <h1 className="text-sm font-bold text-foreground leading-none">INDÚSTRIA VISUAL</h1>
-          <p className="text-[10px] text-muted-foreground leading-none mt-0.5">Portal Intranet</p>
+          <h1 className="text-sm font-bold text-foreground leading-none">Intranet Indústria Visual</h1>
         </div>
       </div>
 
