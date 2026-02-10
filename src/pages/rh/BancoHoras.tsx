@@ -55,12 +55,13 @@ const BancoHorasPage = () => {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
 
-  const { data: dbData = [], isLoading: loading, error } = useQuery({
+  const { data: dbData = [], isLoading: loading, error, isFetching } = useQuery({
     queryKey: ["banco-horas-db", competencia],
     queryFn: () => fetchFromDatabase(competencia),
     staleTime: 10 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
     retry: 1,
+    refetchOnWindowFocus: false,
   });
 
   const handleImport = async () => {
