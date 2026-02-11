@@ -30,19 +30,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const adminCheckCache = useState<Record<string, boolean>>(() => ({}))[0];
 
   const checkAdminRole = useCallback(async (userId: string) => {
-    if (userId in adminCheckCache) {
-      setIsAdmin(adminCheckCache[userId]);
-      return;
+    try {
+      if (userId in adminCheckCache) {
+        setIsAdmin(adminCheckCache[userId]);
+        return;
+      }
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .eq("role", "admin")
+        .maybeSingle();
+      const result = !!data;
+      adminCheckCache[userId] = result;
+      setIsAdmin(result);
+    } catch (e) {
+      console.error("Failed to check admin role:", e);
+      setIsAdmin(false);
     }
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    const result = !!data;
-    adminCheckCache[userId] = result;
-    setIsAdmin(result);
   }, [adminCheckCache]);
 
   useEffect(() => {
@@ -50,13 +55,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // Get initial session first
     supabase.auth.getSession().then(async ({ data: { session: s } }) => {
-      if (initialized) return; // onAuthStateChange already fired
+      if (initialized) return;
       initialized = true;
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
         await checkAdminRole(s.user.id);
       }
+      setLoading(false);
+    }).catch(() => {
       setLoading(false);
     });
 
