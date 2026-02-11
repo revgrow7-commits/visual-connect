@@ -1,6 +1,6 @@
 project_id = "ezewikxdukboalcybrfs"
 
-[functions.secullum-proxy]
+[functions.secullum]
 verify_jwt = false
 
 [functions.endomarketing-agent]
