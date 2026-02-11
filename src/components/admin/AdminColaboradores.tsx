@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
+import { useState } from "react";
 
 interface Colaborador {
   id: string;
@@ -28,22 +29,24 @@ const statusColor: Record<string, string> = {
   ativo: "bg-emerald-100 text-emerald-800",
 };
 
+async function fetchColaboradores(): Promise<Colaborador[]> {
+  const { data } = await supabase
+    .from("colaboradores")
+    .select("id, nome, sobrenome, cargo, setor, unidade, status, email_pessoal, data_admissao")
+    .order("nome");
+  return (data || []) as Colaborador[];
+}
+
 const AdminColaboradores = () => {
-  const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase
-        .from("colaboradores")
-        .select("id, nome, sobrenome, cargo, setor, unidade, status, email_pessoal, data_admissao")
-        .order("nome");
-      setColaboradores(data || []);
-      setLoading(false);
-    };
-    fetch();
-  }, []);
+  const { data: colaboradores = [], isLoading: loading } = useQuery({
+    queryKey: ["admin-colaboradores"],
+    queryFn: fetchColaboradores,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
   const filtered = colaboradores.filter((c) =>
     `${c.nome} ${c.sobrenome || ""} ${c.cargo || ""} ${c.setor || ""}`.toLowerCase().includes(search.toLowerCase())

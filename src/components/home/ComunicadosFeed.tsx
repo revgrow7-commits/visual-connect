@@ -1,25 +1,10 @@
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useComunicados } from "@/hooks/useComunicados";
 import { ThumbsUp, ThumbsDown, MessageCircle, Pin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
-interface Comunicado {
-  id: string;
-  titulo: string;
-  conteudo: string | null;
-  categoria: string;
-  unidade: string;
-  fixado: boolean;
-  created_at: string;
-  likes_count: number;
-  dislikes_count: number;
-  comentarios_count: number;
-  image_url: string | null;
-}
 
 const categoriaCores: Record<string, string> = {
   RH: "bg-primary/10 text-primary",
@@ -32,23 +17,7 @@ const categoriaCores: Record<string, string> = {
 };
 
 const ComunicadosFeed = () => {
-  const [comunicados, setComunicados] = useState<Comunicado[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase
-        .from("comunicados")
-        .select("*")
-        .eq("status", "ativo")
-        .order("fixado", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(5);
-      setComunicados((data || []) as Comunicado[]);
-      setLoading(false);
-    };
-    fetch();
-  }, []);
+  const { data: comunicados = [], isLoading: loading } = useComunicados({ limit: 5 });
 
   if (loading) {
     return (
@@ -95,7 +64,7 @@ const ComunicadosFeed = () => {
             </div>
             {item.image_url && (
               <div className="-mx-4 mb-2">
-                <img src={item.image_url} alt={item.titulo} className="w-full max-h-40 object-cover rounded" />
+                <img src={item.image_url} alt={item.titulo} className="w-full max-h-40 object-cover rounded" loading="lazy" />
               </div>
             )}
             <h3 className="font-semibold text-sm text-foreground mb-1">{item.titulo}</h3>

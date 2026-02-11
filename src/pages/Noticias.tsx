@@ -1,12 +1,13 @@
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useComunicados } from "@/hooks/useComunicados";
+import { useComunicadoVotes } from "@/hooks/useComunicadoVotes";
+import { useComunicadoComments, type Comentario } from "@/hooks/useComunicadoComments";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -30,222 +31,45 @@ const categoriaCores: Record<string, string> = {
   TI: "bg-cyan-500/10 text-cyan-600",
 };
 
-interface Comunicado {
-  id: string;
-  titulo: string;
-  conteudo: string | null;
-  categoria: string;
-  unidade: string;
-  fixado: boolean;
-  status: string;
-  created_at: string;
-  likes_count: number;
-  dislikes_count: number;
-  comentarios_count: number;
-  image_url: string | null;
-}
-
-interface Comentario {
-  id: string;
-  comunicado_id: string;
-  parent_id: string | null;
-  user_id: string;
-  autor_nome: string;
-  conteudo: string;
-  moderado: boolean;
-  created_at: string;
-  replies?: Comentario[];
-}
-
-interface UserVote {
-  comunicado_id: string;
-  tipo: string;
-}
-
 const NoticiasPage = () => {
   const { user, isAdmin } = useAuth();
   const { toast } = useToast();
-
-  const [comunicados, setComunicados] = useState<Comunicado[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filtroCategoria, setFiltroCategoria] = useState("Todas");
   const [filtroUnidade, setFiltroUnidade] = useState("Todas");
-  const [userVotes, setUserVotes] = useState<Record<string, string>>({});
-  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
-  const [comments, setComments] = useState<Record<string, Comentario[]>>({});
-  const [commentText, setCommentText] = useState<Record<string, string>>({});
-  const [replyTo, setReplyTo] = useState<string | null>(null);
-  const [replyText, setReplyText] = useState("");
-  const [submittingComment, setSubmittingComment] = useState(false);
-  const [votingId, setVotingId] = useState<string | null>(null);
 
-  const fetchComunicados = useCallback(async () => {
-    setLoading(true);
-    let query = supabase
-      .from("comunicados")
-      .select("*")
-      .eq("status", "ativo")
-      .order("fixado", { ascending: false })
-      .order("created_at", { ascending: false });
+  const { data: comunicados = [], isLoading: loading } = useComunicados({
+    categoria: filtroCategoria,
+    unidade: filtroUnidade,
+  });
 
-    if (filtroCategoria !== "Todas") query = query.eq("categoria", filtroCategoria);
-    if (filtroUnidade !== "Todas") query = query.or(`unidade.eq.${filtroUnidade},unidade.eq.Todas`);
+  const { userVotes, votingId, handleVote } = useComunicadoVotes(user?.id);
 
-    const { data, error } = await query;
-    if (error) {
-      toast({ title: "Erro ao carregar", description: error.message, variant: "destructive" });
-    } else {
-      setComunicados((data || []) as Comunicado[]);
-    }
-    setLoading(false);
-  }, [filtroCategoria, filtroUnidade, toast]);
+  const displayName = user?.user_metadata?.display_name || user?.email?.split("@")[0] || "Anônimo";
+  const {
+    expandedComments, comments, commentText, setCommentText,
+    replyTo, setReplyTo, replyText, setReplyText, submitting,
+    toggleComments, submitComment, moderateComment, deleteComment,
+  } = useComunicadoComments(user?.id, displayName);
 
-  const fetchUserVotes = useCallback(async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from("comunicado_likes")
-      .select("comunicado_id, tipo")
-      .eq("user_id", user.id) as { data: UserVote[] | null };
-    if (data) {
-      const map: Record<string, string> = {};
-      data.forEach((v) => { map[v.comunicado_id] = v.tipo; });
-      setUserVotes(map);
-    }
-  }, [user]);
-
-  useEffect(() => { fetchComunicados(); }, [fetchComunicados]);
-  useEffect(() => { fetchUserVotes(); }, [fetchUserVotes]);
-
-  const handleVote = async (comunicadoId: string, tipo: "like" | "dislike") => {
+  const onVote = async (comunicadoId: string, tipo: "like" | "dislike") => {
     if (!user) { toast({ title: "Faça login para votar", variant: "destructive" }); return; }
-    setVotingId(comunicadoId);
-
-    const existing = userVotes[comunicadoId];
-
-    try {
-      if (existing === tipo) {
-        // Remove vote
-        await supabase.from("comunicado_likes").delete().eq("comunicado_id", comunicadoId).eq("user_id", user.id);
-        const countField = tipo === "like" ? "likes_count" : "dislikes_count";
-        const current = comunicados.find((c) => c.id === comunicadoId);
-        if (current) {
-          await supabase.from("comunicados").update({ [countField]: Math.max(0, (current[countField] || 0) - 1) }).eq("id", comunicadoId);
-        }
-        setUserVotes((prev) => { const n = { ...prev }; delete n[comunicadoId]; return n; });
-      } else {
-        // Upsert vote
-        const { error } = await supabase.from("comunicado_likes").upsert(
-          { comunicado_id: comunicadoId, user_id: user.id, tipo },
-          { onConflict: "comunicado_id,user_id" }
-        );
-        if (error) throw error;
-
-        // Update counts
-        const current = comunicados.find((c) => c.id === comunicadoId);
-        if (current) {
-          const updates: Record<string, number> = {};
-          if (tipo === "like") {
-            updates.likes_count = (current.likes_count || 0) + 1;
-            if (existing === "dislike") updates.dislikes_count = Math.max(0, (current.dislikes_count || 0) - 1);
-          } else {
-            updates.dislikes_count = (current.dislikes_count || 0) + 1;
-            if (existing === "like") updates.likes_count = Math.max(0, (current.likes_count || 0) - 1);
-          }
-          await supabase.from("comunicados").update(updates).eq("id", comunicadoId);
-        }
-        setUserVotes((prev) => ({ ...prev, [comunicadoId]: tipo }));
-      }
-      fetchComunicados();
-    } catch (err: any) {
-      toast({ title: "Erro ao votar", description: err.message, variant: "destructive" });
-    } finally {
-      setVotingId(null);
-    }
+    handleVote(comunicadoId, tipo);
   };
 
-  const toggleComments = async (comunicadoId: string) => {
-    const next = new Set(expandedComments);
-    if (next.has(comunicadoId)) {
-      next.delete(comunicadoId);
-    } else {
-      next.add(comunicadoId);
-      if (!comments[comunicadoId]) {
-        await fetchComments(comunicadoId);
-      }
-    }
-    setExpandedComments(next);
-  };
-
-  const fetchComments = async (comunicadoId: string) => {
-    const { data } = await supabase
-      .from("comunicado_comentarios")
-      .select("*")
-      .eq("comunicado_id", comunicadoId)
-      .order("created_at", { ascending: true }) as { data: Comentario[] | null };
-
-    if (data) {
-      // Build tree
-      const roots: Comentario[] = [];
-      const map = new Map<string, Comentario>();
-      data.forEach((c) => { c.replies = []; map.set(c.id, c); });
-      data.forEach((c) => {
-        if (c.parent_id && map.has(c.parent_id)) {
-          map.get(c.parent_id)!.replies!.push(c);
-        } else {
-          roots.push(c);
-        }
-      });
-      setComments((prev) => ({ ...prev, [comunicadoId]: roots }));
-    }
-  };
-
-  const submitComment = async (comunicadoId: string, parentId?: string) => {
+  const onSubmitComment = async (comunicadoId: string, parentId?: string) => {
     if (!user) { toast({ title: "Faça login para comentar", variant: "destructive" }); return; }
-    const text = parentId ? replyText : (commentText[comunicadoId] || "");
-    if (!text.trim()) return;
-
-    setSubmittingComment(true);
-    const displayName = user.user_metadata?.display_name || user.email?.split("@")[0] || "Anônimo";
-
-    const { error } = await supabase.from("comunicado_comentarios").insert({
-      comunicado_id: comunicadoId,
-      parent_id: parentId || null,
-      user_id: user.id,
-      autor_nome: displayName,
-      conteudo: text.trim(),
-    });
-
-    if (error) {
-      toast({ title: "Erro ao comentar", description: error.message, variant: "destructive" });
-    } else {
-      // Update count
-      const current = comunicados.find((c) => c.id === comunicadoId);
-      if (current) {
-        await supabase.from("comunicados").update({ comentarios_count: (current.comentarios_count || 0) + 1 }).eq("id", comunicadoId);
-      }
-      if (parentId) { setReplyTo(null); setReplyText(""); }
-      else setCommentText((prev) => ({ ...prev, [comunicadoId]: "" }));
-      await fetchComments(comunicadoId);
-      fetchComunicados();
-    }
-    setSubmittingComment(false);
+    const ok = await submitComment(comunicadoId, parentId);
+    if (!ok) toast({ title: "Erro ao comentar", variant: "destructive" });
   };
 
-  const moderateComment = async (commentId: string, comunicadoId: string) => {
-    await supabase.from("comunicado_comentarios").update({ moderado: true }).eq("id", commentId);
+  const onModerate = async (commentId: string, comunicadoId: string) => {
+    await moderateComment(commentId, comunicadoId);
     toast({ title: "Comentário moderado" });
-    fetchComments(comunicadoId);
   };
 
-  const deleteComment = async (commentId: string, comunicadoId: string) => {
-    await supabase.from("comunicado_comentarios").delete().eq("id", commentId);
-    const current = comunicados.find((c) => c.id === comunicadoId);
-    if (current) {
-      await supabase.from("comunicados").update({ comentarios_count: Math.max(0, (current.comentarios_count || 0) - 1) }).eq("id", comunicadoId);
-    }
+  const onDelete = async (commentId: string, comunicadoId: string) => {
+    await deleteComment(commentId, comunicadoId);
     toast({ title: "Comentário excluído" });
-    fetchComments(comunicadoId);
-    fetchComunicados();
   };
 
   const renderComment = (comment: Comentario, comunicadoId: string, depth = 0) => (
@@ -258,12 +82,12 @@ const NoticiasPage = () => {
               {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: ptBR })}
             </span>
             {(isAdmin || comment.user_id === user?.id) && (
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteComment(comment.id, comunicadoId)}>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onDelete(comment.id, comunicadoId)}>
                 <Trash2 className="h-3 w-3 text-destructive" />
               </Button>
             )}
             {isAdmin && !comment.moderado && (
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moderateComment(comment.id, comunicadoId)} title="Moderar">
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onModerate(comment.id, comunicadoId)} title="Moderar">
                 <ShieldAlert className="h-3 w-3 text-yellow-600" />
               </Button>
             )}
@@ -286,9 +110,9 @@ const NoticiasPage = () => {
             onChange={(e) => setReplyText(e.target.value)}
             placeholder="Sua resposta..."
             className="text-sm"
-            onKeyDown={(e) => e.key === "Enter" && submitComment(comunicadoId, comment.id)}
+            onKeyDown={(e) => e.key === "Enter" && onSubmitComment(comunicadoId, comment.id)}
           />
-          <Button size="sm" onClick={() => submitComment(comunicadoId, comment.id)} disabled={submittingComment}>
+          <Button size="sm" onClick={() => onSubmitComment(comunicadoId, comment.id)} disabled={submitting}>
             <Send className="h-3 w-3" />
           </Button>
         </div>
@@ -359,14 +183,12 @@ const NoticiasPage = () => {
                   </span>
                 </div>
 
-                {/* Poster Image */}
                 {c.image_url && (
                   <div className="mb-3 -mx-6 -mt-1">
-                    <img src={c.image_url} alt={`Cartaz: ${c.titulo}`} className="w-full max-h-80 object-cover" />
+                    <img src={c.image_url} alt={`Cartaz: ${c.titulo}`} className="w-full max-h-80 object-cover" loading="lazy" />
                   </div>
                 )}
 
-                {/* Body */}
                 <h3 className="font-semibold text-foreground mb-1">{c.titulo}</h3>
                 {c.conteudo && <p className="text-sm text-muted-foreground leading-relaxed mb-3 whitespace-pre-line">{c.conteudo}</p>}
 
@@ -374,7 +196,7 @@ const NoticiasPage = () => {
                 <div className="flex items-center gap-4 text-muted-foreground border-t pt-3">
                   <button
                     className={cn("flex items-center gap-1 text-sm transition-colors", userVotes[c.id] === "like" ? "text-primary font-medium" : "hover:text-primary")}
-                    onClick={() => handleVote(c.id, "like")}
+                    onClick={() => onVote(c.id, "like")}
                     disabled={votingId === c.id}
                   >
                     {votingId === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <ThumbsUp className="h-4 w-4" />}
@@ -382,7 +204,7 @@ const NoticiasPage = () => {
                   </button>
                   <button
                     className={cn("flex items-center gap-1 text-sm transition-colors", userVotes[c.id] === "dislike" ? "text-destructive font-medium" : "hover:text-destructive")}
-                    onClick={() => handleVote(c.id, "dislike")}
+                    onClick={() => onVote(c.id, "dislike")}
                     disabled={votingId === c.id}
                   >
                     <ThumbsDown className="h-4 w-4" /> {c.dislikes_count || 0}
@@ -396,28 +218,25 @@ const NoticiasPage = () => {
                   </button>
                 </div>
 
-                {/* Comments section */}
+                {/* Comments */}
                 {expandedComments.has(c.id) && (
                   <div className="mt-4 space-y-3 border-t pt-4">
-                    {/* New comment input */}
                     <div className="flex gap-2">
                       <Input
                         value={commentText[c.id] || ""}
                         onChange={(e) => setCommentText((prev) => ({ ...prev, [c.id]: e.target.value }))}
                         placeholder="Escreva um comentário..."
                         className="text-sm"
-                        onKeyDown={(e) => e.key === "Enter" && submitComment(c.id)}
+                        onKeyDown={(e) => e.key === "Enter" && onSubmitComment(c.id)}
                       />
-                      <Button size="sm" onClick={() => submitComment(c.id)} disabled={submittingComment || !(commentText[c.id] || "").trim()}>
-                        {submittingComment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      <Button size="sm" onClick={() => onSubmitComment(c.id)} disabled={submitting || !(commentText[c.id] || "").trim()}>
+                        {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                       </Button>
                     </div>
-
-                    {/* Comments tree */}
                     {comments[c.id]?.length ? (
                       comments[c.id].map((comment) => renderComment(comment, c.id))
                     ) : (
-                      <p className="text-xs text-muted-foreground text-center py-2">Nenhum comentário ainda. Seja o primeiro!</p>
+                      <p className="text-xs text-muted-foreground text-center py-2">Nenhum comentário ainda.</p>
                     )}
                   </div>
                 )}

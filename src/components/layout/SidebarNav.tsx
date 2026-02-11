@@ -1,3 +1,4 @@
+import { memo, useState } from "react";
 import {
   Home,
   Newspaper,
@@ -21,7 +22,6 @@ import {
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
 
 interface SidebarNavProps {
   open: boolean;
@@ -70,7 +70,7 @@ const groups: NavGroup[] = [
   { label: "Mais", items: maisNav, collapsible: true },
 ];
 
-const SidebarNav = ({ open, onClose }: SidebarNavProps) => {
+const SidebarNav = memo(({ open, onClose }: SidebarNavProps) => {
   const location = useLocation();
 
   // Auto-expand groups that contain the active route
@@ -170,6 +170,8 @@ const SidebarNav = ({ open, onClose }: SidebarNavProps) => {
       </aside>
     </>
   );
-};
+});
+
+SidebarNav.displayName = "SidebarNav";
 
 export default SidebarNav;

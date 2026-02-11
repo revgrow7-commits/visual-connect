@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Megaphone, Sparkles, Loader2, RotateCcw, Image as ImageIcon, Save, History, Trash2, Copy } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,24 +57,25 @@ export default function EndomarketingPage() {
   const [saving, setSaving] = useState(false);
   const [spec, setSpec] = useState<PosterSpec | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [history, setHistory] = useState<SavedPoster[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
   const [tab, setTab] = useState("criar");
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (tab === "historico") fetchHistory();
-  }, [tab]);
-
-  const fetchHistory = async () => {
-    setLoadingHistory(true);
-    const { data, error } = await supabase
-      .from("cartazes_endomarketing")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (!error && data) setHistory(data as SavedPoster[]);
-    setLoadingHistory(false);
-  };
+  const { data: history = [], isLoading: loadingHistory } = useQuery({
+    queryKey: ["cartazes-historico"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cartazes_endomarketing")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return (data || []) as SavedPoster[];
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    enabled: tab === "historico",
+  });
 
   const handleGenerate = async () => {
     if (!tema.trim()) {
@@ -125,7 +127,9 @@ export default function EndomarketingPage() {
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from("cartazes_endomarketing").delete().eq("id", id);
     if (!error) {
-      setHistory((h) => h.filter((p) => p.id !== id));
+      queryClient.setQueryData<SavedPoster[]>(["cartazes-historico"], (old) =>
+        old ? old.filter((p) => p.id !== id) : []
+      );
       toast({ title: "Cartaz removido" });
     }
   };
