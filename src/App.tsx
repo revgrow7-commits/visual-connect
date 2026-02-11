@@ -30,6 +30,7 @@ const PerfilPage = lazy(() => import("./pages/Perfil"));
 const AdminPage = lazy(() => import("./pages/Admin"));
 const GerarLinkPage = lazy(() => import("./pages/rh/GerarLink"));
 const FormularioCandidato = lazy(() => import("./pages/FormularioCandidato"));
+const OuvidoriaPage = lazy(() => import("./pages/Ouvidoria"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -77,6 +78,7 @@ const App = () => (
                 <Route path="/rh/banco-horas" element={<BancoHorasPage />} />
                 <Route path="/rh/contratos" element={<ContratosPage />} />
                 <Route path="/rh/gerar-link" element={<GerarLinkPage />} />
+                <Route path="/ouvidoria" element={<OuvidoriaPage />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
