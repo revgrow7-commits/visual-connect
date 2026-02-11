@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import type { BancoHorasRow } from "./BancoHorasTable";
 
 interface CLTDashboardProps {
@@ -182,7 +183,73 @@ const BancoHorasCLTDashboard = ({ data, competencia }: CLTDashboardProps) => {
         </Card>
       </div>
 
-      {/* Alertas Críticos */}
+      {/* Charts Row */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* Pie: Distribuição de Risco */}
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-sm">Distribuição de Risco CLT</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: "Normal (0-20h)", value: normais },
+                    { name: "Atenção (21-40h)", value: atencao },
+                    { name: "Crítico (>40h)", value: criticos },
+                  ].filter((d) => d.value > 0)}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={80}
+                  paddingAngle={3}
+                  dataKey="value"
+                  label={({ name, value }) => `${name}: ${value}`}
+                >
+                  <Cell fill="#10b981" />
+                  <Cell fill="#f59e0b" />
+                  <Cell fill="#ef4444" />
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Bar: Custo por Departamento */}
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-sm">Passivo por Departamento</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart
+                data={Object.entries(porDepto)
+                  .map(([dept, info]) => ({
+                    dept: dept.length > 12 ? dept.slice(0, 12) + "…" : dept,
+                    custo: Math.round(info.custoProj * 100) / 100,
+                    saldo: Math.round(info.saldo * 10) / 10,
+                  }))
+                  .sort((a, b) => b.custo - a.custo)}
+                margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted/30" />
+                <XAxis dataKey="dept" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip
+                  formatter={(value: number, name: string) =>
+                    name === "custo" ? formatCurrency(value) : `${value}h`
+                  }
+                />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="custo" name="Passivo (R$)" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="saldo" name="Saldo (h)" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
       {alertas.length > 0 && (
         <Card className="border-destructive/30">
           <CardHeader className="pb-2 pt-4 px-4">
