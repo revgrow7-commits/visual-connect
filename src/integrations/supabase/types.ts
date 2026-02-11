@@ -630,41 +630,65 @@ export type Database = {
       }
       recruitment_links: {
         Row: {
+          adicionais: string | null
           campos_extras: Json | null
           candidato_email: string
           candidato_nome: string
           cargo: string
           created_at: string
           created_by: string | null
+          data_admissao: string | null
+          escala: string | null
           expira_em: string
+          horario: string | null
           id: string
+          jornada: string | null
+          salario_base: string | null
+          setor: string | null
           status: string
+          tipo_contratacao: string | null
           token: string
           unidade: string
         }
         Insert: {
+          adicionais?: string | null
           campos_extras?: Json | null
           candidato_email: string
           candidato_nome: string
           cargo: string
           created_at?: string
           created_by?: string | null
+          data_admissao?: string | null
+          escala?: string | null
           expira_em: string
+          horario?: string | null
           id?: string
+          jornada?: string | null
+          salario_base?: string | null
+          setor?: string | null
           status?: string
+          tipo_contratacao?: string | null
           token: string
           unidade: string
         }
         Update: {
+          adicionais?: string | null
           campos_extras?: Json | null
           candidato_email?: string
           candidato_nome?: string
           cargo?: string
           created_at?: string
           created_by?: string | null
+          data_admissao?: string | null
+          escala?: string | null
           expira_em?: string
+          horario?: string | null
           id?: string
+          jornada?: string | null
+          salario_base?: string | null
+          setor?: string | null
           status?: string
+          tipo_contratacao?: string | null
           token?: string
           unidade?: string
         }

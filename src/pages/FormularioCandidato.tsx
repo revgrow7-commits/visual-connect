@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { CheckCircle2, ArrowRight, ArrowLeft, Send, PartyPopper, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,41 +13,90 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logoIndustria from "@/assets/logo-industria-visual.png";
 
-const camposGenericos = [
-  { id: "nome", label: "Nome Completo", tipo: "texto", obrigatorio: true },
-  { id: "cpf", label: "CPF", tipo: "texto", obrigatorio: true },
-  { id: "rg", label: "RG", tipo: "texto", obrigatorio: true },
-  { id: "dataNascimento", label: "Data de Nascimento", tipo: "data", obrigatorio: true },
-  { id: "email", label: "E-mail Pessoal", tipo: "texto", obrigatorio: true },
-  { id: "telefone", label: "Telefone / WhatsApp", tipo: "texto", obrigatorio: true },
-  { id: "cep", label: "CEP", tipo: "texto", obrigatorio: true },
-  { id: "endereco", label: "Endereço Completo", tipo: "texto", obrigatorio: true },
-  { id: "estadoCivil", label: "Estado Civil", tipo: "selecao", obrigatorio: true, opcoes: ["Solteiro(a)", "Casado(a)", "Divorciado(a)", "Viúvo(a)", "União Estável"] },
-  { id: "escolaridade", label: "Escolaridade", tipo: "selecao", obrigatorio: true, opcoes: ["Ensino Fundamental", "Ensino Médio", "Superior Incompleto", "Superior Completo", "Pós-Graduação", "Mestrado", "Doutorado"] },
-  { id: "banco", label: "Banco", tipo: "texto", obrigatorio: true },
-  { id: "agencia", label: "Agência", tipo: "texto", obrigatorio: true },
-  { id: "conta", label: "Conta", tipo: "texto", obrigatorio: true },
-  { id: "pix", label: "Chave PIX", tipo: "texto", obrigatorio: true },
-];
-
-const camposEspecificos = [
-  { id: "cnhCategoria", label: "Categoria da CNH", tipo: "selecao", obrigatorio: false, opcoes: ["A", "B", "AB", "C", "D", "E"] },
-  { id: "cnhValidade", label: "Validade da CNH", tipo: "data", obrigatorio: false },
-  { id: "certificacoes", label: "Certificações Profissionais", tipo: "texto", obrigatorio: false },
-  { id: "nrTreinamentos", label: "NRs que possui treinamento", tipo: "texto", obrigatorio: false },
-  { id: "tamanhoUniforme", label: "Tamanho do Uniforme", tipo: "selecao", obrigatorio: false, opcoes: ["PP", "P", "M", "G", "GG", "XGG"] },
-  { id: "tamanhoCalcado", label: "Tamanho do Calçado", tipo: "texto", obrigatorio: false },
-];
+interface RecruitmentData {
+  id: string;
+  candidato_nome: string;
+  candidato_email: string;
+  cargo: string;
+  unidade: string;
+  setor?: string;
+  tipo_contratacao?: string;
+  data_admissao?: string;
+  jornada?: string;
+  horario?: string;
+  escala?: string;
+  salario_base?: string;
+  adicionais?: string;
+}
 
 const FormularioCandidato = () => {
   const { token } = useParams<{ token: string }>();
   const { toast } = useToast();
-  const [step, setStep] = useState<"welcome" | "form" | "done">("welcome");
+  const [step, setStep] = useState<"loading" | "welcome" | "form" | "done" | "error">("loading");
+  const [recruitmentData, setRecruitmentData] = useState<RecruitmentData | null>(null);
   const [currentSection, setCurrentSection] = useState(0);
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [ndFields, setNdFields] = useState<Set<string>>(new Set());
   const [termos, setTermos] = useState({ lgpd: false, veracidade: false });
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    loadRecruitmentLink();
+  }, [token]);
+
+  const loadRecruitmentLink = async () => {
+    if (!token) { setStep("error"); return; }
+
+    const { data, error } = await supabase
+      .from("recruitment_links")
+      .select("*")
+      .eq("token", token)
+      .maybeSingle();
+
+    if (error || !data) {
+      setStep("error");
+      return;
+    }
+
+    if (data.status === "preenchido") {
+      setStep("done");
+      return;
+    }
+
+    if (new Date(data.expira_em) < new Date()) {
+      setStep("error");
+      return;
+    }
+
+    setRecruitmentData(data as any);
+    setStep("welcome");
+  };
+
+  const camposGenericos = [
+    { id: "nome", label: "Nome Completo", tipo: "texto", obrigatorio: true },
+    { id: "cpf", label: "CPF", tipo: "texto", obrigatorio: true },
+    { id: "rg", label: "RG", tipo: "texto", obrigatorio: true },
+    { id: "dataNascimento", label: "Data de Nascimento", tipo: "data", obrigatorio: true },
+    { id: "email", label: "E-mail Pessoal", tipo: "texto", obrigatorio: true },
+    { id: "telefone", label: "Telefone / WhatsApp", tipo: "texto", obrigatorio: true },
+    { id: "cep", label: "CEP", tipo: "texto", obrigatorio: true },
+    { id: "endereco", label: "Endereço Completo", tipo: "texto", obrigatorio: true },
+    { id: "estadoCivil", label: "Estado Civil", tipo: "selecao", obrigatorio: true, opcoes: ["Solteiro(a)", "Casado(a)", "Divorciado(a)", "Viúvo(a)", "União Estável"] },
+    { id: "escolaridade", label: "Escolaridade", tipo: "selecao", obrigatorio: true, opcoes: ["Ensino Fundamental", "Ensino Médio", "Superior Incompleto", "Superior Completo", "Pós-Graduação", "Mestrado", "Doutorado"] },
+    { id: "banco", label: "Banco", tipo: "texto", obrigatorio: true },
+    { id: "agencia", label: "Agência", tipo: "texto", obrigatorio: true },
+    { id: "conta", label: "Conta", tipo: "texto", obrigatorio: true },
+    { id: "pix", label: "Chave PIX", tipo: "texto", obrigatorio: true },
+  ];
+
+  const camposEspecificos = [
+    { id: "cnhCategoria", label: "Categoria da CNH", tipo: "selecao", obrigatorio: false, opcoes: ["A", "B", "AB", "C", "D", "E"] },
+    { id: "cnhValidade", label: "Validade da CNH", tipo: "data", obrigatorio: false },
+    { id: "certificacoes", label: "Certificações Profissionais", tipo: "texto", obrigatorio: false },
+    { id: "nrTreinamentos", label: "NRs que possui treinamento", tipo: "texto", obrigatorio: false },
+    { id: "tamanhoUniforme", label: "Tamanho do Uniforme", tipo: "selecao", obrigatorio: false, opcoes: ["PP", "P", "M", "G", "GG", "XGG"] },
+    { id: "tamanhoCalcado", label: "Tamanho do Calçado", tipo: "texto", obrigatorio: false },
+  ];
 
   const sections = [
     { title: "Dados Pessoais", campos: camposGenericos.slice(0, 6) },
@@ -67,9 +116,7 @@ const FormularioCandidato = () => {
   const toggleNd = (id: string) => {
     setNdFields((prev) => {
       const n = new Set(prev);
-      if (n.has(id)) {
-        n.delete(id);
-      } else {
+      if (n.has(id)) { n.delete(id); } else {
         n.add(id);
         setFormData((prev) => { const d = { ...prev }; delete d[id]; return d; });
       }
@@ -79,39 +126,25 @@ const FormularioCandidato = () => {
 
   const handleSubmit = async () => {
     if (!termos.lgpd || !termos.veracidade) {
-      toast({ title: "Aceite obrigatório", description: "Aceite os termos para enviar o formulário.", variant: "destructive" });
+      toast({ title: "Aceite obrigatório", description: "Aceite os termos para enviar.", variant: "destructive" });
       return;
     }
-
     setSubmitting(true);
 
     try {
-      // Find the recruitment link by token
-      let recruitmentLinkId: string | null = null;
-      if (token) {
-        const { data: linkData } = await supabase
-          .from("recruitment_links")
-          .select("id")
-          .eq("token", token)
-          .maybeSingle();
-        recruitmentLinkId = linkData?.id || null;
-      }
-
-      // Build the N/D-aware complementary data
       const complementarData: Record<string, string> = {};
       camposEspecificos.forEach((c) => {
         complementarData[c.id] = ndFields.has(c.id) ? "N/D" : (formData[c.id] || "");
       });
 
-      // Insert into colaboradores table
       const { error } = await supabase.from("colaboradores").insert({
-        recruitment_link_id: recruitmentLinkId,
-        nome: formData.nome || "",
+        recruitment_link_id: recruitmentData?.id || null,
+        nome: formData.nome || recruitmentData?.candidato_nome || "",
         cpf: formData.cpf,
         rg: formData.rg,
         data_nascimento: formData.dataNascimento || null,
         sexo: formData.estadoCivil,
-        email_pessoal: formData.email,
+        email_pessoal: formData.email || recruitmentData?.candidato_email,
         telefone_celular: formData.telefone,
         cep: formData.cep,
         endereco: formData.endereco,
@@ -119,6 +152,17 @@ const FormularioCandidato = () => {
         agencia: formData.agencia,
         conta: formData.conta,
         pix: formData.pix,
+        // Dados de contratação pré-preenchidos pelo RH
+        cargo: recruitmentData?.cargo,
+        setor: recruitmentData?.setor,
+        unidade: recruitmentData?.unidade,
+        tipo_contratacao: recruitmentData?.tipo_contratacao,
+        data_admissao: recruitmentData?.data_admissao || null,
+        jornada: recruitmentData?.jornada,
+        horario: recruitmentData?.horario,
+        escala: recruitmentData?.escala,
+        salario_base: recruitmentData?.salario_base,
+        adicionais: recruitmentData?.adicionais,
         saude: complementarData,
         compliance_aceito: true,
         compliance_ip: "",
@@ -128,22 +172,18 @@ const FormularioCandidato = () => {
       });
 
       if (error) {
-        toast({ title: "Erro ao enviar", description: "Não foi possível salvar seus dados. Tente novamente.", variant: "destructive" });
+        toast({ title: "Erro ao enviar", description: "Não foi possível salvar seus dados.", variant: "destructive" });
         setSubmitting(false);
         return;
       }
 
-      // Update recruitment link status to "preenchido"
-      if (recruitmentLinkId) {
-        await supabase
-          .from("recruitment_links")
-          .update({ status: "preenchido" })
-          .eq("id", recruitmentLinkId);
+      if (recruitmentData?.id) {
+        await supabase.from("recruitment_links").update({ status: "preenchido" }).eq("id", recruitmentData.id);
       }
 
       setStep("done");
       toast({ title: "Formulário enviado!", description: "Seus dados foram recebidos pelo RH." });
-    } catch (err) {
+    } catch {
       toast({ title: "Erro inesperado", description: "Tente novamente mais tarde.", variant: "destructive" });
     } finally {
       setSubmitting(false);
@@ -152,7 +192,6 @@ const FormularioCandidato = () => {
 
   const renderField = (campo: typeof camposGenericos[0] & { opcoes?: string[] }) => {
     const isNd = ndFields.has(campo.id);
-
     return (
       <div key={campo.id} className="space-y-1.5">
         <div className="flex items-center justify-between">
@@ -160,26 +199,17 @@ const FormularioCandidato = () => {
             {campo.label} {campo.obrigatorio && <span className="text-destructive">*</span>}
           </Label>
           {!campo.obrigatorio && (
-            <button
-              onClick={() => toggleNd(campo.id)}
-              className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
-                isNd ? "bg-muted text-muted-foreground border-border" : "border-transparent text-muted-foreground hover:bg-muted"
-              }`}
-            >
+            <button onClick={() => toggleNd(campo.id)} className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${isNd ? "bg-muted text-muted-foreground border-border" : "border-transparent text-muted-foreground hover:bg-muted"}`}>
               N/D
             </button>
           )}
         </div>
         {isNd ? (
-          <div className="h-10 flex items-center px-3 rounded-md bg-muted text-muted-foreground text-sm border">
-            Não se aplica
-          </div>
+          <div className="h-10 flex items-center px-3 rounded-md bg-muted text-muted-foreground text-sm border">Não se aplica</div>
         ) : campo.tipo === "selecao" && campo.opcoes ? (
           <Select value={formData[campo.id] || ""} onValueChange={(v) => handleChange(campo.id, v)}>
             <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-            <SelectContent>
-              {campo.opcoes.map((op) => <SelectItem key={op} value={op}>{op}</SelectItem>)}
-            </SelectContent>
+            <SelectContent>{campo.opcoes.map((op) => <SelectItem key={op} value={op}>{op}</SelectItem>)}</SelectContent>
           </Select>
         ) : campo.tipo === "data" ? (
           <Input type="date" value={formData[campo.id] || ""} onChange={(e) => handleChange(campo.id, e.target.value)} />
@@ -190,7 +220,28 @@ const FormularioCandidato = () => {
     );
   };
 
-  // ===== WELCOME SCREEN =====
+  if (step === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (step === "error") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full text-center shadow-xl">
+          <CardContent className="pt-10 pb-8 px-8 space-y-4">
+            <img src={logoIndustria} alt="Indústria Visual" className="h-20 mx-auto" />
+            <h1 className="text-xl font-bold text-foreground">Link Inválido ou Expirado</h1>
+            <p className="text-muted-foreground text-sm">Este link de formulário não é válido ou já expirou. Entre em contato com o RH.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (step === "welcome") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background flex items-center justify-center p-4">
@@ -200,26 +251,20 @@ const FormularioCandidato = () => {
             <div className="space-y-3">
               <div className="flex items-center justify-center gap-2">
                 <PartyPopper className="h-6 w-6 text-primary" />
-                <h1 className="text-2xl font-bold text-foreground">Parabéns!</h1>
+                <h1 className="text-2xl font-bold text-foreground">Parabéns, {recruitmentData?.candidato_nome?.split(" ")[0]}!</h1>
                 <PartyPopper className="h-6 w-6 text-primary" />
               </div>
               <p className="text-lg font-semibold text-primary">
-                Agora você faz parte do time da Indústria Visual!
+                Você foi selecionado(a) para {recruitmentData?.cargo} na unidade {recruitmentData?.unidade}!
               </p>
             </div>
             <div className="bg-muted/50 rounded-lg p-5 text-left space-y-3">
               <h3 className="font-semibold text-sm text-foreground">Nossa Cultura</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Na <strong className="text-foreground">Indústria Visual</strong>, acreditamos que grandes resultados nascem de pessoas comprometidas, criativas e apaixonadas pelo que fazem.
-                Valorizamos a <strong className="text-foreground">colaboração</strong>, a <strong className="text-foreground">inovação</strong> e o <strong className="text-foreground">respeito</strong> entre todos os membros do time.
+                Valorizamos a <strong className="text-foreground">colaboração</strong>, a <strong className="text-foreground">inovação</strong> e o <strong className="text-foreground">respeito</strong>.
               </p>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Nossos pilares são: <strong className="text-foreground">excelência operacional</strong>, <strong className="text-foreground">transparência</strong> nas relações e <strong className="text-foreground">desenvolvimento contínuo</strong>.
-                Aqui, cada pessoa faz a diferença e contribui para construirmos algo grandioso juntos.
-              </p>
-              <p className="text-sm font-medium text-primary">
-                Bem-vindo(a) à família Indústria Visual! 🚀
-              </p>
+              <p className="text-sm font-medium text-primary">Bem-vindo(a) à família Indústria Visual! 🚀</p>
             </div>
             <Button size="lg" className="w-full" onClick={() => setStep("form")}>
               Preencher Formulário de Admissão <ArrowRight className="h-4 w-4 ml-2" />
@@ -230,7 +275,6 @@ const FormularioCandidato = () => {
     );
   }
 
-  // ===== DONE SCREEN =====
   if (step === "done") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background flex items-center justify-center p-4">
@@ -241,24 +285,21 @@ const FormularioCandidato = () => {
               <CheckCircle2 className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
             </div>
             <h1 className="text-2xl font-bold text-foreground">Formulário Enviado!</h1>
-            <p className="text-muted-foreground text-sm">
-              Seus dados foram recebidos com sucesso pelo RH da Indústria Visual.
-              Você receberá um e-mail de confirmação em breve. Estamos ansiosos para trabalhar com você!
-            </p>
+            <p className="text-muted-foreground text-sm">Seus dados foram recebidos com sucesso pelo RH. Você receberá um e-mail de confirmação em breve.</p>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  // ===== FORM =====
+  // FORM
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="text-center space-y-2">
           <img src={logoIndustria} alt="Indústria Visual" className="h-16 mx-auto" />
           <h1 className="text-xl font-bold text-foreground">Formulário de Admissão</h1>
-          <p className="text-sm text-muted-foreground">Preencha seus dados para completar sua admissão.</p>
+          <p className="text-sm text-muted-foreground">Preencha seus dados para completar sua admissão — {recruitmentData?.cargo} ({recruitmentData?.unidade})</p>
         </div>
 
         <div className="space-y-2">
@@ -274,7 +315,7 @@ const FormularioCandidato = () => {
             <h2 className="text-base font-semibold text-foreground">{sections[currentSection].title}</h2>
             {currentSection === totalSections - 1 && (
               <p className="text-xs text-muted-foreground">
-                Campos complementares para seu perfil. Caso algum campo não se aplique, marque <Badge variant="outline" className="text-[10px] px-1.5 py-0 mx-1">N/D</Badge>.
+                Campos complementares. Caso não se aplique, marque <Badge variant="outline" className="text-[10px] px-1.5 py-0 mx-1">N/D</Badge>.
               </p>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -286,13 +327,13 @@ const FormularioCandidato = () => {
                 <div className="flex items-start gap-3">
                   <Checkbox id="lgpd" checked={termos.lgpd} onCheckedChange={(v) => setTermos((p) => ({ ...p, lgpd: !!v }))} />
                   <Label htmlFor="lgpd" className="text-xs leading-relaxed font-normal">
-                    Autorizo o tratamento dos meus dados pessoais para fins de admissão, conforme a Lei Geral de Proteção de Dados (LGPD).
+                    Autorizo o tratamento dos meus dados pessoais para fins de admissão, conforme a LGPD.
                   </Label>
                 </div>
                 <div className="flex items-start gap-3">
                   <Checkbox id="veracidade" checked={termos.veracidade} onCheckedChange={(v) => setTermos((p) => ({ ...p, veracidade: !!v }))} />
                   <Label htmlFor="veracidade" className="text-xs leading-relaxed font-normal">
-                    Declaro que todas as informações prestadas são verdadeiras e estou ciente de que informações falsas podem acarretar em rescisão contratual.
+                    Declaro que todas as informações são verdadeiras e estou ciente de que informações falsas podem acarretar rescisão contratual.
                   </Label>
                 </div>
               </div>
