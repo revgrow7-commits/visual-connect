@@ -8,46 +8,12 @@ const corsHeaders = {
 };
 
 const RAG_CONTEXT = `# Base de Conhecimento – Indústria Visual
-
-## 1) Visão Geral
-A Indústria Visual é uma integradora de soluções de comunicação visual e experiências físicas, com atuação forte em eventos, varejo, PDV, feiras, ativações e ambientes de marca. Opera com cultura interna C.R.I.E. (Criar, Relevância, Inovação e Eficiência).
-Posicionamento: "Smart Signage by Indústria Visual - a nova arquitetura da comunicação visual."
-
-## 2) Produto Principal: Smart Signage
-Plataforma modular de comunicação visual inteligente que integra design de alto impacto, tecnologia e experiência imersiva e escalável.
-Linhas: Smart Flat, Waved, Curved, Convex.
-Diferenciais: Impacto visual premium, praticidade, modularidade, integração tecnológica, sustentabilidade, patente INPI.
-Construção: Estrutura modular em alumínio, sistema click-in, tensionamento de tecido, transporte compacto.
-
-## 3) Cultura e Valores – C.R.I.E.
-- Criar: Inovação constante em soluções visuais
-- Relevância: Impacto real para clientes e mercado
-- Inovação: Tecnologia e design de ponta
-- Eficiência: Processos otimizados e sustentáveis
-
-## 4) Departamentos
-- Comercial: Prospecção, atendimento ao cliente, orçamentos
-- PCP: Gestão do fluxo de produção
-- Design: Criação de projetos visuais e layouts
-- Produção/Impressão: Impressão digital e offset
-- Acabamento: Corte, laminação, montagem de peças
-- Instalação: Montagem em campo, eventos e PDVs
-- Logística: Transporte e distribuição
-- Administrativo/RH: Gestão de pessoas e processos internos
-- Marketing: Comunicação interna e externa
-
-## 5) Fluxo de Produção (PCP)
-1. Orçamento comercial → 2. Aprovação do cliente → 3. Briefing e projeto de design → 4. Aprovação de arte → 5. Planejamento PCP → 6. Impressão → 7. Acabamento → 8. Controle de qualidade → 9. Embalagem e logística → 10. Instalação/Entrega
-
-## 6) Processos por Área
-Impressão: Impressão digital grande formato, UV, sublimação tecido.
-Acabamento: Corte CNC/plotter, laminação, montagem estruturas.
-Instalação: Montagem estandes, aplicação adesivos, comunicação visual.
-
-## 7) Segurança e Compliance
-- NR-12 (Segurança em máquinas), NR-35 (Trabalho em altura), NR-6 (EPIs)
-- Uso obrigatório de EPIs na produção
-- Procedimentos de segurança para instalação`;
+## Departamentos
+Comercial, PCP, Design, Produção/Impressão, Acabamento, Instalação, Logística, Administrativo/RH, Marketing.
+## Fluxo de Produção (PCP)
+1. Orçamento → 2. Aprovação → 3. Briefing → 4. Aprovação arte → 5. PCP → 6. Impressão → 7. Acabamento → 8. QC → 9. Logística → 10. Instalação
+## Segurança
+NR-12 (Máquinas), NR-35 (Altura), NR-6 (EPIs). Uso obrigatório de EPIs na produção.`;
 
 const GENERATION_PROMPT = `Você é um especialista em RH e onboarding da Indústria Visual.
 
@@ -65,7 +31,7 @@ REGRAS:
 
 Responda APENAS com o JSON usando a tool fornecida.`;
 
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -73,8 +39,8 @@ serve(async (req) => {
   }
 
   try {
-    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GOOGLE_GEMINI_API_KEY não configurada");
+    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!apiKey) throw new Error("ANTHROPIC_API_KEY não configurada");
 
     const authHeader = req.headers.get("authorization");
     if (!authHeader) throw new Error("Não autorizado");
@@ -83,7 +49,6 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Verify user is admin
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) throw new Error("Não autorizado");
@@ -105,59 +70,59 @@ serve(async (req) => {
 
 Crie a trilha com nome, descrição e todas as etapas.`;
 
-    const response = await fetch(
-      `${GEMINI_API_URL}/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: GENERATION_PROMPT }] },
-          contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-          tools: [{
-            function_declarations: [{
-              name: "create_trilha",
-              description: "Cria uma trilha de onboarding com suas etapas",
-              parameters: {
-                type: "object",
-                properties: {
-                  nome: { type: "string", description: "Nome da trilha" },
-                  descricao: { type: "string", description: "Descrição da trilha" },
-                  etapas: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        titulo: { type: "string" },
-                        descricao: { type: "string" },
-                        tipo: { type: "string", enum: ["checklist", "video", "documento"] },
-                        obrigatoria: { type: "boolean" },
-                      },
-                      required: ["titulo", "descricao", "tipo", "obrigatoria"],
-                    },
+    const response = await fetch(ANTHROPIC_API_URL, {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        system: GENERATION_PROMPT,
+        messages: [{ role: "user", content: userPrompt }],
+        tools: [{
+          name: "create_trilha",
+          description: "Cria uma trilha de onboarding com suas etapas",
+          input_schema: {
+            type: "object",
+            properties: {
+              nome: { type: "string", description: "Nome da trilha" },
+              descricao: { type: "string", description: "Descrição da trilha" },
+              etapas: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    titulo: { type: "string" },
+                    descricao: { type: "string" },
+                    tipo: { type: "string", enum: ["checklist", "video", "documento"] },
+                    obrigatoria: { type: "boolean" },
                   },
+                  required: ["titulo", "descricao", "tipo", "obrigatoria"],
                 },
-                required: ["nome", "descricao", "etapas"],
               },
-            }],
-          }],
-          tool_config: { function_calling_config: { mode: "ANY", allowed_function_names: ["create_trilha"] } },
-        }),
-      }
-    );
+            },
+            required: ["nome", "descricao", "etapas"],
+          },
+        }],
+        tool_choice: { type: "tool", name: "create_trilha" },
+      }),
+    });
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("Gemini error:", response.status, errText);
+      console.error("Anthropic error:", response.status, errText);
       throw new Error("Erro ao gerar trilha com IA");
     }
 
-    const geminiData = await response.json();
-    const functionCall = geminiData.candidates?.[0]?.content?.parts?.[0]?.functionCall;
-    if (!functionCall?.args) throw new Error("IA não retornou dados válidos");
+    const result = await response.json();
+    const toolUseBlock = result.content?.find((b: any) => b.type === "tool_use");
+    if (!toolUseBlock?.input) throw new Error("IA não retornou dados válidos");
 
-    const { nome, descricao, etapas: generatedEtapas } = functionCall.args;
+    const { nome, descricao, etapas: generatedEtapas } = toolUseBlock.input;
 
-    // Insert trilha
     const { data: trilha, error: trilhaError } = await supabase
       .from("onboarding_trilhas")
       .insert({
@@ -173,7 +138,6 @@ Crie a trilha com nome, descrição e todas as etapas.`;
 
     if (trilhaError) throw new Error(`Erro ao salvar trilha: ${trilhaError.message}`);
 
-    // Insert etapas
     const etapasPayload = generatedEtapas.map((e: any, idx: number) => ({
       trilha_id: trilha.id,
       titulo: e.titulo,

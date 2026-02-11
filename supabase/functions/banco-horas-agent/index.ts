@@ -6,6 +6,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+
 const SYSTEM_PROMPT = `Você é o AGENTE DE BANCO DE HORAS da Indústria Visual.
 
 Sua missão é monitorar, calcular, alertar e orientar gestores e o RH sobre o banco de horas de cada colaborador, com base nas regras da CLT, acordos coletivos e políticas internas. Seja preciso, objetivo e sempre cite a base legal.
@@ -93,10 +95,8 @@ Retorne SEMPRE um JSON válido com a estrutura abaixo. NÃO inclua texto antes o
 - Nunca ignorar encargos patronais
 - Nunca emitir aviso sem base legal
 - PJ e estagiários: banco de horas não se aplica
-- Para salário base, use R$ 2.500,00 como padrão (salário médio Indústria Visual) quando não informado
+- Para salário base, use R$ 2.500,00 como padrão quando não informado
 - Carga mensal padrão: 220h`;
-
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -106,8 +106,8 @@ serve(async (req) => {
   try {
     const { colaboradores, competencia } = await req.json();
 
-    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GOOGLE_GEMINI_API_KEY não configurada");
+    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!apiKey) throw new Error("ANTHROPIC_API_KEY não configurada");
 
     const userMessage = `Analise o banco de horas da competência ${competencia} para os seguintes colaboradores da Indústria Visual.
 
@@ -121,17 +121,20 @@ ${JSON.stringify(colaboradores, null, 2)}
 
 Retorne APENAS o JSON estruturado conforme especificado, sem texto adicional.`;
 
-    const response = await fetch(
-      `${GEMINI_API_URL}/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: [{ role: "user", parts: [{ text: userMessage }] }],
-        }),
-      }
-    );
+    const response = await fetch(ANTHROPIC_API_URL, {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 8192,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: "user", content: userMessage }],
+      }),
+    });
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -140,14 +143,13 @@ Retorne APENAS o JSON estruturado conforme especificado, sem texto adicional.`;
         });
       }
       const t = await response.text();
-      console.error("Gemini API error:", response.status, t);
-      throw new Error(`Erro na API Gemini: ${response.status}`);
+      console.error("Anthropic API error:", response.status, t);
+      throw new Error(`Erro na API Anthropic: ${response.status}`);
     }
 
-    const geminiResult = await response.json();
-    const content = geminiResult.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const result = await response.json();
+    const content = result.content?.[0]?.text || "";
 
-    // Extract JSON from the response
     let parsed;
     try {
       parsed = JSON.parse(content);
