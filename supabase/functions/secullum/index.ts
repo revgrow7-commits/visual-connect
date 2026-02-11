@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -61,32 +61,6 @@ function getTotal(cols: string[], tots: string[], name: string): string {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function verifyAdmin(req: Request) {
-  const auth = req.headers.get("Authorization");
-  if (!auth?.startsWith("Bearer ")) {
-    throw { status: 401, message: "Unauthorized" };
-  }
-  const client = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: auth } } },
-  );
-  const { data, error } = await client.auth.getUser();
-  if (error || !data.user) throw { status: 401, message: "Invalid token" };
-
-  const uid = data.user.id;
-  const admin = getSupabaseAdmin();
-  const { data: role } = await admin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", uid)
-    .eq("role", "admin")
-    .maybeSingle();
-
-  if (!role) throw { status: 403, message: "Admin role required" };
-  return uid;
-}
-
 async function getSecullumToken(): Promise<string> {
   const stored = Deno.env.get("SECULLUM_TOKEN");
   if (stored) {
@@ -143,7 +117,7 @@ async function calcularTotais(token: string, banco: string, pis: string, di: str
   });
 }
 
-async function handleImportar(token: string, banco: string, competencia: string, userId: string) {
+async function handleImportar(token: string, banco: string, competencia: string, userId: string | null) {
   const [year, month] = competencia.split("-").map(Number);
   const di = `${year}-${String(month).padStart(2, "0")}-01`;
   const lastDay = new Date(year, month, 0).getDate();
@@ -226,13 +200,22 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Try to get userId from auth, but don't require it
     let userId: string | null = null;
     try {
-      userId = await verifyAdmin(req);
+      const auth = req.headers.get("Authorization");
+      if (auth?.startsWith("Bearer ")) {
+        const client = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_ANON_KEY")!,
+          { global: { headers: { Authorization: auth } } },
+        );
+        const { data } = await client.auth.getUser();
+        if (data.user) userId = data.user.id;
+      }
     } catch {
-      // Allow unauthenticated access — Secullum credentials are the real auth
+      // Auth is optional
     }
+
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
 
