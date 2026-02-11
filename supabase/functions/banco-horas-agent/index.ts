@@ -96,6 +96,8 @@ Retorne SEMPRE um JSON válido com a estrutura abaixo. NÃO inclua texto antes o
 - Para salário base, use R$ 2.500,00 como padrão (salário médio Indústria Visual) quando não informado
 - Carga mensal padrão: 220h`;
 
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -104,10 +106,9 @@ serve(async (req) => {
   try {
     const { colaboradores, competencia } = await req.json();
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
+    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GOOGLE_GEMINI_API_KEY não configurada");
 
-    // Build the user message with all employee data
     const userMessage = `Analise o banco de horas da competência ${competencia} para os seguintes colaboradores da Indústria Visual.
 
 Para cada colaborador, calcule o nível de alerta, custo projetado e ações recomendadas.
@@ -120,20 +121,17 @@ ${JSON.stringify(colaboradores, null, 2)}
 
 Retorne APENAS o JSON estruturado conforme especificado, sem texto adicional.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessage },
-        ],
-      }),
-    });
+    const response = await fetch(
+      `${GEMINI_API_URL}/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: [{ role: "user", parts: [{ text: userMessage }] }],
+        }),
+      }
+    );
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -141,31 +139,23 @@ Retorne APENAS o JSON estruturado conforme especificado, sem texto adicional.`;
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos de IA insuficientes." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
       const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      throw new Error(`Erro no gateway de IA: ${response.status}`);
+      console.error("Gemini API error:", response.status, t);
+      throw new Error(`Erro na API Gemini: ${response.status}`);
     }
 
-    const aiResult = await response.json();
-    const content = aiResult.choices?.[0]?.message?.content || "";
+    const geminiResult = await response.json();
+    const content = geminiResult.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
     // Extract JSON from the response
     let parsed;
     try {
-      // Try direct parse first
       parsed = JSON.parse(content);
     } catch {
-      // Try extracting JSON from markdown code block
       const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
       if (jsonMatch) {
         parsed = JSON.parse(jsonMatch[1].trim());
       } else {
-        // Try finding JSON object in text
         const start = content.indexOf("{");
         const end = content.lastIndexOf("}");
         if (start !== -1 && end !== -1) {
