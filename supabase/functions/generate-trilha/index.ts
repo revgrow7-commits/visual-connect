@@ -6,14 +6,27 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-const MODEL = "claude-sonnet-4-20250514";
+const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const MODEL = "google/gemini-2.5-flash";
 
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function extractJSON(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenced) return JSON.parse(fenced[1].trim());
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start !== -1 && end !== -1) return JSON.parse(text.substring(start, end + 1));
+    throw new Error("Resposta da IA não contém JSON válido");
+  }
 }
 
 const RAG_CONTEXT = `# Base de Conhecimento – Indústria Visual
@@ -38,7 +51,14 @@ REGRAS:
 5. Inclua segurança (NRs) quando aplicável
 6. Marque como obrigatória as etapas essenciais
 
-Responda APENAS com o JSON usando a tool fornecida.`;
+Responda APENAS com JSON no seguinte formato:
+{
+  "nome": "Nome da Trilha",
+  "descricao": "Descrição da trilha",
+  "etapas": [
+    { "titulo": "", "descricao": "", "tipo": "checklist|video|documento", "obrigatoria": true }
+  ]
+}`;
 
 async function verifyAdmin(req: Request) {
   const authHeader = req.headers.get("Authorization");
@@ -69,70 +89,48 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY não configurada");
+    const apiKey = Deno.env.get("LOVABLE_API_KEY");
+    if (!apiKey) throw new Error("LOVABLE_API_KEY não configurada");
 
     const { user, supabase } = await verifyAdmin(req);
     const { cargo, unidade } = await req.json();
     if (!cargo) throw { status: 400, message: "Campo 'cargo' é obrigatório" };
 
-    const res = await fetch(ANTHROPIC_URL, {
+    const res = await fetch(AI_URL, {
       method: "POST",
-      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 4096,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: `Gere uma trilha de onboarding para:\n- Cargo: ${cargo}\n- Unidade: ${unidade || "Todas"}\n\nCrie a trilha com nome, descrição e todas as etapas.` }],
-        tools: [{
-          name: "create_trilha",
-          description: "Cria uma trilha de onboarding com suas etapas",
-          input_schema: {
-            type: "object",
-            properties: {
-              nome: { type: "string" },
-              descricao: { type: "string" },
-              etapas: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    titulo: { type: "string" },
-                    descricao: { type: "string" },
-                    tipo: { type: "string", enum: ["checklist", "video", "documento"] },
-                    obrigatoria: { type: "boolean" },
-                  },
-                  required: ["titulo", "descricao", "tipo", "obrigatoria"],
-                },
-              },
-            },
-            required: ["nome", "descricao", "etapas"],
-          },
-        }],
-        tool_choice: { type: "tool", name: "create_trilha" },
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: `Gere uma trilha de onboarding para:\n- Cargo: ${cargo}\n- Unidade: ${unidade || "Todas"}\n\nCrie a trilha com nome, descrição e todas as etapas. Retorne APENAS o JSON.` },
+        ],
       }),
     });
 
     if (!res.ok) {
       const t = await res.text();
-      console.error("[generate-trilha] Anthropic error:", res.status, t);
+      console.error("[generate-trilha] AI error:", res.status, t);
       throw new Error("Erro ao gerar trilha com IA");
     }
 
     const result = await res.json();
-    const toolBlock = result.content?.find((b: { type: string }) => b.type === "tool_use");
-    if (!toolBlock?.input) throw new Error("IA não retornou dados válidos");
+    const content = result.choices?.[0]?.message?.content || "";
+    const parsed = extractJSON(content) as { nome: string; descricao: string; etapas: { titulo: string; descricao: string; tipo: string; obrigatoria: boolean }[] };
 
-    const { nome, descricao, etapas: generatedEtapas } = toolBlock.input;
+    if (!parsed.nome || !parsed.etapas) throw new Error("IA não retornou dados válidos");
 
     const { data: trilha, error: trilhaError } = await supabase
       .from("onboarding_trilhas")
-      .insert({ nome, descricao, cargo, unidade: unidade || "Todas", created_by: user.id, ativo: true })
+      .insert({ nome: parsed.nome, descricao: parsed.descricao, cargo, unidade: unidade || "Todas", created_by: user.id, ativo: true })
       .select()
       .single();
     if (trilhaError) throw new Error(`Erro ao salvar trilha: ${trilhaError.message}`);
 
-    const etapasPayload = generatedEtapas.map((e: { titulo: string; descricao: string; tipo: string; obrigatoria: boolean }, idx: number) => ({
+    const etapasPayload = parsed.etapas.map((e, idx: number) => ({
       trilha_id: trilha.id,
       titulo: e.titulo,
       descricao: e.descricao,
@@ -144,7 +142,7 @@ Deno.serve(async (req) => {
     const { error: etapasError } = await supabase.from("onboarding_etapas").insert(etapasPayload);
     if (etapasError) throw new Error(`Erro ao salvar etapas: ${etapasError.message}`);
 
-    return jsonResponse({ success: true, trilha_id: trilha.id, nome, etapas_count: generatedEtapas.length });
+    return jsonResponse({ success: true, trilha_id: trilha.id, nome: parsed.nome, etapas_count: parsed.etapas.length });
   } catch (e: unknown) {
     const err = e as { status?: number; message?: string };
     const status = err.message?.includes("autorizado") || err.message?.includes("admin") ? 403 : (err.status || 500);

@@ -4,8 +4,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-const MODEL = "claude-sonnet-4-20250514";
+const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const MODEL = "google/gemini-2.5-flash";
 
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -25,33 +25,6 @@ function extractJSON(text: string): unknown {
     if (start !== -1 && end !== -1) return JSON.parse(text.substring(start, end + 1));
     throw new Error("Resposta da IA não contém JSON válido");
   }
-}
-
-async function callAnthropic(apiKey: string, system: string, userMessage: string, maxTokens = 8192) {
-  const res = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: maxTokens,
-      system,
-      messages: [{ role: "user", content: userMessage }],
-    }),
-  });
-
-  if (!res.ok) {
-    if (res.status === 429) throw { status: 429, message: "Limite de requisições excedido. Tente novamente em alguns minutos." };
-    const t = await res.text();
-    console.error("[banco-horas-agent] Anthropic error:", res.status, t);
-    throw new Error(`Erro na API Anthropic: ${res.status}`);
-  }
-
-  const result = await res.json();
-  return result.content?.[0]?.text || "";
 }
 
 const SYSTEM_PROMPT = `Você é o AGENTE DE BANCO DE HORAS da Indústria Visual.
@@ -110,8 +83,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY não configurada");
+    const apiKey = Deno.env.get("LOVABLE_API_KEY");
+    if (!apiKey) throw new Error("LOVABLE_API_KEY não configurada");
 
     const { colaboradores, competencia } = await req.json();
 
@@ -127,7 +100,30 @@ ${JSON.stringify(colaboradores, null, 2)}
 
 Retorne APENAS o JSON estruturado conforme especificado, sem texto adicional.`;
 
-    const content = await callAnthropic(apiKey, SYSTEM_PROMPT, userMessage);
+    const res = await fetch(AI_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userMessage },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      if (res.status === 429) throw { status: 429, message: "Limite de requisições excedido. Tente novamente em alguns minutos." };
+      const t = await res.text();
+      console.error("[banco-horas-agent] AI error:", res.status, t);
+      throw new Error(`Erro na API de IA: ${res.status}`);
+    }
+
+    const result = await res.json();
+    const content = result.choices?.[0]?.message?.content || "";
     const parsed = extractJSON(content);
 
     return jsonResponse(parsed);
