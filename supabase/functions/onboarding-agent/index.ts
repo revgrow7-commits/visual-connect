@@ -4,8 +4,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-const MODEL = "claude-sonnet-4-20250514";
+const XAI_URL = "https://api.x.ai/v1/chat/completions";
+const MODEL = "grok-3";
 
 const RAG_CONTEXT = `# Base de Conhecimento – Indústria Visual
 
@@ -60,8 +60,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY não configurada");
+    const apiKey = Deno.env.get("XAI_API_KEY");
+    if (!apiKey) throw new Error("XAI_API_KEY não configurada");
 
     const { messages, cargo } = await req.json();
     if (!messages || !Array.isArray(messages)) {
@@ -72,70 +72,26 @@ Deno.serve(async (req) => {
       ? `${SYSTEM_PROMPT}\n\n## CONTEXTO DO COLABORADOR:\nCargo: ${cargo}\nAdapte suas respostas considerando as responsabilidades deste cargo.`
       : SYSTEM_PROMPT;
 
-    const anthropicMessages = messages
-      .filter((m: { role: string }) => m.role !== "system")
-      .map((m: { role: string; content: string }) => ({
-        role: m.role === "assistant" ? "assistant" : "user",
-        content: m.content,
-      }));
+    const apiMessages = [
+      { role: "system", content: systemContent },
+      ...messages.filter((m: { role: string }) => m.role !== "system"),
+    ];
 
-    const response = await fetch(ANTHROPIC_URL, {
+    const response = await fetch(XAI_URL, {
       method: "POST",
-      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 4096, system: systemContent, messages: anthropicMessages, stream: true }),
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: MODEL, max_tokens: 4096, messages: apiMessages, stream: true }),
     });
 
     if (!response.ok) {
       if (response.status === 429) return jsonResponse({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }, 429);
       const t = await response.text();
-      console.error("[onboarding] Anthropic error:", response.status, t);
+      console.error("[onboarding] xAI error:", response.status, t);
       throw new Error("Erro ao comunicar com o assistente");
     }
 
-    // Transform Anthropic SSE → OpenAI-compatible SSE
-    const reader = response.body!.getReader();
-    const decoder = new TextDecoder();
-    const encoder = new TextEncoder();
-
-    const stream = new ReadableStream({
-      async start(controller) {
-        let buffer = "";
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-
-            let idx: number;
-            while ((idx = buffer.indexOf("\n")) !== -1) {
-              let line = buffer.slice(0, idx);
-              buffer = buffer.slice(idx + 1);
-              if (line.endsWith("\r")) line = line.slice(0, -1);
-              if (!line.startsWith("data: ") || line.trim() === "") continue;
-
-              const jsonStr = line.slice(6).trim();
-              if (!jsonStr) continue;
-
-              try {
-                const parsed = JSON.parse(jsonStr);
-                if (parsed.type === "content_block_delta" && parsed.delta?.text) {
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: parsed.delta.text } }] })}\n\n`));
-                }
-              } catch {
-                // skip malformed
-              }
-            }
-          }
-          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-          controller.close();
-        } catch (e) {
-          console.error("[onboarding] Stream error:", e);
-          controller.close();
-        }
-      },
-    });
-
-    return new Response(stream, {
+    // xAI is OpenAI-compatible, stream directly
+    return new Response(response.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (e: unknown) {

@@ -6,8 +6,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-const MODEL = "claude-sonnet-4-20250514";
+const XAI_URL = "https://api.x.ai/v1/chat/completions";
+const MODEL = "grok-3";
 
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -69,61 +69,66 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY não configurada");
+    const apiKey = Deno.env.get("XAI_API_KEY");
+    if (!apiKey) throw new Error("XAI_API_KEY não configurada");
 
     const { user, supabase } = await verifyAdmin(req);
     const { cargo, unidade } = await req.json();
     if (!cargo) throw { status: 400, message: "Campo 'cargo' é obrigatório" };
 
-    const res = await fetch(ANTHROPIC_URL, {
+    const res = await fetch(XAI_URL, {
       method: "POST",
-      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 4096,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: `Gere uma trilha de onboarding para:\n- Cargo: ${cargo}\n- Unidade: ${unidade || "Todas"}\n\nCrie a trilha com nome, descrição e todas as etapas.` }],
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: `Gere uma trilha de onboarding para:\n- Cargo: ${cargo}\n- Unidade: ${unidade || "Todas"}\n\nCrie a trilha com nome, descrição e todas as etapas.` },
+        ],
         tools: [{
-          name: "create_trilha",
-          description: "Cria uma trilha de onboarding com suas etapas",
-          input_schema: {
-            type: "object",
-            properties: {
-              nome: { type: "string" },
-              descricao: { type: "string" },
-              etapas: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    titulo: { type: "string" },
-                    descricao: { type: "string" },
-                    tipo: { type: "string", enum: ["checklist", "video", "documento"] },
-                    obrigatoria: { type: "boolean" },
+          type: "function",
+          function: {
+            name: "create_trilha",
+            description: "Cria uma trilha de onboarding com suas etapas",
+            parameters: {
+              type: "object",
+              properties: {
+                nome: { type: "string" },
+                descricao: { type: "string" },
+                etapas: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      titulo: { type: "string" },
+                      descricao: { type: "string" },
+                      tipo: { type: "string", enum: ["checklist", "video", "documento"] },
+                      obrigatoria: { type: "boolean" },
+                    },
+                    required: ["titulo", "descricao", "tipo", "obrigatoria"],
                   },
-                  required: ["titulo", "descricao", "tipo", "obrigatoria"],
                 },
               },
+              required: ["nome", "descricao", "etapas"],
             },
-            required: ["nome", "descricao", "etapas"],
           },
         }],
-        tool_choice: { type: "tool", name: "create_trilha" },
+        tool_choice: { type: "function", function: { name: "create_trilha" } },
       }),
     });
 
     if (!res.ok) {
       const t = await res.text();
-      console.error("[generate-trilha] Anthropic error:", res.status, t);
+      console.error("[generate-trilha] xAI error:", res.status, t);
       throw new Error("Erro ao gerar trilha com IA");
     }
 
     const result = await res.json();
-    const toolBlock = result.content?.find((b: { type: string }) => b.type === "tool_use");
-    if (!toolBlock?.input) throw new Error("IA não retornou dados válidos");
+    const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall?.function?.arguments) throw new Error("IA não retornou dados válidos");
 
-    const { nome, descricao, etapas: generatedEtapas } = toolBlock.input;
+    const { nome, descricao, etapas: generatedEtapas } = JSON.parse(toolCall.function.arguments);
 
     const { data: trilha, error: trilhaError } = await supabase
       .from("onboarding_trilhas")
