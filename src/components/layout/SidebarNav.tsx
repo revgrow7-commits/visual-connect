@@ -19,6 +19,7 @@ import {
   Settings,
   X,
   ChevronDown,
+  ShieldAlert,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -53,6 +54,7 @@ const rhNav = [
 const maisNav = [
   { label: "Onboarding", icon: GraduationCap, path: "/onboarding" },
   { label: "Endomarketing", icon: Megaphone, path: "/endomarketing" },
+  { label: "Ouvidoria", icon: ShieldAlert, path: "/ouvidoria" },
   { label: "Meu Perfil", icon: User, path: "/perfil" },
   { label: "Admin", icon: Settings, path: "/admin" },
 ];
