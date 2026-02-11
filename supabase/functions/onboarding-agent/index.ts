@@ -1,10 +1,11 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+const MODEL = "claude-sonnet-4-20250514";
 
 const RAG_CONTEXT = `# Base de Conhecimento – Indústria Visual
 
@@ -39,27 +40,23 @@ Seu papel é ajudar novos colaboradores a conhecer a empresa, entender os proces
 
 ${RAG_CONTEXT}
 
-## REGRAS DE COMPORTAMENTO:
+## REGRAS:
 1. Seja amigável, acolhedor e use emojis moderadamente
 2. Responda SEMPRE em português brasileiro
-3. Use formatação markdown para organizar suas respostas (listas, negrito, headers)
+3. Use formatação markdown (listas, negrito, headers)
 4. Se não souber algo específico, diga honestamente e sugira quem procurar
-5. NUNCA compartilhe dados confidenciais, senhas, tokens ou informações pessoais de colaboradores
-6. Adapte suas respostas ao cargo do colaborador quando informado
-7. Mantenha respostas concisas mas completas
-8. Na primeira mensagem, dê boas-vindas e explique o que pode ajudar
+5. NUNCA compartilhe dados confidenciais, senhas, tokens ou informações pessoais
+6. Adapte respostas ao cargo do colaborador quando informado
+7. Mantenha respostas concisas mas completas`;
 
-## TÓPICOS QUE VOCÊ DOMINA:
-- Como a empresa funciona (estrutura, departamentos)
-- O fluxo de produção (PCP - do orçamento à entrega)
-- As etapas de cada processo (impressão, acabamento, instalação)
-- Cultura e valores da empresa (C.R.I.E.)
-- Produto Smart Signage e suas linhas
-- Dúvidas específicas sobre departamentos`;
+function jsonResponse(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -69,54 +66,35 @@ serve(async (req) => {
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY não configurada");
 
     const { messages, cargo } = await req.json();
-
     if (!messages || !Array.isArray(messages)) {
-      return new Response(JSON.stringify({ error: "Campo 'messages' é obrigatório" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Campo 'messages' é obrigatório" }, 400);
     }
 
     const systemContent = cargo
-      ? `${SYSTEM_PROMPT}\n\n## CONTEXTO DO COLABORADOR:\nCargo: ${cargo}\nAdapte suas respostas considerando as responsabilidades e o contexto deste cargo.`
+      ? `${SYSTEM_PROMPT}\n\n## CONTEXTO DO COLABORADOR:\nCargo: ${cargo}\nAdapte suas respostas considerando as responsabilidades deste cargo.`
       : SYSTEM_PROMPT;
 
-    // Convert messages to Anthropic format (filter out system messages)
     const anthropicMessages = messages
-      .filter((m: any) => m.role !== "system")
-      .map((m: any) => ({
+      .filter((m: { role: string }) => m.role !== "system")
+      .map((m: { role: string; content: string }) => ({
         role: m.role === "assistant" ? "assistant" : "user",
         content: m.content,
       }));
 
-    const response = await fetch(ANTHROPIC_API_URL, {
+    const response = await fetch(ANTHROPIC_URL, {
       method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        system: systemContent,
-        messages: anthropicMessages,
-        stream: true,
-      }),
+      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+      body: JSON.stringify({ model: MODEL, max_tokens: 4096, system: systemContent, messages: anthropicMessages, stream: true }),
     });
 
     if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const errText = await response.text();
-      console.error("Anthropic error:", response.status, errText);
+      if (response.status === 429) return jsonResponse({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }, 429);
+      const t = await response.text();
+      console.error("[onboarding] Anthropic error:", response.status, t);
       throw new Error("Erro ao comunicar com o assistente");
     }
 
-    // Transform Anthropic SSE stream to OpenAI-compatible SSE stream
+    // Transform Anthropic SSE → OpenAI-compatible SSE
     const reader = response.body!.getReader();
     const decoder = new TextDecoder();
     const encoder = new TextEncoder();
@@ -130,10 +108,10 @@ serve(async (req) => {
             if (done) break;
             buffer += decoder.decode(value, { stream: true });
 
-            let newlineIdx: number;
-            while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
-              let line = buffer.slice(0, newlineIdx);
-              buffer = buffer.slice(newlineIdx + 1);
+            let idx: number;
+            while ((idx = buffer.indexOf("\n")) !== -1) {
+              let line = buffer.slice(0, idx);
+              buffer = buffer.slice(idx + 1);
               if (line.endsWith("\r")) line = line.slice(0, -1);
               if (!line.startsWith("data: ") || line.trim() === "") continue;
 
@@ -142,22 +120,18 @@ serve(async (req) => {
 
               try {
                 const parsed = JSON.parse(jsonStr);
-                // Anthropic streaming: content_block_delta events contain text
                 if (parsed.type === "content_block_delta" && parsed.delta?.text) {
-                  const chunk = JSON.stringify({
-                    choices: [{ delta: { content: parsed.delta.text } }],
-                  });
-                  controller.enqueue(encoder.encode(`data: ${chunk}\n\n`));
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: parsed.delta.text } }] })}\n\n`));
                 }
               } catch {
-                // skip malformed lines
+                // skip malformed
               }
             }
           }
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();
         } catch (e) {
-          console.error("Stream error:", e);
+          console.error("[onboarding] Stream error:", e);
           controller.close();
         }
       },
@@ -166,11 +140,9 @@ serve(async (req) => {
     return new Response(stream, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
-  } catch (error: any) {
-    console.error("Onboarding agent error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  } catch (e: unknown) {
+    const err = e as { message?: string };
+    console.error("[onboarding] Error:", err.message);
+    return jsonResponse({ error: err.message || "Erro desconhecido" }, 500);
   }
 });
