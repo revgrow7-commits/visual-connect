@@ -598,6 +598,63 @@ export type Database = {
         }
         Relationships: []
       }
+      ouvidoria_manifestacoes: {
+        Row: {
+          anonimo: boolean
+          categoria: string
+          created_at: string
+          descricao: string
+          email: string | null
+          id: string
+          nome: string | null
+          protocolo: string
+          setor: string
+          setor_identificacao: string | null
+          status: string
+          unidade: string
+          unidade_identificacao: string | null
+          updated_at: string
+          urgencia: string
+          user_id: string | null
+        }
+        Insert: {
+          anonimo?: boolean
+          categoria: string
+          created_at?: string
+          descricao: string
+          email?: string | null
+          id?: string
+          nome?: string | null
+          protocolo: string
+          setor: string
+          setor_identificacao?: string | null
+          status?: string
+          unidade: string
+          unidade_identificacao?: string | null
+          updated_at?: string
+          urgencia: string
+          user_id?: string | null
+        }
+        Update: {
+          anonimo?: boolean
+          categoria?: string
+          created_at?: string
+          descricao?: string
+          email?: string | null
+          id?: string
+          nome?: string | null
+          protocolo?: string
+          setor?: string
+          setor_identificacao?: string | null
+          status?: string
+          unidade?: string
+          unidade_identificacao?: string | null
+          updated_at?: string
+          urgencia?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
