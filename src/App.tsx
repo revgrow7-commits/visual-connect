@@ -71,12 +71,12 @@ const App = () => (
                 <Route path="/unidades" element={<UnidadesPage />} />
                 <Route path="/endomarketing" element={<EndomarketingPage />} />
                 <Route path="/perfil" element={<PerfilPage />} />
-                <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminPage /></ProtectedRoute>} />
-                <Route path="/rh/admissao" element={<ProtectedRoute requireAdmin><RhAdmissaoPage /></ProtectedRoute>} />
-                <Route path="/rh/colaboradores" element={<ProtectedRoute requireAdmin><ColaboradoresPage /></ProtectedRoute>} />
-                <Route path="/rh/banco-horas" element={<ProtectedRoute requireAdmin><BancoHorasPage /></ProtectedRoute>} />
-                <Route path="/rh/contratos" element={<ProtectedRoute requireAdmin><ContratosPage /></ProtectedRoute>} />
-                <Route path="/rh/gerar-link" element={<ProtectedRoute requireAdmin><GerarLinkPage /></ProtectedRoute>} />
+                <Route path="/admin" element={<AdminPage />} />
+                <Route path="/rh/admissao" element={<RhAdmissaoPage />} />
+                <Route path="/rh/colaboradores" element={<ColaboradoresPage />} />
+                <Route path="/rh/banco-horas" element={<BancoHorasPage />} />
+                <Route path="/rh/contratos" element={<ContratosPage />} />
+                <Route path="/rh/gerar-link" element={<GerarLinkPage />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
