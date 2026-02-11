@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "RH Indústria Visual <onboarding@resend.dev>",
+        from: "Mayara - RH Indústria Visual <mayara@industriavisual.com.br>",
         to: [candidatoEmail],
         subject: `🎉 Bem-vindo(a) à Indústria Visual — Formulário de Admissão`,
         html: htmlBody,
