@@ -9,8 +9,8 @@ const corsHeaders = {
 const AUTH_HOST = "autenticador.secullum.com.br";
 const PONTO_HOST = "pontowebintegracaoexterna.secullum.com.br";
 const TIMEOUT_MS = 30000;
-const BATCH_SIZE = 12;
-const BATCH_DELAY_MS = 150;
+const BATCH_SIZE = 3;
+const BATCH_DELAY_MS = 1000;
 
 function getSupabaseAdmin() {
   return createClient(
