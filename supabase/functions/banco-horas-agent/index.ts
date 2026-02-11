@@ -4,8 +4,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const XAI_URL = "https://api.x.ai/v1/chat/completions";
-const MODEL = "grok-3";
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+const MODEL = "gemini-2.5-flash";
 
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -83,8 +83,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get("XAI_API_KEY");
-    if (!apiKey) throw new Error("XAI_API_KEY não configurada");
+    const apiKey = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!apiKey) throw new Error("GOOGLE_GEMINI_API_KEY não configurada");
 
     const { colaboradores, competencia } = await req.json();
 
@@ -100,7 +100,7 @@ ${JSON.stringify(colaboradores, null, 2)}
 
 Retorne APENAS o JSON estruturado conforme especificado, sem texto adicional.`;
 
-    const res = await fetch(XAI_URL, {
+    const res = await fetch(GEMINI_URL, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model: MODEL, max_tokens: 8192, messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: userMessage }] }),
@@ -109,8 +109,8 @@ Retorne APENAS o JSON estruturado conforme especificado, sem texto adicional.`;
     if (!res.ok) {
       if (res.status === 429) throw { status: 429, message: "Limite de requisições excedido. Tente novamente em alguns minutos." };
       const t = await res.text();
-      console.error("[banco-horas-agent] xAI error:", res.status, t);
-      throw new Error(`Erro na API xAI: ${res.status}`);
+      console.error("[banco-horas-agent] Gemini error:", res.status, t);
+      throw new Error(`Erro na API Gemini: ${res.status}`);
     }
 
     const result = await res.json();

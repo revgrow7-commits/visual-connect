@@ -4,8 +4,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const XAI_URL = "https://api.x.ai/v1/chat/completions";
-const MODEL = "grok-3";
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+const MODEL = "gemini-2.5-flash";
 
 const RAG_CONTEXT = `# Base de Conhecimento – Indústria Visual
 
@@ -60,8 +60,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get("XAI_API_KEY");
-    if (!apiKey) throw new Error("XAI_API_KEY não configurada");
+    const apiKey = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!apiKey) throw new Error("GOOGLE_GEMINI_API_KEY não configurada");
 
     const { messages, cargo } = await req.json();
     if (!messages || !Array.isArray(messages)) {
@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
       ...messages.filter((m: { role: string }) => m.role !== "system"),
     ];
 
-    const response = await fetch(XAI_URL, {
+    const response = await fetch(GEMINI_URL, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model: MODEL, max_tokens: 4096, messages: apiMessages, stream: true }),
@@ -86,11 +86,11 @@ Deno.serve(async (req) => {
     if (!response.ok) {
       if (response.status === 429) return jsonResponse({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }, 429);
       const t = await response.text();
-      console.error("[onboarding] xAI error:", response.status, t);
+      console.error("[onboarding] Gemini error:", response.status, t);
       throw new Error("Erro ao comunicar com o assistente");
     }
 
-    // xAI is OpenAI-compatible, stream directly
+    // Gemini OpenAI-compatible endpoint, stream directly
     return new Response(response.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
