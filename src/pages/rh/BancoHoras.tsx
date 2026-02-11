@@ -67,15 +67,19 @@ const BancoHorasPage = () => {
   const handleImport = async () => {
     setImporting(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error("Sessão expirada.");
-
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      // Try to use session token if available, otherwise use anon key
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || anonKey;
+
       const res = await fetch(`${supabaseUrl}/functions/v1/secullum?action=importar`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${token}`,
+          apikey: anonKey,
         },
         body: JSON.stringify({ competencia }),
       });

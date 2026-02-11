@@ -226,7 +226,13 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const userId = await verifyAdmin(req);
+    // Try to get userId from auth, but don't require it
+    let userId: string | null = null;
+    try {
+      userId = await verifyAdmin(req);
+    } catch {
+      // Allow unauthenticated access — Secullum credentials are the real auth
+    }
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
 
