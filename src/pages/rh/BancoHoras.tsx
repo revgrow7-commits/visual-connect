@@ -13,12 +13,27 @@ import BancoHorasEmptyState from "@/components/banco-horas/BancoHorasEmptyState"
 import BancoHorasAIReport from "@/components/banco-horas/BancoHorasAIReport";
 
 async function fetchFromDatabase(competencia: string) {
-  const { data, error } = await supabase
-    .from("banco_horas")
-    .select("*")
-    .eq("competencia", competencia)
-    .order("nome");
-  if (error) throw new Error(error.message);
+  console.log("[banco-horas] Fetching data for", competencia);
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  
+  const url = `${supabaseUrl}/rest/v1/banco_horas?competencia=eq.${competencia}&order=nome.asc&select=*`;
+  const res = await fetch(url, {
+    headers: {
+      "apikey": anonKey,
+      "Authorization": `Bearer ${anonKey}`,
+      "Content-Type": "application/json",
+    },
+  });
+  
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("[banco-horas] API error:", res.status, errText);
+    throw new Error(`Erro ${res.status}: ${errText}`);
+  }
+  
+  const data = await res.json();
+  console.log("[banco-horas] Got", data.length, "rows");
   return data || [];
 }
 
