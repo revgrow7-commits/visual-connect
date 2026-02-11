@@ -62,7 +62,7 @@ Responda SEMPRE em JSON com a seguinte estrutura:
   "sugestoes": ["dicas extras para o designer finalizar"]
 }`;
 
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -70,8 +70,8 @@ serve(async (req) => {
   }
 
   try {
-    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GOOGLE_GEMINI_API_KEY não está configurada");
+    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!apiKey) throw new Error("ANTHROPIC_API_KEY não configurada");
 
     const { tema, tom, detalhes, gerarImagem } = await req.json();
 
@@ -89,18 +89,20 @@ ${detalhes ? `- Detalhes adicionais: ${detalhes}` : ""}
 
 Gere a especificação completa do cartaz em JSON.`;
 
-    // Step 1: Generate poster spec with Gemini
-    const specResponse = await fetch(
-      `${GEMINI_API_URL}/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-        }),
-      }
-    );
+    const specResponse = await fetch(ANTHROPIC_API_URL, {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: "user", content: userPrompt }],
+      }),
+    });
 
     if (!specResponse.ok) {
       if (specResponse.status === 429) {
@@ -109,14 +111,13 @@ Gere a especificação completa do cartaz em JSON.`;
         });
       }
       const errText = await specResponse.text();
-      console.error("Gemini spec error:", specResponse.status, errText);
+      console.error("Anthropic spec error:", specResponse.status, errText);
       throw new Error("Erro ao gerar especificação");
     }
 
     const specData = await specResponse.json();
-    const rawContent = specData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const rawContent = specData.content?.[0]?.text || "";
 
-    // Parse JSON from response (may be wrapped in markdown code block)
     let spec: any;
     try {
       const jsonMatch = rawContent.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, rawContent];
@@ -125,52 +126,9 @@ Gere a especificação completa do cartaz em JSON.`;
       spec = { raw: rawContent };
     }
 
-    let imageUrl: string | null = null;
-
-    // Step 2: Optionally generate an image preview with Gemini image model
-    if (gerarImagem) {
-      const imagePrompt = `Create a corporate internal communication poster with the following specifications:
-Title: "${spec.titulo || tema}"
-Subtitle: "${spec.subtitulo || ""}"
-Style: Modern, clean, professional
-Color scheme: burgundy (#A02040), deep purple (#702050), gradient from #C0304A to #5030A0
-Font: Inter or Poppins, clean sans-serif
-Layout: ${spec.layout?.orientacao === "landscape" ? "Landscape 16:9" : "Portrait A4"}
-Background: ${spec.layout?.fundo || "gradient from burgundy to purple"}
-Visual elements: ${spec.layout?.elementosVisuais?.join(", ") || "abstract geometric shapes"}
-Tone: ${tom || "motivational"}
-Include the title text "${spec.titulo || tema}" prominently displayed.
-Ultra high resolution corporate poster design.`;
-
-      try {
-        const imgResponse = await fetch(
-          `${GEMINI_API_URL}/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ role: "user", parts: [{ text: imagePrompt }] }],
-              generationConfig: {
-                responseModalities: ["TEXT", "IMAGE"],
-              },
-            }),
-          }
-        );
-
-        if (imgResponse.ok) {
-          const imgData = await imgResponse.json();
-          const parts = imgData.candidates?.[0]?.content?.parts || [];
-          const imagePart = parts.find((p: any) => p.inlineData);
-          if (imagePart?.inlineData) {
-            imageUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
-          }
-        } else {
-          console.error("Image generation failed:", imgResponse.status);
-        }
-      } catch (e) {
-        console.error("Image generation error:", e);
-      }
-    }
+    // Note: Image generation via Anthropic is not supported directly.
+    // The gerarImagem flag is preserved for future integration with an image generation service.
+    const imageUrl: string | null = null;
 
     return new Response(JSON.stringify({ spec, imageUrl }), {
       status: 200,
