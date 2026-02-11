@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Clock, Loader2, DatabaseBackup, Brain, AlertTriangle } from "lucide-react";
+import { Clock, Loader2, DatabaseBackup, Brain, AlertTriangle, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,6 +11,7 @@ import BancoHorasFilters from "@/components/banco-horas/BancoHorasFilters";
 import BancoHorasTable, { type BancoHorasRow } from "@/components/banco-horas/BancoHorasTable";
 import BancoHorasEmptyState from "@/components/banco-horas/BancoHorasEmptyState";
 import BancoHorasAIReport from "@/components/banco-horas/BancoHorasAIReport";
+import BancoHorasCLTDashboard from "@/components/banco-horas/BancoHorasCLTDashboard";
 
 async function fetchFromDatabase(competencia: string) {
   console.log("[banco-horas] Fetching data for", competencia);
@@ -165,6 +166,7 @@ const BancoHorasPage = () => {
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="h-8">
             <TabsTrigger value="equipe" className="text-xs h-7">Painel RH</TabsTrigger>
+            <TabsTrigger value="clt" className="text-xs h-7 gap-1"><Scale className="h-3.5 w-3.5" /> CLT</TabsTrigger>
             <TabsTrigger value="analise" className="text-xs h-7 gap-1"><Brain className="h-3.5 w-3.5" /> Análise IA</TabsTrigger>
             <TabsTrigger value="meu" className="text-xs h-7">Meu Banco</TabsTrigger>
           </TabsList>
@@ -184,6 +186,10 @@ const BancoHorasPage = () => {
               onCompetenciaChange={setCompetencia}
             />
             <BancoHorasTable data={filtered} loading={loading} />
+          </TabsContent>
+
+          <TabsContent value="clt" className="space-y-3 mt-3">
+            <BancoHorasCLTDashboard data={parsed} competencia={competencia} />
           </TabsContent>
 
           <TabsContent value="analise" className="space-y-3 mt-3">
