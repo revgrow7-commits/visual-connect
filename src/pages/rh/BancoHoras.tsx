@@ -71,7 +71,7 @@ const BancoHorasPage = () => {
       if (!session?.access_token) throw new Error("Sessão expirada.");
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const res = await fetch(`${supabaseUrl}/functions/v1/importar-banco-horas`, {
+      const res = await fetch(`${supabaseUrl}/functions/v1/secullum?action=importar`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
