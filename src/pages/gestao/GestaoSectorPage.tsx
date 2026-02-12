@@ -26,25 +26,25 @@ const GestaoSectorPage = ({ sector, sectorLabel, icon: Icon, description, childr
         </div>
       </div>
 
-      <Tabs defaultValue="dashboard" className="w-full">
+      <Tabs defaultValue="agent" className="w-full">
         <TabsList>
-          <TabsTrigger value="dashboard" className="gap-1.5">
-            <LayoutDashboard className="h-4 w-4" /> Dashboard
-          </TabsTrigger>
           <TabsTrigger value="agent" className="gap-1.5">
             <Bot className="h-4 w-4" /> Agente IA
+          </TabsTrigger>
+          <TabsTrigger value="dashboard" className="gap-1.5">
+            <LayoutDashboard className="h-4 w-4" /> Dashboard
           </TabsTrigger>
           <TabsTrigger value="dados" className="gap-1.5">
             <FileText className="h-4 w-4" /> Dados
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="dashboard" className="mt-4">
-          <SectorDashboard sector={sector} sectorLabel={sectorLabel} />
-        </TabsContent>
-
         <TabsContent value="agent" className="mt-4">
           <AgentChat sector={sector} sectorLabel={sectorLabel} />
+        </TabsContent>
+
+        <TabsContent value="dashboard" className="mt-4">
+          <SectorDashboard sector={sector} sectorLabel={sectorLabel} />
         </TabsContent>
 
         <TabsContent value="dados" className="mt-4">
