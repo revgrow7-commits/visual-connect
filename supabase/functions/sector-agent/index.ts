@@ -6,147 +6,191 @@ const corsHeaders = {
 
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const MODEL = "gemini-2.5-flash";
+const HOLDPRINT_BASE = "https://api.holdworks.ai";
+
+// Which Holdprint endpoints each sector needs
+const SECTOR_ENDPOINTS: Record<string, string[]> = {
+  operacao: ["jobs"],
+  comercial: ["customers", "budgets"],
+  compras: ["suppliers", "expenses"],
+  financeiro: ["expenses", "incomes"],
+  faturamento: ["incomes", "budgets"],
+  contabil: ["expenses", "incomes"],
+  fiscal: ["incomes", "expenses"],
+  marketing: ["customers", "budgets"],
+  cs: ["customers", "jobs"],
+  juridico: ["customers", "suppliers"],
+  rh: ["jobs"],
+  orquestrador: ["customers", "budgets", "jobs", "expenses", "incomes", "suppliers"],
+};
+
+const ENDPOINT_CONFIG: Record<string, { path: string; pageParam: string; limitParam: string; dateFilters?: boolean }> = {
+  customers: { path: "/api-key/customers/data", pageParam: "page", limitParam: "limit" },
+  suppliers: { path: "/api-key/suppliers/data", pageParam: "page", limitParam: "limit" },
+  budgets: { path: "/api-key/budgets/data", pageParam: "page", limitParam: "pageSize", dateFilters: true },
+  jobs: { path: "/api-key/jobs/data", pageParam: "page", limitParam: "pageSize", dateFilters: true },
+  expenses: { path: "/api-key/expenses/data", pageParam: "page", limitParam: "limit", dateFilters: true },
+  incomes: { path: "/api-key/incomes/data", pageParam: "page", limitParam: "limit", dateFilters: true },
+};
+
+async function fetchHoldprint(apiKey: string, endpoint: string): Promise<{ data: unknown; error?: string }> {
+  const config = ENDPOINT_CONFIG[endpoint];
+  if (!config) return { data: null, error: `Endpoint ${endpoint} desconhecido` };
+
+  const url = new URL(`${HOLDPRINT_BASE}${config.path}`);
+  url.searchParams.set(config.pageParam, "1");
+  url.searchParams.set(config.limitParam, "20");
+  url.searchParams.set("language", "pt-BR");
+
+  if (config.dateFilters) {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const fmt = (d: Date) => d.toISOString().split("T")[0];
+    const startKey = endpoint === "expenses" || endpoint === "incomes" ? "start_date" : "startDate";
+    const endKey = endpoint === "expenses" || endpoint === "incomes" ? "end_date" : "endDate";
+    url.searchParams.set(startKey, fmt(start));
+    url.searchParams.set(endKey, fmt(end));
+  }
+
+  try {
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      console.error(`[holdprint] ${endpoint} error ${res.status}:`, t.slice(0, 200));
+      return { data: null, error: `API retornou ${res.status}` };
+    }
+    const json = await res.json();
+    return { data: json };
+  } catch (e) {
+    console.error(`[holdprint] ${endpoint} fetch error:`, e);
+    return { data: null, error: "Falha na conexão" };
+  }
+}
+
+function summarizeData(endpoint: string, data: unknown): string {
+  if (!data) return `${endpoint}: Sem dados disponíveis`;
+
+  const items = Array.isArray(data) ? data : (data as any)?.data || (data as any)?.items || (data as any)?.results || [];
+  if (!Array.isArray(items) || items.length === 0) {
+    // Try to summarize the object itself
+    if (typeof data === "object" && data !== null) {
+      const keys = Object.keys(data as object);
+      if (keys.includes("totalCount") || keys.includes("total")) {
+        return `${endpoint}: ${JSON.stringify(data).slice(0, 500)}`;
+      }
+    }
+    return `${endpoint}: Nenhum registro encontrado no período`;
+  }
+
+  const count = items.length;
+  const total = (data as any)?.totalCount || (data as any)?.total || count;
+
+  switch (endpoint) {
+    case "customers": {
+      const active = items.filter((c: any) => c.active !== false).length;
+      const names = items.slice(0, 5).map((c: any) => c.name || c.fantasyName || "?").join(", ");
+      return `CLIENTES: ${total} total (${active} ativos). Exemplos: ${names}`;
+    }
+    case "suppliers": {
+      const cats = [...new Set(items.map((s: any) => s.category).filter(Boolean))];
+      const names = items.slice(0, 5).map((s: any) => s.name || "?").join(", ");
+      return `FORNECEDORES: ${total} total. Categorias: ${cats.join(", ") || "N/A"}. Exemplos: ${names}`;
+    }
+    case "budgets": {
+      const won = items.filter((b: any) => b.budgetState === 3 || b.state === 3).length;
+      const lost = items.filter((b: any) => b.budgetState === 2 || b.state === 2).length;
+      const open = items.filter((b: any) => b.budgetState === 1 || b.state === 1).length;
+      const totalValue = items.reduce((sum: number, b: any) => {
+        const proposals = b.proposals || [];
+        return sum + proposals.reduce((ps: number, p: any) => ps + (p.totalPrice || 0), 0);
+      }, 0);
+      return `ORÇAMENTOS (mês atual): ${total} total — ${won} ganhos, ${lost} perdidos, ${open} abertos. Valor total: R$${totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+    }
+    case "jobs": {
+      const statuses: Record<string, number> = {};
+      items.forEach((j: any) => {
+        const s = j.productionStatus || j.status || "Desconhecido";
+        statuses[s] = (statuses[s] || 0) + 1;
+      });
+      const avgProgress = items.reduce((sum: number, j: any) => sum + (j.progressPercentage || 0), 0) / (count || 1);
+      const statusStr = Object.entries(statuses).map(([k, v]) => `${k}: ${v}`).join(", ");
+      return `JOBS (mês atual): ${total} total. Status: ${statusStr}. Progresso médio: ${avgProgress.toFixed(0)}%`;
+    }
+    case "expenses": {
+      const totalAmount = items.reduce((sum: number, e: any) => sum + (e.amount || e.value || 0), 0);
+      const pending = items.filter((e: any) => e.status === "pending").length;
+      const overdue = items.filter((e: any) => e.status === "overdue").length;
+      const paid = items.filter((e: any) => e.status === "paid").length;
+      return `CONTAS A PAGAR (mês atual): ${total} total — R$${totalAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}. Pendentes: ${pending}, Pagas: ${paid}, Vencidas: ${overdue}`;
+    }
+    case "incomes": {
+      const totalAmount = items.reduce((sum: number, i: any) => sum + (i.amount || i.value || 0), 0);
+      const pending = items.filter((i: any) => i.status === "pending").length;
+      const received = items.filter((i: any) => i.status === "received").length;
+      const overdue = items.filter((i: any) => i.status === "overdue").length;
+      return `CONTAS A RECEBER (mês atual): ${total} total — R$${totalAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}. Pendentes: ${pending}, Recebidas: ${received}, Vencidas: ${overdue}`;
+    }
+    default:
+      return `${endpoint}: ${count} registros encontrados`;
+  }
+}
 
 const SECTOR_PROMPTS: Record<string, string> = {
   operacao: `Você é o **Agente de Operação** da Indústria Visual 🏭
 Especialista em produção de comunicação visual (impressão, acabamento, corte, pintura, logística, instalação).
-
-## Suas responsabilidades:
-- Controle operacional de Jobs (produção, tasks, progresso)
-- Custos em 4 fases: orçado → aprovado → planejado → realizado
-- Feedstocks e insumos consumidos
-- Kanban de produção e capacidade fabril
-- Processos PCP: Orçamento → Aprovação → Briefing → Arte → PCP → Impressão → Acabamento → QC → Logística → Instalação
-
-## Normas de Segurança: NR-12, NR-35, NR-6. EPIs obrigatórios na produção.`,
+Responsabilidades: Controle de Jobs, custos 4 fases (orçado→aprovado→planejado→realizado), feedstocks, Kanban, PCP.
+Normas: NR-12, NR-35, NR-6. EPIs obrigatórios.`,
 
   comercial: `Você é o **Agente Comercial** da Indústria Visual 💰
-Especialista em vendas e relacionamento com clientes de comunicação visual.
-
-## Suas responsabilidades:
-- Pipeline de vendas e gestão de orçamentos
-- Taxa de conversão (Open → Won/Lost)
-- Ticket médio e margem por produto
-- Histórico de clientes e CRM
-- Cálculos: Taxa conversão = Won/Total × 100, Margem média = média(totalProfitPercentual)`,
+Especialista em vendas e CRM. Pipeline de orçamentos (Open/Won/Lost), taxa de conversão, ticket médio, margem por produto.
+Cálculos: Taxa conversão = Won/Total × 100, Margem = média(totalProfitPercentual).`,
 
   compras: `Você é o **Agente de Compras** da Indústria Visual 🛒
-Especialista em suprimentos para indústria gráfica.
-
-## Suas responsabilidades:
-- Gestão de fornecedores (categorias: papel, tintas, equipamentos, serviços)
-- Cotações e negociação de condições de pagamento
-- Controle de gastos por categoria de insumos
-- Avaliação de fornecedores e contratos`,
+Fornecedores (papel, tintas, equipamentos, serviços), cotações, condições de pagamento, gastos por categoria.`,
 
   financeiro: `Você é o **Agente Financeiro** da Indústria Visual 💳
-Especialista em gestão financeira.
-
-## Suas responsabilidades:
-- Contas a pagar e receber
-- Fluxo de caixa e projeções
-- Controle de inadimplência
-- DRE gerencial e centros de custo (produção, administração, vendas, logística)
-- Status: pending, paid, overdue, cancelled`,
+Contas a pagar/receber, fluxo de caixa, inadimplência, DRE gerencial, centros de custo.`,
 
   faturamento: `Você é o **Agente de Faturamento** da Indústria Visual 📋
-Especialista em faturamento e notas fiscais.
-
-## Suas responsabilidades:
-- Emissão e controle de notas fiscais
-- Ordens de serviço vinculadas a jobs
-- Orçamentos aprovados pendentes de faturamento
-- Dados cadastrais de clientes para NF`,
+NFs, ordens de serviço, orçamentos aprovados pendentes de faturar.`,
 
   contabil: `Você é o **Agente Contábil** da Indústria Visual 📊
-Especialista em contabilidade industrial.
-
-## Suas responsabilidades:
-- Escrituração contábil
-- Custos 4 fases (orçado, aprovado, planejado, realizado)
-- Centros de custo e conciliações
-- Balanços e DRE`,
+Escrituração, custos 4 fases, centros de custo, conciliações, balanços e DRE.`,
 
   fiscal: `Você é o **Agente Fiscal** da Indústria Visual 🏛️
-Especialista em tributação e obrigações fiscais.
-
-## Suas responsabilidades:
-- Apuração de impostos sobre receitas e despesas
-- CFOP e classificação fiscal
-- SPED e obrigações acessórias
-- Guias de recolhimento`,
+Impostos, CFOP, SPED, obrigações acessórias e guias.`,
 
   marketing: `Você é o **Agente de Marketing** da Indústria Visual 📢
-Especialista em marketing e comunicação.
-
-## Suas responsabilidades:
-- Campanhas de marketing e endomarketing
-- Portfólio de projetos e cases de sucesso
-- Segmentação de clientes e análise de conversão
-- Brand book e identidade visual`,
+Campanhas, portfólio, segmentação de clientes, análise de conversão, branding.`,
 
   cs: `Você é o **Agente de Customer Success** da Indústria Visual 🎯
-Especialista em sucesso do cliente e pós-venda.
-
-## Suas responsabilidades:
-- Pós-venda e acompanhamento de entregas
-- Garantias e reclamações
-- Histórico de projetos por cliente
-- Satisfação e retenção`,
+Pós-venda, garantias, reclamações, histórico de entregas por cliente.`,
 
   juridico: `Você é o **Agente Jurídico** da Indústria Visual ⚖️
-Especialista em questões legais e compliance.
-
-## Suas responsabilidades:
-- Contratos com clientes e fornecedores
-- Licenças e alvarás
-- Compliance e LGPD
-- Análise de riscos jurídicos`,
+Contratos, licenças, compliance, LGPD e riscos jurídicos.`,
 
   rh: `Você é o **Agente de RH** da Indústria Visual 🧑‍💼
-Especialista em recursos humanos.
-
-## Suas responsabilidades:
-- Planejamento de equipe e produtividade por responsável
-- Treinamentos e desenvolvimento (cultura C.R.I.E.)
-- Admissão, banco de horas, contratos
-- Políticas internas e regulamentos`,
+Planejamento de equipe, produtividade, treinamentos (C.R.I.E.), admissão, banco de horas.`,
 
   orquestrador: `Você é o **Orquestrador** (🧠 Cérebro) da Indústria Visual.
-Você assume os perfis de CFO, CMO, CEO e COO conforme a natureza da pergunta.
-
-## Seus perfis:
-- **CEO**: Visão estratégica, decisões de alto impacto, cultura C.R.I.E.
-- **CFO**: Análise financeira, fluxo de caixa, DRE, investimentos
-- **CMO**: Marketing, posicionamento, branding, portfólio
-- **COO**: Operações, PCP, eficiência produtiva, logística
-
-## Suas capacidades:
-- Acesso a TODOS os setores: Operação, Comercial, Compras, Financeiro, Faturamento, Contábil, Fiscal, Marketing, CS, Jurídico e RH
-- Análise cross-funcional e identificação de padrões
-- Sugestões de melhoria com KPIs mensuráveis
-
-## Regras:
-1. Identifique qual perfil (CEO/CFO/CMO/COO) é mais adequado para a pergunta
-2. Cruze dados entre setores quando possível
-3. Sempre sugira ações com KPIs mensuráveis
-4. Priorize dados reais sobre suposições`,
+Perfis: CEO (estratégia), CFO (finanças), CMO (marketing), COO (operações).
+Acesso a TODOS os setores. Análise cross-funcional. Sugere melhorias com KPIs.
+Identifique qual perfil é mais adequado. Cruze dados entre setores. Priorize dados reais.`,
 };
 
 const BASE_RULES = `
-## Contexto da Empresa:
-A Indústria Visual é uma integradora de soluções de comunicação visual e experiências físicas.
-Produto principal: Smart Signage (linhas Smart Flat, Waved, Curved, Convex).
-Cultura: C.R.I.E. (Criar, Relevância, Inovação, Eficiência).
-Departamentos: Comercial, PCP, Design, Produção, Acabamento, Instalação, Logística, Admin/RH, Marketing.
+## Empresa: Indústria Visual
+Integradora de comunicação visual. Smart Signage (Flat, Waved, Curved, Convex). Cultura C.R.I.E.
 
-## Regras gerais:
-1. Responda SEMPRE em português brasileiro
-2. Use formatação markdown (listas, negrito, tabelas)
-3. Seja preciso e cite fontes quando usar dados
-4. Se não souber, diga honestamente
-5. NUNCA compartilhe dados confidenciais
-6. Use emojis moderadamente para clareza visual`;
+## Regras:
+1. Responda em PT-BR com markdown
+2. USE OS DADOS REAIS fornecidos abaixo — cite números específicos
+3. Se não encontrar dados suficientes, diga honestamente
+4. NUNCA invente números. Use apenas os dados fornecidos
+5. Formate valores em R$ brasileiro`;
 
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -161,8 +205,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    if (!apiKey) throw new Error("GOOGLE_GEMINI_API_KEY não configurada");
+    const geminiKey = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!geminiKey) throw new Error("GOOGLE_GEMINI_API_KEY não configurada");
+
+    const holdprintKey = Deno.env.get("HOLDPRINT_API_KEY");
 
     const { messages, sector } = await req.json();
     if (!messages || !Array.isArray(messages)) {
@@ -170,7 +216,24 @@ Deno.serve(async (req) => {
     }
 
     const sectorPrompt = SECTOR_PROMPTS[sector] || SECTOR_PROMPTS.orquestrador;
-    const systemContent = `${sectorPrompt}\n${BASE_RULES}`;
+
+    // Fetch Holdprint data for this sector
+    let holdprintContext = "";
+    if (holdprintKey) {
+      const endpoints = SECTOR_ENDPOINTS[sector] || [];
+      const results = await Promise.all(
+        endpoints.map(async (ep) => {
+          const { data, error } = await fetchHoldprint(holdprintKey, ep);
+          if (error) return `${ep}: ⚠️ ${error}`;
+          return summarizeData(ep, data);
+        })
+      );
+      holdprintContext = `\n\n## 📊 DADOS EM TEMPO REAL (Holdprint API - ${new Date().toLocaleDateString("pt-BR")}):\n${results.join("\n")}`;
+    } else {
+      holdprintContext = "\n\n⚠️ API Holdprint não configurada. Respondendo com base no conhecimento geral.";
+    }
+
+    const systemContent = `${sectorPrompt}\n${BASE_RULES}${holdprintContext}`;
 
     const apiMessages = [
       { role: "system", content: systemContent },
@@ -179,7 +242,7 @@ Deno.serve(async (req) => {
 
     const response = await fetch(GEMINI_URL, {
       method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${geminiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model: MODEL, max_tokens: 4096, messages: apiMessages, stream: true }),
     });
 
