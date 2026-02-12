@@ -9,14 +9,15 @@ interface Aniversariante {
   dia: number;
   mes: number;
   hoje: boolean;
+  foto: string;
 }
 
 const mockAniversariantes: Aniversariante[] = [
-  { id: "1", nome: "Ana Rodrigues", cargo: "Designer", unidade: "POA", dia: 10, mes: 2, hoje: true },
-  { id: "2", nome: "Bruno Costa", cargo: "Instalador", unidade: "SP", dia: 12, mes: 2, hoje: false },
-  { id: "3", nome: "Carla Mendes", cargo: "Comercial", unidade: "POA", dia: 15, mes: 2, hoje: false },
-  { id: "4", nome: "Diego Lima", cargo: "Projetista", unidade: "SP", dia: 18, mes: 2, hoje: false },
-  { id: "5", nome: "Elisa Ferreira", cargo: "Financeiro", unidade: "POA", dia: 22, mes: 2, hoje: false },
+  { id: "1", nome: "Ana Rodrigues", cargo: "Designer", unidade: "POA", dia: 10, mes: 2, hoje: true, foto: "https://i.pravatar.cc/150?img=1" },
+  { id: "2", nome: "Bruno Costa", cargo: "Instalador", unidade: "SP", dia: 12, mes: 2, hoje: false, foto: "https://i.pravatar.cc/150?img=12" },
+  { id: "3", nome: "Carla Mendes", cargo: "Comercial", unidade: "POA", dia: 15, mes: 2, hoje: false, foto: "https://i.pravatar.cc/150?img=5" },
+  { id: "4", nome: "Diego Lima", cargo: "Projetista", unidade: "SP", dia: 18, mes: 2, hoje: false, foto: "https://i.pravatar.cc/150?img=8" },
+  { id: "5", nome: "Elisa Ferreira", cargo: "Financeiro", unidade: "POA", dia: 22, mes: 2, hoje: false, foto: "https://i.pravatar.cc/150?img=9" },
 ];
 
 const AniversariantesWidget = () => {
@@ -36,12 +37,14 @@ const AniversariantesWidget = () => {
               person.hoje ? "gradient-bordo-light" : "hover:bg-muted/50"
             )}
           >
-            <div className={cn(
-              "h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
-              person.hoje ? "gradient-bordo text-primary-foreground" : "bg-muted text-muted-foreground"
-            )}>
-              {person.nome.split(" ").map(n => n[0]).join("").slice(0, 2)}
-            </div>
+            <img
+              src={person.foto}
+              alt={person.nome}
+              className={cn(
+                "h-9 w-9 rounded-full object-cover shrink-0 border-2",
+                person.hoje ? "border-primary" : "border-muted"
+              )}
+            />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <p className="text-sm font-medium text-foreground truncate">{person.nome}</p>
