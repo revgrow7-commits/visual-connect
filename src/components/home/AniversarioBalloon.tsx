@@ -61,7 +61,7 @@ const AniversarioBalloon = ({ aniversariantes }: Props) => {
 
   return (
     <div className="fixed top-20 right-6 z-50 animate-fade-in">
-      <div className="relative bg-card border border-primary/20 rounded-2xl shadow-lg p-6 min-w-[280px] max-w-[320px]">
+      <div className="relative rounded-2xl p-6 min-w-[280px] max-w-[320px]">
         {showConfetti && <Confetti />}
 
         <button
@@ -83,7 +83,7 @@ const AniversarioBalloon = ({ aniversariantes }: Props) => {
                 <img
                   src={person.foto}
                   alt={person.nome}
-                  className="h-20 w-20 rounded-full object-cover border-3 border-primary shadow-md"
+                  className="h-[200px] w-[200px] rounded-full object-cover border-4 border-primary shadow-md"
                 />
                 <span className="text-sm font-medium text-foreground">{person.nome}</span>
               </div>
