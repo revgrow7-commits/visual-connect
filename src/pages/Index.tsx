@@ -1,5 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import ComunicadosFeed from "@/components/home/ComunicadosFeed";
+import CartazesRecentes from "@/components/home/CartazesRecentes";
 import AniversariantesWidget from "@/components/home/AniversariantesWidget";
 import NovosColaboradores from "@/components/home/NovosColaboradores";
 import AtalhosRapidos from "@/components/home/AtalhosRapidos";
@@ -42,8 +43,9 @@ const Index = () => {
 
       {/* Grid principal */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
           <ComunicadosFeed />
+          <CartazesRecentes />
         </div>
         <div className="space-y-6">
           <AniversariantesWidget />
