@@ -13,14 +13,15 @@ const confettiColors = [
 
 function Confetti() {
   const [pieces] = useState(() =>
-    Array.from({ length: 30 }, (_, i) => ({
+    Array.from({ length: 50 }, (_, i) => ({
       id: i,
       left: Math.random() * 100,
-      delay: Math.random() * 2,
-      duration: 2 + Math.random() * 2,
-      size: 4 + Math.random() * 6,
+      delay: Math.random() * 3,
+      duration: 1.5 + Math.random() * 2.5,
+      size: 5 + Math.random() * 8,
       color: confettiColors[Math.floor(Math.random() * confettiColors.length)],
       rotation: Math.random() * 360,
+      drift: (Math.random() - 0.5) * 60,
     }))
   );
 
@@ -36,7 +37,7 @@ function Confetti() {
             width: p.size,
             height: p.size * 0.6,
             transform: `rotate(${p.rotation}deg)`,
-            animation: `confetti-fall ${p.duration}s ease-in ${p.delay}s forwards`,
+            animation: `confetti-fall ${p.duration}s ease-out ${p.delay}s infinite`,
           }}
         />
       ))}
@@ -66,14 +67,14 @@ const AniversarioBalloon = ({ aniversariantes }: Props) => {
 
         <button
           onClick={() => setVisible(false)}
-          className="absolute top-2 right-2 p-1 rounded-full hover:bg-muted transition-colors z-10"
+          className="absolute top-2 right-2 p-1 rounded-full hover:bg-muted/30 transition-colors z-10"
         >
-          <X className="h-3.5 w-3.5 text-muted-foreground" />
+          <X className="h-3.5 w-3.5 text-yellow-400" />
         </button>
 
         <div className="flex flex-col items-center gap-3 relative z-[1]">
-          <span className="text-2xl animate-bounce">🎈</span>
-          <p className="text-xs font-semibold text-primary uppercase tracking-wider">
+          <span className="text-3xl animate-bounce">🎈</span>
+          <p className="text-sm font-bold text-yellow-400 uppercase tracking-wider drop-shadow-md">
             Feliz Aniversário!
           </p>
 
@@ -85,7 +86,7 @@ const AniversarioBalloon = ({ aniversariantes }: Props) => {
                   alt={person.nome}
                   className="h-[200px] w-[200px] rounded-full object-cover border-4 border-primary shadow-md"
                 />
-                <span className="text-sm font-medium text-foreground">{person.nome}</span>
+                <span className="text-sm font-medium text-yellow-400 drop-shadow-sm">{person.nome}</span>
               </div>
             ))}
           </div>
