@@ -78,7 +78,8 @@ async function fetchAllPages(apiKey: string, endpoint: string): Promise<Record<s
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       });
       if (!res.ok) {
-        console.error(`[holdprint-sync] ${endpoint} page ${page}: HTTP ${res.status}`);
+        const errBody = await res.text();
+        console.error(`[holdprint-sync] ${endpoint} page ${page}: HTTP ${res.status} - ${errBody.slice(0, 500)}`);
         break;
       }
       const json = await res.json();
