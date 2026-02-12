@@ -83,7 +83,7 @@ const AniversarioBalloon = ({ aniversariantes }: Props) => {
                 <img
                   src={person.foto}
                   alt={person.nome}
-                  className="h-10 w-10 rounded-full object-cover border-2 border-primary shadow-sm"
+                  className="h-20 w-20 rounded-full object-cover border-3 border-primary shadow-md"
                 />
                 <span className="text-sm font-medium text-foreground">{person.nome}</span>
               </div>
