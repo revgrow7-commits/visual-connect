@@ -42,17 +42,21 @@ const ENDPOINT_LABELS: Record<string, string> = {
 const SectorDashboard = ({ sector, sectorLabel }: SectorDashboardProps) => {
   const endpoints = SECTOR_ENDPOINTS[sector] || ["customers", "budgets", "jobs"];
 
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading, isError } = useQuery({
     queryKey: ["sector-dashboard", sector],
     queryFn: async () => {
       const results: Record<string, { total: number; sample: any[] }> = {};
 
       for (const ep of endpoints) {
-        const { data, count } = await supabase
+        const { data, count, error } = await supabase
           .from("holdprint_cache")
           .select("raw_data, content_text", { count: "exact" })
           .eq("endpoint", ep)
           .limit(5);
+
+        if (error) {
+          console.warn(`Dashboard query error for ${ep}:`, error.message);
+        }
 
         results[ep] = { total: count || 0, sample: data || [] };
       }
@@ -60,6 +64,7 @@ const SectorDashboard = ({ sector, sectorLabel }: SectorDashboardProps) => {
       return results;
     },
     staleTime: 5 * 60 * 1000,
+    retry: 1,
   });
 
   if (isLoading) {
