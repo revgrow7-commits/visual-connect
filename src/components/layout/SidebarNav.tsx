@@ -30,38 +30,46 @@ interface SidebarNavProps {
 }
 
 const mainNav = [
-  { label: "Home", icon: Home, path: "/" },
-  { label: "Notícias", icon: Newspaper, path: "/noticias" },
-  { label: "Benefícios", icon: Heart, path: "/beneficios" },
-  { label: "Unidades", icon: MapPin, path: "/unidades" },
+  { label: "Home", icon: Home, path: "/", highlight: false },
+  { label: "Notícias", icon: Newspaper, path: "/noticias", highlight: true, badge: "Novo" },
+  { label: "Benefícios", icon: Heart, path: "/beneficios", highlight: true, badge: "VR/VA" },
+  { label: "Unidades", icon: MapPin, path: "/unidades", highlight: false },
 ];
 
 const gestaoNav = [
-  { label: "Processos", icon: BookOpen, path: "/processos" },
-  { label: "Kanban", icon: Kanban, path: "/kanban" },
-  { label: "Questionários", icon: ClipboardList, path: "/questionarios" },
-  { label: "Faixa Preta", icon: Award, path: "/faixa-preta" },
+  { label: "Processos", icon: BookOpen, path: "/processos", highlight: false },
+  { label: "Kanban", icon: Kanban, path: "/kanban", highlight: false },
+  { label: "Questionários", icon: ClipboardList, path: "/questionarios", highlight: false },
+  { label: "Faixa Preta", icon: Award, path: "/faixa-preta", highlight: false },
 ];
 
 const rhNav = [
-  { label: "Colaboradores", icon: Users, path: "/rh/colaboradores" },
-  { label: "Admissão", icon: UserPlus, path: "/rh/admissao" },
-  { label: "Banco de Horas", icon: Clock, path: "/rh/banco-horas" },
-  { label: "Contratos", icon: FileText, path: "/rh/contratos" },
-  { label: "Gerar Link", icon: Link2, path: "/rh/gerar-link" },
+  { label: "Colaboradores", icon: Users, path: "/rh/colaboradores", highlight: false },
+  { label: "Admissão", icon: UserPlus, path: "/rh/admissao", highlight: false },
+  { label: "Banco de Horas", icon: Clock, path: "/rh/banco-horas", highlight: false },
+  { label: "Contratos", icon: FileText, path: "/rh/contratos", highlight: false },
+  { label: "Gerar Link", icon: Link2, path: "/rh/gerar-link", highlight: false },
 ];
 
 const maisNav = [
-  { label: "Onboarding", icon: GraduationCap, path: "/onboarding" },
-  { label: "Endomarketing", icon: Megaphone, path: "/endomarketing" },
-  { label: "Ouvidoria", icon: ShieldAlert, path: "/ouvidoria" },
-  { label: "Meu Perfil", icon: User, path: "/perfil" },
-  { label: "Admin", icon: Settings, path: "/admin" },
+  { label: "Onboarding", icon: GraduationCap, path: "/onboarding", highlight: false },
+  { label: "Endomarketing", icon: Megaphone, path: "/endomarketing", highlight: true, badge: "Ação" },
+  { label: "Ouvidoria", icon: ShieldAlert, path: "/ouvidoria", highlight: true, badge: "Canal" },
+  { label: "Meu Perfil", icon: User, path: "/perfil", highlight: false },
+  { label: "Admin", icon: Settings, path: "/admin", highlight: false },
 ];
+
+interface NavItem {
+  label: string;
+  icon: React.ElementType;
+  path: string;
+  highlight?: boolean;
+  badge?: string;
+}
 
 interface NavGroup {
   label: string;
-  items: { label: string; icon: React.ElementType; path: string }[];
+  items: NavItem[];
   collapsible?: boolean;
 }
 
@@ -75,12 +83,12 @@ const groups: NavGroup[] = [
 const SidebarNav = memo(({ open, onClose }: SidebarNavProps) => {
   const location = useLocation();
 
-  // Auto-expand groups that contain the active route
+  // All groups open by default
   const getInitialOpen = () => {
     const openGroups: Record<string, boolean> = {};
     groups.forEach((g) => {
       if (g.collapsible) {
-        openGroups[g.label] = g.items.some((i) => location.pathname === i.path);
+        openGroups[g.label] = true;
       }
     });
     return openGroups;
@@ -92,7 +100,7 @@ const SidebarNav = memo(({ open, onClose }: SidebarNavProps) => {
     setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }));
   };
 
-  const renderLink = (item: { label: string; icon: React.ElementType; path: string }) => {
+  const renderLink = (item: NavItem) => {
     const isActive = location.pathname === item.path;
     return (
       <NavLink
@@ -103,11 +111,28 @@ const SidebarNav = memo(({ open, onClose }: SidebarNavProps) => {
           "flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-all duration-150",
           isActive
             ? "bg-sidebar-accent text-sidebar-accent-foreground"
-            : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+            : item.highlight
+              ? "text-primary font-semibold hover:bg-primary/10"
+              : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
         )}
       >
-        <item.icon className="h-4 w-4 shrink-0" />
-        <span>{item.label}</span>
+        <div className={cn(
+          "flex items-center justify-center h-6 w-6 rounded-md shrink-0",
+          item.highlight && !isActive && "bg-primary/10"
+        )}>
+          <item.icon className={cn("h-4 w-4 shrink-0", item.highlight && !isActive && "text-primary")} />
+        </div>
+        <span className="flex-1">{item.label}</span>
+        {item.badge && (
+          <span className={cn(
+            "text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full leading-none",
+            isActive
+              ? "bg-sidebar-accent-foreground/20 text-sidebar-accent-foreground"
+              : "bg-primary/15 text-primary"
+          )}>
+            {item.badge}
+          </span>
+        )}
       </NavLink>
     );
   };
