@@ -80,11 +80,11 @@ const AniversarioBalloon = ({ aniversariantes }: Props) => {
 
           <div className="flex flex-col items-center gap-2 w-full">
             {aniversariantes.map((person) => (
-              <div key={person.nome} className="flex items-center gap-2.5">
+              <div key={person.nome} className="flex flex-col items-center gap-2">
                 <img
                   src={person.foto}
                   alt={person.nome}
-                  className="h-[200px] w-[200px] rounded-full object-cover border-4 border-primary shadow-md"
+                  className="h-[120px] w-[120px] rounded-full object-cover border-4 border-yellow-400 shadow-md"
                 />
                 <span className="text-sm font-medium text-yellow-400 drop-shadow-sm">{person.nome}</span>
               </div>
@@ -92,6 +92,13 @@ const AniversarioBalloon = ({ aniversariantes }: Props) => {
           </div>
 
           <span className="text-lg">🎂🎉</span>
+
+          <button
+            onClick={() => setVisible(false)}
+            className="mt-2 px-4 py-1.5 rounded-full bg-yellow-400 text-black text-xs font-semibold hover:bg-yellow-300 transition-colors"
+          >
+            Fechar
+          </button>
         </div>
       </div>
     </div>
