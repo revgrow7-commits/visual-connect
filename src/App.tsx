@@ -32,11 +32,23 @@ const GerarLinkPage = lazy(() => import("./pages/rh/GerarLink"));
 const FormularioCandidato = lazy(() => import("./pages/FormularioCandidato"));
 const OuvidoriaPage = lazy(() => import("./pages/Ouvidoria"));
 
+// Gestão pages
+const OperacaoPage = lazy(() => import("./pages/gestao/OperacaoPage"));
+const ComercialPage = lazy(() => import("./pages/gestao/ComercialPage"));
+const ComprasPage = lazy(() => import("./pages/gestao/ComprasPage"));
+const FinanceiroPage = lazy(() => import("./pages/gestao/FinanceiroPage"));
+const FaturamentoPage = lazy(() => import("./pages/gestao/FaturamentoPage"));
+const ContabilPage = lazy(() => import("./pages/gestao/ContabilPage"));
+const FiscalPage = lazy(() => import("./pages/gestao/FiscalPage"));
+const MarketingPage = lazy(() => import("./pages/gestao/MarketingPage"));
+const CsPage = lazy(() => import("./pages/gestao/CsPage"));
+const JuridicoPage = lazy(() => import("./pages/gestao/JuridicoPage"));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 min
-      gcTime: 10 * 60 * 1000,   // 10 min
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
       refetchOnWindowFocus: false,
       retry: 1,
     },
@@ -79,6 +91,17 @@ const App = () => (
                 <Route path="/rh/contratos" element={<ContratosPage />} />
                 <Route path="/rh/gerar-link" element={<GerarLinkPage />} />
                 <Route path="/ouvidoria" element={<OuvidoriaPage />} />
+                {/* Gestão */}
+                <Route path="/gestao/operacao" element={<OperacaoPage />} />
+                <Route path="/gestao/comercial" element={<ComercialPage />} />
+                <Route path="/gestao/compras" element={<ComprasPage />} />
+                <Route path="/gestao/financeiro" element={<FinanceiroPage />} />
+                <Route path="/gestao/faturamento" element={<FaturamentoPage />} />
+                <Route path="/gestao/contabil" element={<ContabilPage />} />
+                <Route path="/gestao/fiscal" element={<FiscalPage />} />
+                <Route path="/gestao/marketing" element={<MarketingPage />} />
+                <Route path="/gestao/cs" element={<CsPage />} />
+                <Route path="/gestao/juridico" element={<JuridicoPage />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -1,25 +1,12 @@
 import { memo, useState } from "react";
 import {
-  Home,
-  Newspaper,
-  GraduationCap,
-  Heart,
-  BookOpen,
-  Kanban,
-  Award,
-  ClipboardList,
-  MapPin,
-  UserPlus,
-  Users,
-  Clock,
-  FileText,
-  Link2,
-  Megaphone,
-  User,
-  Settings,
-  X,
-  ChevronDown,
-  ShieldAlert,
+  Home, Newspaper, Heart, MapPin,
+  BookOpen, Kanban, ClipboardList, Award,
+  Users, UserPlus, Clock, FileText, Link2,
+  GraduationCap, Megaphone, ShieldAlert, User, Settings,
+  X, ChevronDown,
+  Factory, TrendingUp, ShoppingCart, Wallet, Receipt,
+  Calculator, Landmark, HeadphonesIcon, Scale, Brain,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -28,36 +15,6 @@ interface SidebarNavProps {
   open: boolean;
   onClose: () => void;
 }
-
-const mainNav = [
-  { label: "Home", icon: Home, path: "/", highlight: false },
-  { label: "Notícias", icon: Newspaper, path: "/noticias", highlight: true, badge: "Novo" },
-  { label: "Benefícios", icon: Heart, path: "/beneficios", highlight: true, badge: "VR/VA" },
-  { label: "Unidades", icon: MapPin, path: "/unidades", highlight: false },
-];
-
-const gestaoNav = [
-  { label: "Processos", icon: BookOpen, path: "/processos", highlight: false },
-  { label: "Kanban", icon: Kanban, path: "/kanban", highlight: false },
-  { label: "Questionários", icon: ClipboardList, path: "/questionarios", highlight: false },
-  { label: "Faixa Preta", icon: Award, path: "/faixa-preta", highlight: false },
-];
-
-const rhNav = [
-  { label: "Colaboradores", icon: Users, path: "/rh/colaboradores", highlight: false },
-  { label: "Admissão", icon: UserPlus, path: "/rh/admissao", highlight: false },
-  { label: "Banco de Horas", icon: Clock, path: "/rh/banco-horas", highlight: false },
-  { label: "Contratos", icon: FileText, path: "/rh/contratos", highlight: false },
-  { label: "Gerar Link", icon: Link2, path: "/rh/gerar-link", highlight: false },
-];
-
-const maisNav = [
-  { label: "Onboarding", icon: GraduationCap, path: "/onboarding", highlight: false },
-  { label: "Endomarketing", icon: Megaphone, path: "/endomarketing", highlight: true, badge: "Ação" },
-  { label: "Ouvidoria", icon: ShieldAlert, path: "/ouvidoria", highlight: true, badge: "Canal" },
-  { label: "Meu Perfil", icon: User, path: "/perfil", highlight: false },
-  { label: "Admin", icon: Settings, path: "/admin", highlight: false },
-];
 
 interface NavItem {
   label: string;
@@ -74,21 +31,70 @@ interface NavGroup {
 }
 
 const groups: NavGroup[] = [
-  { label: "Principal", items: mainNav },
-  { label: "Gestão", items: gestaoNav, collapsible: true },
-  { label: "RH", items: rhNav, collapsible: true },
-  { label: "Mais", items: maisNav, collapsible: true },
+  {
+    label: "Principal",
+    items: [
+      { label: "Home", icon: Home, path: "/" },
+      { label: "Notícias", icon: Newspaper, path: "/noticias", highlight: true, badge: "Novo" },
+      { label: "Benefícios", icon: Heart, path: "/beneficios", highlight: true, badge: "VR/VA" },
+      { label: "Unidades", icon: MapPin, path: "/unidades" },
+    ],
+  },
+  {
+    label: "Gestão",
+    items: [
+      { label: "Operação", icon: Factory, path: "/gestao/operacao", highlight: true, badge: "IA" },
+      { label: "Comercial", icon: TrendingUp, path: "/gestao/comercial", highlight: true, badge: "IA" },
+      { label: "Compras", icon: ShoppingCart, path: "/gestao/compras" },
+      { label: "Financeiro", icon: Wallet, path: "/gestao/financeiro" },
+      { label: "Faturamento", icon: Receipt, path: "/gestao/faturamento" },
+      { label: "Contábil", icon: Calculator, path: "/gestao/contabil" },
+      { label: "Fiscal", icon: Landmark, path: "/gestao/fiscal" },
+      { label: "Marketing", icon: Megaphone, path: "/gestao/marketing" },
+      { label: "CS", icon: HeadphonesIcon, path: "/gestao/cs" },
+      { label: "Jurídico", icon: Scale, path: "/gestao/juridico" },
+      { label: "Processos", icon: BookOpen, path: "/processos" },
+      { label: "Kanban", icon: Kanban, path: "/kanban" },
+      { label: "Questionários", icon: ClipboardList, path: "/questionarios" },
+      { label: "Faixa Preta", icon: Award, path: "/faixa-preta" },
+    ],
+    collapsible: true,
+  },
+  {
+    label: "RH",
+    items: [
+      { label: "Colaboradores", icon: Users, path: "/rh/colaboradores" },
+      { label: "Admissão", icon: UserPlus, path: "/rh/admissao" },
+      { label: "Banco de Horas", icon: Clock, path: "/rh/banco-horas" },
+      { label: "Contratos", icon: FileText, path: "/rh/contratos" },
+      { label: "Gerar Link", icon: Link2, path: "/rh/gerar-link" },
+    ],
+    collapsible: true,
+  },
+  {
+    label: "Mais",
+    items: [
+      { label: "Onboarding", icon: GraduationCap, path: "/onboarding" },
+      { label: "Endomarketing", icon: Megaphone, path: "/endomarketing", highlight: true, badge: "Ação" },
+      { label: "Ouvidoria", icon: ShieldAlert, path: "/ouvidoria", highlight: true, badge: "Canal" },
+      { label: "Meu Perfil", icon: User, path: "/perfil" },
+      { label: "Admin", icon: Settings, path: "/admin" },
+    ],
+    collapsible: true,
+  },
 ];
 
 const SidebarNav = memo(({ open, onClose }: SidebarNavProps) => {
   const location = useLocation();
 
-  // All groups open by default
   const getInitialOpen = () => {
     const openGroups: Record<string, boolean> = {};
     groups.forEach((g) => {
       if (g.collapsible) {
-        openGroups[g.label] = true;
+        // Open Gestão by default if on a gestao route
+        openGroups[g.label] = g.label === "Gestão"
+          ? location.pathname.startsWith("/gestao")
+          : true;
       }
     });
     return openGroups;
