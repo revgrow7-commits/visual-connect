@@ -1,17 +1,18 @@
 import {
-  Heart, BookOpen, Kanban, Award,
-  FileText, FolderOpen, GraduationCap, Clock,
+  Heart, BookOpen, Award, Newspaper,
+  FolderOpen, GraduationCap, Clock, Megaphone, ShieldAlert,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const atalhos = [
+  { label: "Notícias", icon: Newspaper, path: "/noticias" },
   { label: "Benefícios", icon: Heart, path: "/beneficios" },
   { label: "Processos", icon: BookOpen, path: "/processos" },
-  { label: "Kanban", icon: Kanban, path: "/kanban" },
   { label: "Faixa Preta", icon: Award, path: "/faixa-preta" },
-  { label: "Solicitações", icon: FileText, path: "/rh/admissao" },
   { label: "Documentos", icon: FolderOpen, path: "/perfil" },
   { label: "Treinamentos", icon: GraduationCap, path: "/onboarding" },
+  { label: "Endomarketing", icon: Megaphone, path: "/endomarketing" },
+  { label: "Ouvidoria", icon: ShieldAlert, path: "/ouvidoria" },
   { label: "Banco de Horas", icon: Clock, path: "/rh/banco-horas" },
 ];
 
