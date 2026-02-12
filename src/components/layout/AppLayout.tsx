@@ -3,6 +3,7 @@ import { Outlet } from "react-router-dom";
 import Topbar from "./Topbar";
 import SidebarNav from "./SidebarNav";
 import MobileNav from "./MobileNav";
+import OrchestratorChat from "@/components/ai-agent/OrchestratorChat";
 
 const AppLayout = memo(() => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -17,6 +18,7 @@ const AppLayout = memo(() => {
         </div>
       </main>
       <MobileNav />
+      <OrchestratorChat />
     </div>
   );
 });

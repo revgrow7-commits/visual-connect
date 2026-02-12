@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.send-recruitment-email]
 verify_jwt = false
+
+[functions.sector-agent]
+verify_jwt = false

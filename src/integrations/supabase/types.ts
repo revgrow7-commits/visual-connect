@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_conversations: {
+        Row: {
+          created_at: string | null
+          id: string
+          messages: Json
+          sector: string
+          titulo: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          messages?: Json
+          sector: string
+          titulo?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          messages?: Json
+          sector?: string
+          titulo?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       banco_horas: {
         Row: {
           b_cred: string | null
@@ -447,6 +477,87 @@ export type Database = {
         }
         Relationships: []
       }
+      holdprint_cache: {
+        Row: {
+          content_text: string | null
+          embedding: string | null
+          endpoint: string
+          id: string
+          last_synced: string | null
+          raw_data: Json
+          record_id: string
+        }
+        Insert: {
+          content_text?: string | null
+          embedding?: string | null
+          endpoint: string
+          id?: string
+          last_synced?: string | null
+          raw_data: Json
+          record_id: string
+        }
+        Update: {
+          content_text?: string | null
+          embedding?: string | null
+          endpoint?: string
+          id?: string
+          last_synced?: string | null
+          raw_data?: Json
+          record_id?: string
+        }
+        Relationships: []
+      }
+      improvement_suggestions: {
+        Row: {
+          acao_sugerida: string | null
+          assigned_to: string | null
+          contexto: string | null
+          created_at: string | null
+          created_by: string | null
+          dados_base: string[] | null
+          id: string
+          kpi_meta: string | null
+          prioridade: string
+          setor_destino: string
+          status: string
+          tipo: string
+          titulo: string
+          updated_at: string | null
+        }
+        Insert: {
+          acao_sugerida?: string | null
+          assigned_to?: string | null
+          contexto?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          dados_base?: string[] | null
+          id?: string
+          kpi_meta?: string | null
+          prioridade?: string
+          setor_destino: string
+          status?: string
+          tipo?: string
+          titulo: string
+          updated_at?: string | null
+        }
+        Update: {
+          acao_sugerida?: string | null
+          assigned_to?: string | null
+          contexto?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          dados_base?: string[] | null
+          id?: string
+          kpi_meta?: string | null
+          prioridade?: string
+          setor_destino?: string
+          status?: string
+          tipo?: string
+          titulo?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       onboarding_conversas: {
         Row: {
           cargo: string | null
@@ -685,6 +796,87 @@ export type Database = {
         }
         Relationships: []
       }
+      rag_documents: {
+        Row: {
+          content: string
+          created_at: string | null
+          embedding: string | null
+          id: string
+          metadata: Json
+          original_filename: string | null
+          sector: string
+          source_type: string
+          updated_at: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          metadata?: Json
+          original_filename?: string | null
+          sector: string
+          source_type: string
+          updated_at?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          metadata?: Json
+          original_filename?: string | null
+          sector?: string
+          source_type?: string
+          updated_at?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      rag_files: {
+        Row: {
+          chunk_count: number | null
+          created_at: string | null
+          file_size: number | null
+          file_type: string
+          file_url: string
+          filename: string
+          id: string
+          processed: boolean | null
+          sector: string
+          tags: string[] | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          chunk_count?: number | null
+          created_at?: string | null
+          file_size?: number | null
+          file_type: string
+          file_url: string
+          filename: string
+          id?: string
+          processed?: boolean | null
+          sector: string
+          tags?: string[] | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          chunk_count?: number | null
+          created_at?: string | null
+          file_size?: number | null
+          file_type?: string
+          file_url?: string
+          filename?: string
+          id?: string
+          processed?: boolean | null
+          sector?: string
+          tags?: string[] | null
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       recruitment_links: {
         Row: {
           adicionais: string | null
@@ -804,6 +996,22 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      search_rag: {
+        Args: {
+          filter_sector?: string
+          filter_source?: string
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          id: string
+          metadata: Json
+          sector: string
+          similarity: number
+        }[]
       }
     }
     Enums: {
