@@ -60,8 +60,8 @@ const AniversarioBalloon = ({ aniversariantes }: Props) => {
   if (!visible || aniversariantes.length === 0) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 animate-fade-in">
-      <div className="relative bg-card border border-primary/20 rounded-2xl shadow-lg p-4 min-w-[200px] max-w-[260px]">
+    <div className="fixed top-20 right-6 z-50 animate-fade-in">
+      <div className="relative bg-card border border-primary/20 rounded-2xl shadow-lg p-6 min-w-[280px] max-w-[320px]">
         {showConfetti && <Confetti />}
 
         <button
