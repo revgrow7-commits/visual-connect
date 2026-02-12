@@ -1,6 +1,7 @@
 import {
   Heart, BookOpen, Award, Newspaper,
   FolderOpen, GraduationCap, Clock, Megaphone, ShieldAlert,
+  ClipboardList, MessageSquarePlus,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -14,6 +15,8 @@ const atalhos = [
   { label: "Endomarketing", icon: Megaphone, path: "/endomarketing" },
   { label: "Ouvidoria", icon: ShieldAlert, path: "/ouvidoria" },
   { label: "Banco de Horas", icon: Clock, path: "/rh/banco-horas" },
+  { label: "Questionários", icon: ClipboardList, path: "/questionarios" },
+  { label: "Feedback PDI", icon: MessageSquarePlus, path: "https://empflow-22.emergent.host/create-feedback", external: true },
 ];
 
 const AtalhosRapidos = () => {
@@ -26,7 +29,7 @@ const AtalhosRapidos = () => {
         {atalhos.map((item) => (
           <button
             key={item.path}
-            onClick={() => navigate(item.path)}
+            onClick={() => item.external ? window.open(item.path, "_blank") : navigate(item.path)}
             className="flex flex-col items-center gap-2 p-3 bg-card rounded-xl shadow-card hover:shadow-card-hover transition-all duration-200 hover:-translate-y-0.5 group"
           >
             <div className="h-11 w-11 rounded-full gradient-bordo-light flex items-center justify-center group-hover:scale-110 transition-transform">
