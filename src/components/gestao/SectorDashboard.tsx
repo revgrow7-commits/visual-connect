@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
+import SectorCharts from "./SectorCharts";
 import {
   Loader2, TrendingUp, TrendingDown, Users, Package, DollarSign,
   FileText, BarChart3, RefreshCw, AlertCircle, ArrowUpRight, ArrowDownRight,
@@ -327,7 +328,9 @@ const SectorDashboard = ({ sector, sectorLabel }: SectorDashboardProps) => {
         })}
       </div>
 
-      {/* Recent records */}
+      {/* Charts */}
+      <SectorCharts sector={sector} sectorLabel={sectorLabel} rawData={rawData} />
+
       {hasData && (
         <Card>
           <CardHeader className="pb-2">
