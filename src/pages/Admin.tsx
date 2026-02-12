@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Settings, Upload, Newspaper, Users, Heart, ShieldCheck, GraduationCap } from "lucide-react";
+import { Settings, Upload, Newspaper, Users, Heart, ShieldCheck, GraduationCap, ShieldAlert } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import AdminComunicados from "@/components/admin/AdminComunicados";
@@ -7,6 +7,7 @@ import AdminColaboradores from "@/components/admin/AdminColaboradores";
 import AdminBeneficios from "@/components/admin/AdminBeneficios";
 import AdminUsuarios from "@/components/admin/AdminUsuarios";
 import AdminTrilhas from "@/components/admin/AdminTrilhas";
+import AdminOuvidoria from "@/components/admin/AdminOuvidoria";
 
 const AdminPage = () => {
   const [tab, setTab] = useState("comunicados");
@@ -24,7 +25,7 @@ const AdminPage = () => {
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="comunicados" className="gap-1.5">
             <Newspaper className="h-4 w-4" /> Comunicados
           </TabsTrigger>
@@ -39,6 +40,9 @@ const AdminPage = () => {
           </TabsTrigger>
           <TabsTrigger value="trilhas" className="gap-1.5">
             <GraduationCap className="h-4 w-4" /> Trilhas
+          </TabsTrigger>
+          <TabsTrigger value="ouvidoria" className="gap-1.5">
+            <ShieldAlert className="h-4 w-4" /> Ouvidoria
           </TabsTrigger>
         </TabsList>
 
@@ -56,6 +60,9 @@ const AdminPage = () => {
         </TabsContent>
         <TabsContent value="trilhas">
           <AdminTrilhas />
+        </TabsContent>
+        <TabsContent value="ouvidoria">
+          <AdminOuvidoria />
         </TabsContent>
       </Tabs>
     </div>
