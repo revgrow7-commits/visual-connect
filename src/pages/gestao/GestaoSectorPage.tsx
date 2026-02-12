@@ -1,6 +1,8 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AgentChat from "@/components/ai-agent/AgentChat";
-import { Bot, FileText } from "lucide-react";
+import SectorDashboard from "@/components/gestao/SectorDashboard";
+import SectorDados from "@/components/gestao/SectorDados";
+import { Bot, LayoutDashboard, FileText } from "lucide-react";
 
 interface GestaoSectorPageProps {
   sector: string;
@@ -24,8 +26,11 @@ const GestaoSectorPage = ({ sector, sectorLabel, icon: Icon, description, childr
         </div>
       </div>
 
-      <Tabs defaultValue="agent" className="w-full">
+      <Tabs defaultValue="dashboard" className="w-full">
         <TabsList>
+          <TabsTrigger value="dashboard" className="gap-1.5">
+            <LayoutDashboard className="h-4 w-4" /> Dashboard
+          </TabsTrigger>
           <TabsTrigger value="agent" className="gap-1.5">
             <Bot className="h-4 w-4" /> Agente IA
           </TabsTrigger>
@@ -34,22 +39,16 @@ const GestaoSectorPage = ({ sector, sectorLabel, icon: Icon, description, childr
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="dashboard" className="mt-4">
+          <SectorDashboard sector={sector} sectorLabel={sectorLabel} />
+        </TabsContent>
+
         <TabsContent value="agent" className="mt-4">
           <AgentChat sector={sector} sectorLabel={sectorLabel} />
         </TabsContent>
 
         <TabsContent value="dados" className="mt-4">
-          {children || (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <FileText className="h-12 w-12 text-muted-foreground/30 mb-3" />
-              <p className="text-sm text-muted-foreground">
-                Dados e documentos de {sectorLabel} serão exibidos aqui.
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Em breve: integração com Holdprint API e base RAG.
-              </p>
-            </div>
-          )}
+          {children || <SectorDados sector={sector} sectorLabel={sectorLabel} />}
         </TabsContent>
       </Tabs>
     </div>
