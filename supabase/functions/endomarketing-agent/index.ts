@@ -4,6 +4,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+const MODEL = "gemini-2.5-flash";
+
 const BRAND = {
   colors: { primary: "#A02040", secondary: "#702050", gradientStart: "#C0304A", gradientEnd: "#5030A0", white: "#FFFFFF", dark: "#1A1A1A" },
   fonts: ["Inter", "Poppins"],
@@ -58,8 +61,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) throw new Error("LOVABLE_API_KEY não configurada");
+    const apiKey = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!apiKey) throw new Error("GOOGLE_GEMINI_API_KEY não configurada");
 
     const { tema, tom, detalhes } = await req.json();
     if (!tema) return jsonResponse({ error: "Campo 'tema' é obrigatório" }, 400);
@@ -71,24 +74,16 @@ ${detalhes ? `- Detalhes adicionais: ${detalhes}` : ""}
 
 Gere a especificação completa do cartaz em JSON.`;
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const res = await fetch(GEMINI_URL, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        max_tokens: 4096,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-      }),
+      body: JSON.stringify({ model: MODEL, max_tokens: 4096, messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: userPrompt }] }),
     });
 
     if (!res.ok) {
       if (res.status === 429) return jsonResponse({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }, 429);
-      if (res.status === 402) return jsonResponse({ error: "Créditos insuficientes. Adicione créditos ao workspace." }, 402);
       const t = await res.text();
-      console.error("[endomarketing] AI gateway error:", res.status, t);
+      console.error("[endomarketing] Gemini error:", res.status, t);
       throw new Error("Erro ao gerar especificação");
     }
 
