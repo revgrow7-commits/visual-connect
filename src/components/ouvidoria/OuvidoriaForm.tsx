@@ -125,14 +125,33 @@ const OuvidoriaForm = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Upload files
+      if (!user) {
+        toast({
+          title: "Autenticação necessária",
+          description: "Faça login para enviar sua manifestação.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      // Upload files first
       const anexoUrls: string[] = [];
       for (const file of files) {
-        const path = `${crypto.randomUUID()}/${file.name}`;
+        const path = `${user.id}/${crypto.randomUUID()}/${file.name}`;
         const { error: uploadErr } = await supabase.storage
           .from("ouvidoria-anexos")
           .upload(path, file);
-        if (uploadErr) throw uploadErr;
+        if (uploadErr) {
+          console.error("Upload error:", uploadErr);
+          toast({
+            title: "Erro no upload",
+            description: `Falha ao enviar ${file.name}: ${uploadErr.message}`,
+            variant: "destructive",
+          });
+          setSubmitting(false);
+          return;
+        }
         anexoUrls.push(path);
       }
 
@@ -150,7 +169,7 @@ const OuvidoriaForm = () => {
           email: anonimo ? null : emailId,
           descricao,
           urgencia,
-          user_id: user?.id ?? null,
+          user_id: user.id,
           protocolo: "temp", // will be overwritten by trigger
         } as any)
         .select("protocolo")
