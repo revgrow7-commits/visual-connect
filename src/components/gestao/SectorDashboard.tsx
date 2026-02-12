@@ -226,12 +226,21 @@ const SectorDashboard = ({ sector, sectorLabel }: SectorDashboardProps) => {
     queryFn: async () => {
       const results: Record<string, any[]> = {};
       for (const ep of config.endpoints) {
-        const { data, error } = await supabase
-          .from("holdprint_cache")
-          .select("raw_data, content_text, endpoint")
-          .eq("endpoint", ep);
-        if (error) console.warn(`Dashboard ${ep}:`, error.message);
-        results[ep] = data || [];
+        try {
+          const { data, error } = await supabase
+            .from("holdprint_cache")
+            .select("raw_data, content_text, endpoint")
+            .eq("endpoint", ep);
+          if (error) {
+            console.warn(`Dashboard ${ep}:`, error.message);
+            results[ep] = [];
+          } else {
+            results[ep] = data || [];
+          }
+        } catch (e) {
+          console.warn(`Dashboard ${ep} fetch failed:`, e);
+          results[ep] = [];
+        }
       }
       return results;
     },
