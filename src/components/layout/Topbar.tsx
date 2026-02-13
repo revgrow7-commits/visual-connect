@@ -1,24 +1,14 @@
 import { memo } from "react";
-import { Bell, Search, Menu, LogIn } from "lucide-react";
+import { Bell, Search, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logoIndustria from "@/assets/logo-industria-visual.png";
 import { Input } from "@/components/ui/input";
-import { useAuth } from "@/contexts/AuthContext";
-import { lovable } from "@/integrations/lovable/index";
 
 interface TopbarProps {
   onToggleSidebar: () => void;
 }
 
 const Topbar = memo(({ onToggleSidebar }: TopbarProps) => {
-  const { user, loading } = useAuth();
-
-  const handleGoogleLogin = async () => {
-    await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-  };
-
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-16 border-b border-border bg-card flex items-center px-4 gap-4">
       <Button
@@ -48,33 +38,16 @@ const Topbar = memo(({ onToggleSidebar }: TopbarProps) => {
       </div>
 
       <div className="flex items-center gap-2 ml-auto">
-        {!loading && !user ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleGoogleLogin}
-            className="gap-1.5 text-xs font-medium"
-          >
-            <LogIn className="h-4 w-4" />
-            <span className="hidden sm:inline">Entrar com Google</span>
-            <span className="sm:hidden">Entrar</span>
-          </Button>
-        ) : (
-          <>
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
-                3
-              </span>
-            </Button>
+        <Button variant="ghost" size="icon" className="relative">
+          <Bell className="h-5 w-5" />
+          <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+            3
+          </span>
+        </Button>
 
-            <div className="h-8 w-8 rounded-full gradient-bordo flex items-center justify-center">
-              <span className="text-primary-foreground text-xs font-semibold">
-                {user?.email?.substring(0, 2).toUpperCase() || "JC"}
-              </span>
-            </div>
-          </>
-        )}
+        <div className="h-8 w-8 rounded-full gradient-bordo flex items-center justify-center">
+          <span className="text-primary-foreground text-xs font-semibold">IV</span>
+        </div>
       </div>
     </header>
   );
