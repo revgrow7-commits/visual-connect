@@ -18,6 +18,11 @@ const ENDPOINTS: Record<string, { path: string; pageParam: string; limitParam: s
   incomes:   { path: "/api-key/incomes/data",    pageParam: "page", limitParam: "limit", dateFilters: true },
 };
 
+const UNITS: { key: string; label: string; envVar: string }[] = [
+  { key: "poa", label: "Porto Alegre", envVar: "HOLDPRINT_TOKEN_POA" },
+  { key: "sp",  label: "São Paulo",    envVar: "HOLDPRINT_TOKEN_SP" },
+];
+
 function getSupabaseAdmin() {
   return createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -48,7 +53,7 @@ function extractRecordId(item: Record<string, unknown>): string {
   return String(item.id || item.Id || item.ID || item.code || crypto.randomUUID());
 }
 
-async function fetchAllPages(apiKey: string, endpoint: string): Promise<Record<string, unknown>[]> {
+async function fetchAllPages(apiToken: string, endpoint: string): Promise<Record<string, unknown>[]> {
   const config = ENDPOINTS[endpoint];
   if (!config) return [];
 
@@ -75,7 +80,7 @@ async function fetchAllPages(apiKey: string, endpoint: string): Promise<Record<s
 
     try {
       const res = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       });
       if (!res.ok) {
         const errBody = await res.text();
@@ -104,35 +109,43 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get("HOLDPRINT_API_KEY");
-    if (!apiKey) throw new Error("HOLDPRINT_API_KEY não configurada");
-
     const sb = getSupabaseAdmin();
-    const stats: Record<string, number> = {};
+    const stats: Record<string, Record<string, number>> = {};
 
-    for (const endpoint of Object.keys(ENDPOINTS)) {
-      console.log(`[holdprint-sync] Fetching ${endpoint}...`);
-      const items = await fetchAllPages(apiKey, endpoint);
-      stats[endpoint] = items.length;
+    for (const unit of UNITS) {
+      const token = Deno.env.get(unit.envVar);
+      if (!token) {
+        console.warn(`[holdprint-sync] Token não encontrado para ${unit.label} (${unit.envVar}), pulando...`);
+        continue;
+      }
 
-      if (items.length === 0) continue;
+      stats[unit.key] = {};
+      console.log(`[holdprint-sync] === Sincronizando ${unit.label} ===`);
 
-      const rows = items.map((item) => ({
-        endpoint,
-        record_id: extractRecordId(item),
-        raw_data: item,
-        content_text: buildContentText(endpoint, item),
-        last_synced: new Date().toISOString(),
-      }));
+      for (const endpoint of Object.keys(ENDPOINTS)) {
+        console.log(`[holdprint-sync] [${unit.key}] Fetching ${endpoint}...`);
+        const items = await fetchAllPages(token, endpoint);
+        stats[unit.key][endpoint] = items.length;
 
-      // Upsert in batches of 100
-      for (let i = 0; i < rows.length; i += 100) {
-        const batch = rows.slice(i, i + 100);
-        const { error } = await sb
-          .from("holdprint_cache")
-          .upsert(batch, { onConflict: "endpoint,record_id" });
-        if (error) {
-          console.error(`[holdprint-sync] ${endpoint} upsert error:`, error.message);
+        if (items.length === 0) continue;
+
+        const rows = items.map((item) => ({
+          endpoint,
+          record_id: `${unit.key}_${extractRecordId(item)}`,
+          raw_data: { ...item, _unidade: unit.label, _unit_key: unit.key },
+          content_text: `[${unit.label}] ${buildContentText(endpoint, item)}`,
+          last_synced: new Date().toISOString(),
+        }));
+
+        // Upsert in batches of 100
+        for (let i = 0; i < rows.length; i += 100) {
+          const batch = rows.slice(i, i + 100);
+          const { error } = await sb
+            .from("holdprint_cache")
+            .upsert(batch, { onConflict: "endpoint,record_id" });
+          if (error) {
+            console.error(`[holdprint-sync] [${unit.key}] ${endpoint} upsert error:`, error.message);
+          }
         }
       }
     }
