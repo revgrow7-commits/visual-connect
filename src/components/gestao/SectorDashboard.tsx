@@ -1,15 +1,16 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { toast } from "@/hooks/use-toast";
 import SectorCharts from "./SectorCharts";
 import {
   Loader2, TrendingUp, TrendingDown, Users, Package, DollarSign,
   FileText, BarChart3, RefreshCw, AlertCircle, ArrowUpRight, ArrowDownRight,
-  Briefcase, Receipt, PieChart
+  Briefcase, Receipt, PieChart, MapPin
 } from "lucide-react";
 
 interface SectorDashboardProps {
@@ -52,157 +53,94 @@ const SECTOR_CONFIG: Record<string, {
   financeiro: {
     endpoints: ["expenses", "incomes"],
     kpis: [
-      {
-        key: "incomes", label: "Receitas", icon: TrendingUp, color: "text-green-600",
-        extract: (items) => ({ value: String(items.length), detail: "lançamentos no período" }),
-      },
-      {
-        key: "expenses", label: "Despesas", icon: TrendingDown, color: "text-red-600",
-        extract: (items) => ({ value: String(items.length), detail: "lançamentos no período" }),
-      },
+      { key: "incomes", label: "Receitas", icon: TrendingUp, color: "text-green-600", extract: (items) => ({ value: String(items.length), detail: "lançamentos no período" }) },
+      { key: "expenses", label: "Despesas", icon: TrendingDown, color: "text-red-600", extract: (items) => ({ value: String(items.length), detail: "lançamentos no período" }) },
     ],
   },
   operacao: {
     endpoints: ["jobs"],
     kpis: [
-      {
-        key: "jobs", label: "Jobs Total", icon: Briefcase, color: "text-blue-600",
-        extract: (items) => {
-          const done = items.filter((i: any) => (i.content_text || "").includes("Concluído") || (i.content_text || "").includes("completed"));
-          return { value: String(items.length), detail: `${done.length} concluídos` };
-        },
-      },
-      {
-        key: "jobs", label: "Concluídos", icon: Receipt, color: "text-green-600",
-        extract: (items) => {
-          const done = items.filter((i: any) => (i.content_text || "").includes("Concluído") || (i.content_text || "").includes("completed"));
-          return { value: String(done.length), detail: `de ${items.length} no período` };
-        },
-      },
+      { key: "jobs", label: "Jobs Total", icon: Briefcase, color: "text-blue-600", extract: (items) => { const done = items.filter((i: any) => (i.content_text || "").includes("Concluído") || (i.content_text || "").includes("completed")); return { value: String(items.length), detail: `${done.length} concluídos` }; } },
+      { key: "jobs", label: "Concluídos", icon: Receipt, color: "text-green-600", extract: (items) => { const done = items.filter((i: any) => (i.content_text || "").includes("Concluído") || (i.content_text || "").includes("completed")); return { value: String(done.length), detail: `de ${items.length} no período` }; } },
     ],
   },
   compras: {
     endpoints: ["suppliers", "expenses"],
     kpis: [
-      {
-        key: "suppliers", label: "Fornecedores", icon: Package, color: "text-purple-600",
-        extract: (items) => ({ value: String(items.length), detail: "cadastrados" }),
-      },
-      {
-        key: "expenses", label: "Despesas", icon: TrendingDown, color: "text-red-600",
-        extract: (items) => ({ value: String(items.length), detail: "lançamentos" }),
-      },
+      { key: "suppliers", label: "Fornecedores", icon: Package, color: "text-purple-600", extract: (items) => ({ value: String(items.length), detail: "cadastrados" }) },
+      { key: "expenses", label: "Despesas", icon: TrendingDown, color: "text-red-600", extract: (items) => ({ value: String(items.length), detail: "lançamentos" }) },
     ],
   },
   contabil: {
     endpoints: ["expenses", "incomes"],
     kpis: [
-      {
-        key: "incomes", label: "Receitas Contábeis", icon: ArrowUpRight, color: "text-green-600",
-        extract: (items) => ({ value: String(items.length), detail: "registros" }),
-      },
-      {
-        key: "expenses", label: "Custos & Despesas", icon: ArrowDownRight, color: "text-red-600",
-        extract: (items) => ({ value: String(items.length), detail: "registros" }),
-      },
+      { key: "incomes", label: "Receitas Contábeis", icon: ArrowUpRight, color: "text-green-600", extract: (items) => ({ value: String(items.length), detail: "registros" }) },
+      { key: "expenses", label: "Custos & Despesas", icon: ArrowDownRight, color: "text-red-600", extract: (items) => ({ value: String(items.length), detail: "registros" }) },
     ],
   },
   fiscal: {
     endpoints: ["expenses", "incomes"],
     kpis: [
-      {
-        key: "incomes", label: "Notas de Entrada", icon: ArrowUpRight, color: "text-green-600",
-        extract: (items) => ({ value: String(items.length), detail: "no período" }),
-      },
-      {
-        key: "expenses", label: "Notas de Saída", icon: ArrowDownRight, color: "text-red-600",
-        extract: (items) => ({ value: String(items.length), detail: "no período" }),
-      },
+      { key: "incomes", label: "Notas de Entrada", icon: ArrowUpRight, color: "text-green-600", extract: (items) => ({ value: String(items.length), detail: "no período" }) },
+      { key: "expenses", label: "Notas de Saída", icon: ArrowDownRight, color: "text-red-600", extract: (items) => ({ value: String(items.length), detail: "no período" }) },
     ],
   },
   faturamento: {
     endpoints: ["incomes", "jobs"],
     kpis: [
-      {
-        key: "incomes", label: "Receitas", icon: DollarSign, color: "text-green-600",
-        extract: (items) => ({ value: String(items.length), detail: "lançamentos" }),
-      },
-      {
-        key: "jobs", label: "Jobs Concluídos", icon: Briefcase, color: "text-blue-600",
-        extract: (items) => {
-          const done = items.filter((i: any) => (i.content_text || "").includes("Concluído") || (i.content_text || "").includes("completed"));
-          return { value: String(done.length), detail: `de ${items.length} total` };
-        },
-      },
+      { key: "incomes", label: "Receitas", icon: DollarSign, color: "text-green-600", extract: (items) => ({ value: String(items.length), detail: "lançamentos" }) },
+      { key: "jobs", label: "Jobs Concluídos", icon: Briefcase, color: "text-blue-600", extract: (items) => { const done = items.filter((i: any) => (i.content_text || "").includes("Concluído") || (i.content_text || "").includes("completed")); return { value: String(done.length), detail: `de ${items.length} total` }; } },
     ],
   },
   marketing: {
     endpoints: ["customers", "budgets"],
     kpis: [
-      {
-        key: "customers", label: "Base de Clientes", icon: Users, color: "text-blue-600",
-        extract: (items) => ({ value: String(items.length), detail: "cadastrados" }),
-      },
-      {
-        key: "budgets", label: "Propostas", icon: FileText, color: "text-amber-600",
-        extract: (items) => ({ value: String(items.length), detail: "no período" }),
-      },
+      { key: "customers", label: "Base de Clientes", icon: Users, color: "text-blue-600", extract: (items) => ({ value: String(items.length), detail: "cadastrados" }) },
+      { key: "budgets", label: "Propostas", icon: FileText, color: "text-amber-600", extract: (items) => ({ value: String(items.length), detail: "no período" }) },
     ],
   },
   cs: {
     endpoints: ["customers", "jobs"],
     kpis: [
-      {
-        key: "customers", label: "Clientes", icon: Users, color: "text-blue-600",
-        extract: (items) => ({ value: String(items.length), detail: "na base" }),
-      },
-      {
-        key: "jobs", label: "Jobs em Andamento", icon: Briefcase, color: "text-amber-600",
-        extract: (items) => {
-          const active = items.filter((i: any) => !(i.content_text || "").includes("Concluído") && !(i.content_text || "").includes("completed"));
-          return { value: String(active.length), detail: `${items.length} total` };
-        },
-      },
+      { key: "customers", label: "Clientes", icon: Users, color: "text-blue-600", extract: (items) => ({ value: String(items.length), detail: "na base" }) },
+      { key: "jobs", label: "Jobs em Andamento", icon: Briefcase, color: "text-amber-600", extract: (items) => { const active = items.filter((i: any) => !(i.content_text || "").includes("Concluído") && !(i.content_text || "").includes("completed")); return { value: String(active.length), detail: `${items.length} total` }; } },
     ],
   },
   juridico: {
     endpoints: ["suppliers", "customers"],
     kpis: [
-      {
-        key: "customers", label: "Clientes (Contratos)", icon: Users, color: "text-blue-600",
-        extract: (items) => ({ value: String(items.length), detail: "cadastrados" }),
-      },
-      {
-        key: "suppliers", label: "Fornecedores (Contratos)", icon: Package, color: "text-purple-600",
-        extract: (items) => ({ value: String(items.length), detail: "cadastrados" }),
-      },
+      { key: "customers", label: "Clientes (Contratos)", icon: Users, color: "text-blue-600", extract: (items) => ({ value: String(items.length), detail: "cadastrados" }) },
+      { key: "suppliers", label: "Fornecedores (Contratos)", icon: Package, color: "text-purple-600", extract: (items) => ({ value: String(items.length), detail: "cadastrados" }) },
     ],
   },
 };
 
-function formatCurrency(value: number): string {
-  if (value === 0) return "R$ 0";
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(value);
-}
-
-/* ──────────────────── Component ──────────────────── */
 const SectorDashboard = ({ sector, sectorLabel }: SectorDashboardProps) => {
-  const { user, loading: authLoading } = useAuth();
+  const [unidade, setUnidade] = useState("todas");
   const config = SECTOR_CONFIG[sector] || SECTOR_CONFIG.comercial;
 
   const { data: rawData, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ["sector-dashboard", sector],
-    enabled: !authLoading,
+    queryKey: ["sector-dashboard", sector, unidade],
     queryFn: async () => {
       const entries = await Promise.all(
         config.endpoints.map(async (ep) => {
           try {
-            const { data, error } = await supabase
+            let query = supabase
               .from("holdprint_cache")
               .select("content_text, endpoint, record_id")
-              .eq("endpoint", ep)
+              .eq("endpoint", ep);
+
+            // Filter by unit prefix
+            if (unidade === "poa") {
+              query = query.like("record_id", "poa_%");
+            } else if (unidade === "sp") {
+              query = query.like("record_id", "sp_%");
+            }
+
+            const { data, error } = await query
               .order("last_synced", { ascending: false })
               .limit(1000);
+
             if (error) {
               console.warn(`Dashboard ${ep}:`, error.message);
               return [ep, []] as const;
@@ -220,10 +158,9 @@ const SectorDashboard = ({ sector, sectorLabel }: SectorDashboardProps) => {
     retry: 1,
   });
 
-  // Compute KPIs from content_text (no raw_data needed)
   const computedKpis = config.kpis.map((kpi) => {
     const items = rawData?.[kpi.key] || [];
-    return { ...kpi, computed: kpi.extract(items), isPositive: undefined };
+    return { ...kpi, computed: kpi.extract(items) };
   });
 
   const hasData = rawData && Object.values(rawData).some((arr) => arr.length > 0);
@@ -240,7 +177,7 @@ const SectorDashboard = ({ sector, sectorLabel }: SectorDashboardProps) => {
     }
   };
 
-  if (isLoading || authLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -248,24 +185,11 @@ const SectorDashboard = ({ sector, sectorLabel }: SectorDashboardProps) => {
     );
   }
 
-  if (!user) {
-    return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-          <AlertCircle className="h-10 w-10 text-muted-foreground/30 mb-3" />
-          <p className="text-sm text-muted-foreground">
-            Faça login para visualizar o dashboard de <span className="font-medium">{sectorLabel}</span>.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      {/* Sync bar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      {/* Sync bar + Unit filter */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="outline" className="text-xs">
             {hasData ? "Dados sincronizados" : "Aguardando sincronização"}
           </Badge>
@@ -275,10 +199,32 @@ const SectorDashboard = ({ sector, sectorLabel }: SectorDashboardProps) => {
             </Badge>
           )}
         </div>
-        <Button variant="outline" size="sm" onClick={handleSync} disabled={isFetching} className="gap-1.5 text-xs">
-          <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
-          Sincronizar Holdprint
-        </Button>
+
+        <div className="flex items-center gap-2">
+          {/* POA / SP Toggle */}
+          <ToggleGroup
+            type="single"
+            value={unidade}
+            onValueChange={(v) => { if (v) setUnidade(v); }}
+            size="sm"
+            className="border rounded-lg p-0.5"
+          >
+            <ToggleGroupItem value="todas" className="text-xs px-3 gap-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+              <MapPin className="h-3 w-3" /> Todas
+            </ToggleGroupItem>
+            <ToggleGroupItem value="poa" className="text-xs px-3 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+              POA
+            </ToggleGroupItem>
+            <ToggleGroupItem value="sp" className="text-xs px-3 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+              SP
+            </ToggleGroupItem>
+          </ToggleGroup>
+
+          <Button variant="outline" size="sm" onClick={handleSync} disabled={isFetching} className="gap-1.5 text-xs">
+            <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
+            Sincronizar
+          </Button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -296,7 +242,7 @@ const SectorDashboard = ({ sector, sectorLabel }: SectorDashboardProps) => {
                 <div className="text-2xl font-bold tracking-tight">{data.value}</div>
                 <p className="text-[11px] text-muted-foreground mt-0.5">{data.detail}</p>
               </CardContent>
-              <div className={`absolute bottom-0 left-0 right-0 h-1 ${kpi.key === "_balance" ? (kpi.isPositive ? "bg-green-500/30" : "bg-red-500/30") : "bg-primary/10"}`} />
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary/10" />
             </Card>
           );
         })}
@@ -315,6 +261,9 @@ const SectorDashboard = ({ sector, sectorLabel }: SectorDashboardProps) => {
               (rawData?.[ep] || []).slice(0, 5).map((item: any, i: number) => (
                 <div key={`${ep}-${i}`} className="flex items-center gap-2 text-xs bg-muted/50 rounded-lg px-3 py-2">
                   <Badge variant="secondary" className="text-[10px] shrink-0">{ep}</Badge>
+                  <Badge variant="outline" className="text-[10px] shrink-0">
+                    {(item.record_id || "").startsWith("poa_") ? "POA" : "SP"}
+                  </Badge>
                   <span className="text-muted-foreground truncate">{item.content_text || "—"}</span>
                 </div>
               ))
@@ -332,7 +281,7 @@ const SectorDashboard = ({ sector, sectorLabel }: SectorDashboardProps) => {
               Nenhum dado sincronizado para <span className="font-medium">{sectorLabel}</span>.
             </p>
             <p className="text-xs text-muted-foreground mt-1 mb-4">
-              Clique em "Sincronizar Holdprint" para popular o dashboard com dados reais.
+              Clique em "Sincronizar" para popular o dashboard com dados reais.
             </p>
             <Button variant="outline" size="sm" onClick={handleSync} className="gap-1.5">
               <RefreshCw className="h-3.5 w-3.5" /> Sincronizar agora
