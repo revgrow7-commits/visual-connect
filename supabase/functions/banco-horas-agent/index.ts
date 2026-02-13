@@ -4,8 +4,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-const MODEL = "gemini-2.5-flash";
+const PROVIDER_CONFIG: Record<string, { url: string; model: string; envKey: string }> = {
+  gemini: { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: "gemini-2.5-flash", envKey: "GOOGLE_GEMINI_API_KEY" },
+  claude: { url: "https://api.anthropic.com/v1/messages", model: "claude-sonnet-4-20250514", envKey: "ANTHROPIC_API_KEY" },
+  openai: { url: "https://api.openai.com/v1/chat/completions", model: "gpt-4o", envKey: "OPENAI_API_KEY" },
+  perplexity: { url: "https://api.perplexity.ai/chat/completions", model: "sonar-pro", envKey: "PERPLEXITY_API_KEY" },
+};
 
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -83,10 +87,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    if (!apiKey) throw new Error("GOOGLE_GEMINI_API_KEY não configurada");
+    const { colaboradores, competencia, provider: reqProvider } = await req.json();
 
-    const { colaboradores, competencia } = await req.json();
+    const provider = reqProvider || "gemini";
+    const providerCfg = PROVIDER_CONFIG[provider] || PROVIDER_CONFIG.gemini;
+    const apiKey = Deno.env.get(providerCfg.envKey);
+    if (!apiKey) throw new Error(`${providerCfg.envKey} não configurada`);
 
     const userMessage = `Analise o banco de horas da competência ${competencia} para os seguintes colaboradores da Indústria Visual.
 
@@ -100,23 +106,34 @@ ${JSON.stringify(colaboradores, null, 2)}
 
 Retorne APENAS o JSON estruturado conforme especificado, sem texto adicional.`;
 
-    const res = await fetch(GEMINI_URL, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 8192, messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: userMessage }] }),
-    });
-
-    if (!res.ok) {
-      if (res.status === 429) throw { status: 429, message: "Limite de requisições excedido. Tente novamente em alguns minutos." };
-      const t = await res.text();
-      console.error("[banco-horas-agent] Gemini error:", res.status, t);
-      throw new Error(`Erro na API Gemini: ${res.status}`);
+    let content = "";
+    if (provider === "claude") {
+      const res = await fetch(providerCfg.url, {
+        method: "POST",
+        headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+        body: JSON.stringify({ model: providerCfg.model, max_tokens: 8192, system: SYSTEM_PROMPT, messages: [{ role: "user", content: userMessage }] }),
+      });
+      if (!res.ok) {
+        if (res.status === 429) throw { status: 429, message: "Limite de requisições excedido." };
+        throw new Error(`Erro na API Claude: ${res.status}`);
+      }
+      const data = await res.json();
+      content = data.content?.[0]?.text || "";
+    } else {
+      const res = await fetch(providerCfg.url, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: providerCfg.model, max_tokens: 8192, messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: userMessage }] }),
+      });
+      if (!res.ok) {
+        if (res.status === 429) throw { status: 429, message: "Limite de requisições excedido." };
+        throw new Error(`Erro na API ${provider}: ${res.status}`);
+      }
+      const result = await res.json();
+      content = result.choices?.[0]?.message?.content || "";
     }
 
-    const result = await res.json();
-    const content = result.choices?.[0]?.message?.content || "";
     const parsed = extractJSON(content);
-
     return jsonResponse(parsed);
   } catch (e: unknown) {
     const err = e as { status?: number; message?: string };

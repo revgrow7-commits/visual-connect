@@ -6,8 +6,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-const MODEL = "gemini-2.5-flash";
+const PROVIDER_CONFIG: Record<string, { url: string; model: string; envKey: string }> = {
+  gemini: { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: "gemini-2.5-flash", envKey: "GOOGLE_GEMINI_API_KEY" },
+  claude: { url: "https://api.anthropic.com/v1/messages", model: "claude-sonnet-4-20250514", envKey: "ANTHROPIC_API_KEY" },
+  openai: { url: "https://api.openai.com/v1/chat/completions", model: "gpt-4o", envKey: "OPENAI_API_KEY" },
+  perplexity: { url: "https://api.perplexity.ai/chat/completions", model: "sonar-pro", envKey: "PERPLEXITY_API_KEY" },
+};
 const HOLDPRINT_BASE = "https://api.holdworks.ai";
 
 const SECTOR_ENDPOINTS: Record<string, string[]> = {
@@ -478,22 +482,23 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const geminiKey = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    if (!geminiKey) throw new Error("GOOGLE_GEMINI_API_KEY não configurada");
-
-    const holdprintKey = Deno.env.get("HOLDPRINT_API_KEY");
-
-    const { messages, sector } = await req.json();
+    const { messages, sector, provider: reqProvider } = await req.json();
     if (!messages || !Array.isArray(messages)) {
       return jsonResponse({ error: "Campo 'messages' é obrigatório" }, 400);
     }
+
+    const provider = reqProvider || "gemini";
+    const providerCfg = PROVIDER_CONFIG[provider] || PROVIDER_CONFIG.gemini;
+    const apiKey = Deno.env.get(providerCfg.envKey);
+    if (!apiKey) throw new Error(`${providerCfg.envKey} não configurada`);
+
+    const holdprintKey = Deno.env.get("HOLDPRINT_API_KEY");
 
     const sectorPrompt = SECTOR_PROMPTS[sector] || SECTOR_PROMPTS.orquestrador;
     const endpoints = SECTOR_ENDPOINTS[sector] || [];
 
     const isOrquestrador = sector === "orquestrador";
 
-    // Fetch live + historical + internal DB data in parallel; also sync to DB
     const [holdprintContext, ragContext, internalDbContext, syncResult] = await Promise.all([
       (async () => {
         if (!holdprintKey) return "\n\n⚠️ API Holdprint não configurada. Respondendo com base no conhecimento geral.";
@@ -514,22 +519,42 @@ Deno.serve(async (req) => {
 
     const systemContent = `${sectorPrompt}\n${BASE_RULES}${holdprintContext}${ragContext}${internalDbContext}`;
 
+    // Claude uses a different API format
+    if (provider === "claude") {
+      const claudeMsgs = messages.filter((m: { role: string }) => m.role !== "system").map((m: { role: string; content: string }) => ({ role: m.role, content: m.content }));
+      const response = await fetch(providerCfg.url, {
+        method: "POST",
+        headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+        body: JSON.stringify({ model: providerCfg.model, max_tokens: 4096, system: systemContent, messages: claudeMsgs, stream: true }),
+      });
+      if (!response.ok) {
+        if (response.status === 429) return jsonResponse({ error: "Limite de requisições excedido." }, 429);
+        const t = await response.text();
+        console.error("[sector-agent] Claude error:", response.status, t);
+        throw new Error("Erro ao comunicar com o agente Claude");
+      }
+      return new Response(response.body, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      });
+    }
+
+    // OpenAI-compatible (Gemini, OpenAI, Perplexity)
     const apiMessages = [
       { role: "system", content: systemContent },
       ...messages.filter((m: { role: string }) => m.role !== "system"),
     ];
 
-    const response = await fetch(GEMINI_URL, {
+    const response = await fetch(providerCfg.url, {
       method: "POST",
-      headers: { Authorization: `Bearer ${geminiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 4096, messages: apiMessages, stream: true }),
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: providerCfg.model, max_tokens: 4096, messages: apiMessages, stream: true }),
     });
 
     if (!response.ok) {
       if (response.status === 429) return jsonResponse({ error: "Limite de requisições excedido." }, 429);
       const t = await response.text();
-      console.error("[sector-agent] Gemini error:", response.status, t);
-      throw new Error("Erro ao comunicar com o agente");
+      console.error(`[sector-agent] ${provider} error:`, response.status, t);
+      throw new Error(`Erro ao comunicar com o agente ${provider}`);
     }
 
     return new Response(response.body, {
