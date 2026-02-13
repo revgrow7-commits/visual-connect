@@ -352,6 +352,119 @@ Integradora de comunicação visual. Smart Signage (Flat, Waved, Curved, Convex)
 6. Formate valores em R$ brasileiro
 7. Quando comparar períodos, deixe claro a fonte (tempo real vs histórico)`;
 
+// Sync Holdprint data for sector endpoints into DB (holdprint_cache + rag_documents)
+async function syncHoldprintToDB(endpoints: string[]): Promise<string> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceKey) return "⚠️ Supabase não configurado para sync";
+
+  const sb = createClient(supabaseUrl, serviceKey);
+
+  const UNITS = [
+    { key: "poa", label: "Porto Alegre", envVar: "HOLDPRINT_TOKEN_POA" },
+    { key: "sp", label: "São Paulo", envVar: "HOLDPRINT_TOKEN_SP" },
+  ];
+
+  const BATCH_SIZE = 50;
+  let totalSynced = 0;
+
+  for (const unit of UNITS) {
+    const token = Deno.env.get(unit.envVar);
+    if (!token) continue;
+
+    for (const endpoint of endpoints) {
+      const config = ENDPOINT_CONFIG[endpoint];
+      if (!config) continue;
+
+      // Fetch all pages
+      const allItems: Record<string, unknown>[] = [];
+      let page = 1;
+      while (true) {
+        const url = new URL(`${HOLDPRINT_BASE}${config.path}`);
+        url.searchParams.set(config.pageParam, String(page));
+        url.searchParams.set(config.limitParam, String(BATCH_SIZE));
+        url.searchParams.set("language", "pt-BR");
+
+        if (config.dateFilters) {
+          const now = new Date();
+          const start = new Date(2025, 0, 1);
+          const fmt = (d: Date) => d.toISOString().split("T")[0];
+          const sk = endpoint === "expenses" || endpoint === "incomes" ? "start_date" : "startDate";
+          const ek = endpoint === "expenses" || endpoint === "incomes" ? "end_date" : "endDate";
+          url.searchParams.set(sk, fmt(start));
+          url.searchParams.set(ek, fmt(now));
+        }
+
+        try {
+          const res = await fetch(url.toString(), {
+            headers: { "x-api-key": token, "Content-Type": "application/json" },
+          });
+          if (!res.ok) break;
+          const json = await res.json();
+          const items = Array.isArray(json) ? json : json?.data || json?.items || json?.results || [];
+          if (!Array.isArray(items) || items.length === 0) break;
+          allItems.push(...items);
+          if (items.length < BATCH_SIZE) break;
+          page++;
+        } catch { break; }
+      }
+
+      if (allItems.length === 0) continue;
+
+      // Build content text helper
+      const buildText = (item: Record<string, unknown>): string => {
+        switch (endpoint) {
+          case "customers": return `Cliente: ${item.name || item.fantasyName || "?"} | CNPJ: ${item.cnpj || "N/A"}`;
+          case "suppliers": return `Fornecedor: ${item.name || "?"} | Categoria: ${item.category || "N/A"}`;
+          case "budgets": return `Orçamento #${item.id || "?"} | Estado: ${item.budgetState || item.state || "?"}`;
+          case "jobs": return `Job #${item.id || "?"} | Status: ${item.productionStatus || item.status || "?"}`;
+          case "expenses": return `Despesa #${item.id || "?"} | Valor: R$${item.amount || item.value || 0}`;
+          case "incomes": return `Receita #${item.id || "?"} | Valor: R$${item.amount || item.value || 0}`;
+          default: return JSON.stringify(item).slice(0, 200);
+        }
+      };
+
+      const extractId = (item: Record<string, unknown>) =>
+        String(item.id || item.Id || item.ID || item.code || crypto.randomUUID());
+
+      const rows = allItems.map((item) => ({
+        endpoint,
+        record_id: `${unit.key}_${extractId(item)}`,
+        raw_data: { ...item, _unidade: unit.label, _unit_key: unit.key },
+        content_text: `[${unit.label}] ${buildText(item)}`,
+        last_synced: new Date().toISOString(),
+      }));
+
+      // Upsert holdprint_cache
+      for (let i = 0; i < rows.length; i += 100) {
+        const batch = rows.slice(i, i + 100);
+        const { error } = await sb.from("holdprint_cache").upsert(batch, { onConflict: "endpoint,record_id" });
+        if (error) console.error(`[sync] ${unit.key}/${endpoint} cache error:`, error.message);
+      }
+
+      // Upsert rag_documents
+      const ragRows = rows.map((r) => ({
+        content: `${r.content_text}\n\nDados: ${JSON.stringify(r.raw_data).slice(0, 3000)}`,
+        sector: endpoint,
+        source_type: "holdprint",
+        original_filename: `holdprint_${unit.key}_${endpoint}_${r.record_id}`,
+        metadata: { endpoint, unit: unit.key, record_id: r.record_id, synced_at: r.last_synced },
+      }));
+
+      for (let i = 0; i < ragRows.length; i += 100) {
+        const batch = ragRows.slice(i, i + 100);
+        const { error } = await sb.from("rag_documents").upsert(batch, { onConflict: "original_filename" });
+        if (error) console.error(`[sync] ${unit.key}/${endpoint} rag error:`, error.message);
+      }
+
+      totalSynced += allItems.length;
+      console.log(`[sync] ${unit.key}/${endpoint}: ${allItems.length} registros sincronizados`);
+    }
+  }
+
+  return `✅ ${totalSynced} registros Holdprint importados para o banco`;
+}
+
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -380,8 +493,8 @@ Deno.serve(async (req) => {
 
     const isOrquestrador = sector === "orquestrador";
 
-    // Fetch live + historical + internal DB data in parallel
-    const [holdprintContext, ragContext, internalDbContext] = await Promise.all([
+    // Fetch live + historical + internal DB data in parallel; also sync to DB
+    const [holdprintContext, ragContext, internalDbContext, syncResult] = await Promise.all([
       (async () => {
         if (!holdprintKey) return "\n\n⚠️ API Holdprint não configurada. Respondendo com base no conhecimento geral.";
         const results = await Promise.all(
@@ -395,7 +508,9 @@ Deno.serve(async (req) => {
       })(),
       fetchRagHistorical(sector, endpoints),
       isOrquestrador ? fetchInternalDB() : Promise.resolve(""),
+      endpoints.length > 0 ? syncHoldprintToDB(endpoints) : Promise.resolve(""),
     ]);
+    console.log(`[sector-agent] Sync: ${syncResult}`);
 
     const systemContent = `${sectorPrompt}\n${BASE_RULES}${holdprintContext}${ragContext}${internalDbContext}`;
 
