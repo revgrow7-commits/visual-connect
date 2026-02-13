@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, forwardRef } from "react";
 import { Send, Bot, User, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,7 +19,7 @@ interface AgentChatProps {
 
 const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sector-agent`;
 
-const AgentChat = ({ sector, sectorLabel, className }: AgentChatProps) => {
+const AgentChat = forwardRef<HTMLDivElement, AgentChatProps>(({ sector, sectorLabel, className }, ref) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -134,7 +134,7 @@ const AgentChat = ({ sector, sectorLabel, className }: AgentChatProps) => {
   };
 
   return (
-    <div className={cn("flex flex-col h-[600px] bg-card rounded-xl border border-border shadow-sm", className)}>
+    <div ref={ref} className={cn("flex flex-col h-[600px] bg-card rounded-xl border border-border shadow-sm", className)}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
         <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
@@ -220,6 +220,8 @@ const AgentChat = ({ sector, sectorLabel, className }: AgentChatProps) => {
       </div>
     </div>
   );
-};
+});
+
+AgentChat.displayName = "AgentChat";
 
 export default AgentChat;
