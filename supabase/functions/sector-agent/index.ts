@@ -1,3 +1,5 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -8,7 +10,6 @@ const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat
 const MODEL = "gemini-2.5-flash";
 const HOLDPRINT_BASE = "https://api.holdworks.ai";
 
-// Which Holdprint endpoints each sector needs
 const SECTOR_ENDPOINTS: Record<string, string[]> = {
   operacao: ["jobs"],
   comercial: ["customers", "budgets"],
@@ -75,7 +76,6 @@ function summarizeData(endpoint: string, data: unknown): string {
 
   const items = Array.isArray(data) ? data : (data as any)?.data || (data as any)?.items || (data as any)?.results || [];
   if (!Array.isArray(items) || items.length === 0) {
-    // Try to summarize the object itself
     if (typeof data === "object" && data !== null) {
       const keys = Object.keys(data as object);
       if (keys.includes("totalCount") || keys.includes("total")) {
@@ -138,6 +138,49 @@ function summarizeData(endpoint: string, data: unknown): string {
   }
 }
 
+// Fetch historical data from rag_documents (holdprint source)
+async function fetchRagHistorical(sector: string, endpoints: string[]): Promise<string> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceKey) return "";
+
+  const sb = createClient(supabaseUrl, serviceKey);
+
+  try {
+    // Query rag_documents for holdprint data matching sector endpoints
+    const { data, error } = await sb
+      .from("rag_documents")
+      .select("content, sector, metadata, original_filename")
+      .eq("source_type", "holdprint")
+      .in("sector", endpoints)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error || !data || data.length === 0) {
+      console.log("[rag] No historical data found:", error?.message);
+      return "";
+    }
+
+    // Group by endpoint/sector
+    const grouped: Record<string, string[]> = {};
+    for (const doc of data) {
+      const ep = doc.sector || "geral";
+      if (!grouped[ep]) grouped[ep] = [];
+      // Truncate each doc to keep context manageable
+      grouped[ep].push(doc.content.slice(0, 600));
+    }
+
+    const sections = Object.entries(grouped).map(([ep, docs]) => {
+      return `### ${ep.toUpperCase()} (${docs.length} registros históricos)\n${docs.slice(0, 10).join("\n---\n")}`;
+    });
+
+    return `\n\n## 📂 DADOS HISTÓRICOS (RAG - base sincronizada 2025):\n${sections.join("\n\n")}`;
+  } catch (e) {
+    console.error("[rag] Error fetching historical:", e);
+    return "";
+  }
+}
+
 const SECTOR_PROMPTS: Record<string, string> = {
   operacao: `Você é o **Agente de Operação** da Indústria Visual 🏭
 Especialista em produção de comunicação visual (impressão, acabamento, corte, pintura, logística, instalação).
@@ -188,9 +231,11 @@ Integradora de comunicação visual. Smart Signage (Flat, Waved, Curved, Convex)
 ## Regras:
 1. Responda em PT-BR com markdown
 2. USE OS DADOS REAIS fornecidos abaixo — cite números específicos
-3. Se não encontrar dados suficientes, diga honestamente
-4. NUNCA invente números. Use apenas os dados fornecidos
-5. Formate valores em R$ brasileiro`;
+3. Você tem acesso a DADOS EM TEMPO REAL (mês atual) e DADOS HISTÓRICOS (RAG sincronizado de 2025)
+4. Para perguntas sobre histórico, tendências ou comparações, USE os dados históricos do RAG
+5. NUNCA invente números. Use apenas os dados fornecidos
+6. Formate valores em R$ brasileiro
+7. Quando comparar períodos, deixe claro a fonte (tempo real vs histórico)`;
 
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -216,24 +261,25 @@ Deno.serve(async (req) => {
     }
 
     const sectorPrompt = SECTOR_PROMPTS[sector] || SECTOR_PROMPTS.orquestrador;
+    const endpoints = SECTOR_ENDPOINTS[sector] || [];
 
-    // Fetch Holdprint data for this sector
-    let holdprintContext = "";
-    if (holdprintKey) {
-      const endpoints = SECTOR_ENDPOINTS[sector] || [];
-      const results = await Promise.all(
-        endpoints.map(async (ep) => {
-          const { data, error } = await fetchHoldprint(holdprintKey, ep);
-          if (error) return `${ep}: ⚠️ ${error}`;
-          return summarizeData(ep, data);
-        })
-      );
-      holdprintContext = `\n\n## 📊 DADOS EM TEMPO REAL (Holdprint API - ${new Date().toLocaleDateString("pt-BR")}):\n${results.join("\n")}`;
-    } else {
-      holdprintContext = "\n\n⚠️ API Holdprint não configurada. Respondendo com base no conhecimento geral.";
-    }
+    // Fetch live + historical data in parallel
+    const [holdprintContext, ragContext] = await Promise.all([
+      (async () => {
+        if (!holdprintKey) return "\n\n⚠️ API Holdprint não configurada. Respondendo com base no conhecimento geral.";
+        const results = await Promise.all(
+          endpoints.map(async (ep) => {
+            const { data, error } = await fetchHoldprint(holdprintKey, ep);
+            if (error) return `${ep}: ⚠️ ${error}`;
+            return summarizeData(ep, data);
+          })
+        );
+        return `\n\n## 📊 DADOS EM TEMPO REAL (Holdprint API - ${new Date().toLocaleDateString("pt-BR")}):\n${results.join("\n")}`;
+      })(),
+      fetchRagHistorical(sector, endpoints),
+    ]);
 
-    const systemContent = `${sectorPrompt}\n${BASE_RULES}${holdprintContext}`;
+    const systemContent = `${sectorPrompt}\n${BASE_RULES}${holdprintContext}${ragContext}`;
 
     const apiMessages = [
       { role: "system", content: systemContent },
