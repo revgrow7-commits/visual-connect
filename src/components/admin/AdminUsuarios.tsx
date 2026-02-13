@@ -51,29 +51,46 @@ const AdminUsuarios = () => {
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, user_id, email, display_name, avatar_url")
-      .order("display_name");
+    try {
+      const { data: profiles, error: profilesErr } = await supabase
+        .from("profiles")
+        .select("id, user_id, email, display_name, avatar_url")
+        .order("display_name");
 
-    const { data: roles } = await supabase
-      .from("user_roles")
-      .select("user_id, role");
+      if (profilesErr) {
+        console.error("Error fetching profiles:", profilesErr);
+        toast.error("Erro ao carregar usuários: " + profilesErr.message);
+        setLoading(false);
+        return;
+      }
 
-    const roleMap = new Map<string, AppRole[]>();
-    (roles || []).forEach((r) => {
-      const existing = roleMap.get(r.user_id) || [];
-      existing.push(r.role as AppRole);
-      roleMap.set(r.user_id, existing);
-    });
+      const { data: roles, error: rolesErr } = await supabase
+        .from("user_roles")
+        .select("user_id, role");
 
-    setUsers(
-      (profiles || []).map((p) => ({
-        ...p,
-        roles: roleMap.get(p.user_id) || [],
-      }))
-    );
-    setLoading(false);
+      if (rolesErr) {
+        console.error("Error fetching roles:", rolesErr);
+      }
+
+      const roleMap = new Map<string, AppRole[]>();
+      (roles || []).forEach((r) => {
+        const existing = roleMap.get(r.user_id) || [];
+        existing.push(r.role as AppRole);
+        roleMap.set(r.user_id, existing);
+      });
+
+      setUsers(
+        (profiles || []).map((p) => ({
+          ...p,
+          roles: roleMap.get(p.user_id) || [],
+        }))
+      );
+    } catch (e: any) {
+      console.error("Unexpected error fetching users:", e);
+      toast.error("Erro inesperado ao carregar usuários");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
