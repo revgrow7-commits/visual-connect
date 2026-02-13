@@ -98,21 +98,24 @@ const SectorDados = ({ sector, sectorLabel }: SectorDadosProps) => {
   // Upload file
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    console.log("[RAG Upload] handleUpload called, files:", files?.length, "user:", user?.id);
     if (!files?.length) return;
     if (!user) {
       toast({ title: "Login necessário", description: "Faça login para enviar arquivos.", variant: "destructive" });
       return;
     }
 
+    // Verify active session before upload
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({ title: "Sessão expirada", description: "Faça login novamente para enviar arquivos.", variant: "destructive" });
+      return;
+    }
+
     setUploading(true);
-    console.log("[RAG Upload] Starting upload for", files.length, "file(s)");
     try {
       for (const file of Array.from(files)) {
         const ext = getExt(file.name);
         const path = `${sector}/${user.id}/${Date.now()}-${file.name}`;
-
-        console.log("[RAG Upload] Uploading to storage:", path, "size:", file.size);
 
         // Upload to storage
         const { error: uploadErr } = await supabase.storage
@@ -121,14 +124,12 @@ const SectorDados = ({ sector, sectorLabel }: SectorDadosProps) => {
 
         if (uploadErr) {
           console.error("[RAG Upload] Storage error:", uploadErr);
-          throw uploadErr;
+          throw new Error(`Erro ao enviar ${file.name}: ${uploadErr.message}`);
         }
 
         const { data: urlData } = supabase.storage
           .from("rag-documents")
           .getPublicUrl(path);
-
-        console.log("[RAG Upload] Inserting into rag_files...");
 
         // Register in rag_files
         const { error: insertErr } = await supabase.from("rag_files").insert({
@@ -143,9 +144,8 @@ const SectorDados = ({ sector, sectorLabel }: SectorDadosProps) => {
 
         if (insertErr) {
           console.error("[RAG Upload] Insert error:", insertErr);
-          throw insertErr;
+          throw new Error(`Erro ao registrar ${file.name}: ${insertErr.message}`);
         }
-        console.log("[RAG Upload] Success:", file.name);
       }
 
       toast({ title: "Upload concluído", description: `${files.length} arquivo(s) enviados para base RAG.` });

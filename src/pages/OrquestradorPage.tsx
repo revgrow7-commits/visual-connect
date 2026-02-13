@@ -5,15 +5,14 @@ import { Button } from "@/components/ui/button";
 import AgentChat from "@/components/ai-agent/AgentChat";
 import SectorDados from "@/components/gestao/SectorDados";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable/index";
 
 const OrquestradorPage = () => {
   const { user, loading } = useAuth();
 
   const handleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin + "/orquestrador" },
+    await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
     });
   };
 
