@@ -84,9 +84,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Listen for subsequent changes only
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, s) => {
-        if (!initialized) {
-          initialized = true; // Let getSession handle the first one
-        }
+        // Skip the initial event — getSession handles it
+        if (!initialized) return;
         setSession(s);
         setUser(s?.user ?? null);
         if (s?.user) {
