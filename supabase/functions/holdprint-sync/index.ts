@@ -60,7 +60,7 @@ function getAuthHeaders(apiKey: string, endpoint: string): Record<string, string
   return { "x-api-key": apiKey, "Content-Type": "application/json" };
 }
 
-async function fetchAllPages(apiKey: string, endpoint: string): Promise<Record<string, unknown>[]> {
+async function fetchAllPages(apiKey: string, endpoint: string, customStart?: string | null, customEnd?: string | null): Promise<Record<string, unknown>[]> {
   const config = ENDPOINTS[endpoint];
   if (!config) return [];
 
@@ -75,14 +75,23 @@ async function fetchAllPages(apiKey: string, endpoint: string): Promise<Record<s
     url.searchParams.set("language", "pt-BR");
 
     if (config.dateFilters) {
-      const now = new Date();
-      const start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      const fmt = (d: Date) => d.toISOString().split("T")[0];
+      let startStr: string;
+      let endStr: string;
+      if (customStart && customEnd) {
+        startStr = customStart;
+        endStr = customEnd;
+      } else {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        const fmt = (d: Date) => d.toISOString().split("T")[0];
+        startStr = fmt(start);
+        endStr = fmt(end);
+      }
       const sk = endpoint === "expenses" || endpoint === "incomes" ? "start_date" : "startDate";
       const ek = endpoint === "expenses" || endpoint === "incomes" ? "end_date" : "endDate";
-      url.searchParams.set(sk, fmt(start));
-      url.searchParams.set(ek, fmt(end));
+      url.searchParams.set(sk, startStr);
+      url.searchParams.set(ek, endStr);
     }
 
     try {
@@ -116,6 +125,15 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Accept optional date range from request body
+    let customStartDate: string | null = null;
+    let customEndDate: string | null = null;
+    try {
+      const body = await req.json();
+      if (body?.startDate) customStartDate = body.startDate;
+      if (body?.endDate) customEndDate = body.endDate;
+    } catch { /* no body or invalid JSON, use defaults */ }
+
     const sb = getSupabaseAdmin();
     const stats: Record<string, Record<string, number>> = {};
 
@@ -133,7 +151,7 @@ Deno.serve(async (req) => {
     const endpointResults = await Promise.all(
       Object.keys(ENDPOINTS).map(async (endpoint) => {
         console.log(`[holdprint-sync] [${unit.key}] Fetching ${endpoint}...`);
-        const items = await fetchAllPages(token, endpoint);
+        const items = await fetchAllPages(token, endpoint, customStartDate, customEndDate);
         return { endpoint, items };
       })
     );
