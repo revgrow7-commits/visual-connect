@@ -44,6 +44,7 @@ const MarketingPage = lazy(() => import("./pages/gestao/MarketingPage"));
 const CsPage = lazy(() => import("./pages/gestao/CsPage"));
 const JuridicoPage = lazy(() => import("./pages/gestao/JuridicoPage"));
 const OrquestradorPage = lazy(() => import("./pages/OrquestradorPage"));
+const GatewayLogin = lazy(() => import("./pages/GatewayLogin"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -72,6 +73,7 @@ const App = () => (
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/gateway-login" element={<GatewayLogin />} />
               <Route path="/formulario/:token" element={<FormularioCandidato />} />
               <Route element={<AppLayout />}>
                 <Route path="/" element={<Index />} />
