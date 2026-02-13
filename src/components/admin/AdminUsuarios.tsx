@@ -314,7 +314,7 @@ const AdminUsuarios = () => {
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Novo Usuário</DialogTitle>
             <DialogDescription>Crie credenciais de acesso ao sistema</DialogDescription>
@@ -350,7 +350,7 @@ const AdminUsuarios = () => {
 
       {/* Edit Dialog */}
       <Dialog open={!!editUser} onOpenChange={o => { if (!o) setEditUser(null); }}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Usuário</DialogTitle>
             <DialogDescription>{editUser?.email}</DialogDescription>
