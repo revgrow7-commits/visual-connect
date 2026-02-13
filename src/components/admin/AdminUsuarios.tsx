@@ -5,11 +5,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Loader2, Search, Pencil, Trash2, Plus, Key, UserCog, Phone, Building2 } from "lucide-react";
 
@@ -19,7 +19,7 @@ interface GatewayUser {
   email: string;
   role: string;
   department: string | null;
-  permissions: Record<string, boolean>;
+  permissions: Record<string, any>;
   is_active: boolean;
   last_login_at: string | null;
   created_at: string;
@@ -49,6 +49,23 @@ const roleColors: Record<string, string> = {
 
 const togglePerm = (p: Record<string, boolean>, s: string) => ({ ...p, [s]: !p[s] });
 
+/** Extract roles array from user data - checks both `role` field and `permissions.roles` */
+function getUserRoles(u: GatewayUser): string[] {
+  const permsRoles = (u.permissions as any)?.roles as string[] | undefined;
+  if (permsRoles && Array.isArray(permsRoles) && permsRoles.length > 0) return permsRoles;
+  return u.role ? [u.role] : ["user"];
+}
+
+const toggleRole = (roles: string[], role: string): string[] => {
+  if (roles.includes(role)) {
+    const next = roles.filter(r => r !== role);
+    return next.length === 0 ? ["user"] : next;
+  }
+  // If adding a non-user role, remove "user" from the list
+  const next = [...roles.filter(r => r !== "user"), role];
+  return next;
+};
+
 const AdminUsuarios = () => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -60,12 +77,12 @@ const AdminUsuarios = () => {
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
-    email: "", password: "", name: "", role: "user", department: "",
+    email: "", password: "", name: "", roles: ["user"] as string[], department: "",
     phone: "", filial: "",
     permissions: {} as Record<string, boolean>,
   });
   const [editForm, setEditForm] = useState({
-    name: "", role: "", department: "", is_active: true,
+    name: "", roles: ["user"] as string[], department: "", is_active: true,
     phone: "", filial: "",
     permissions: {} as Record<string, boolean>,
   });
@@ -89,12 +106,19 @@ const AdminUsuarios = () => {
     if (!form.email || !form.password || !form.name) { toast.error("Preencha email, senha e nome"); return; }
     setSaving(true);
     try {
-      const { data, error } = await supabase.functions.invoke("gateway-auth", { body: { action: "create-user", ...form } });
+      const { data, error } = await supabase.functions.invoke("gateway-auth", {
+        body: {
+          action: "create-user",
+          ...form,
+          role: form.roles[0] || "user",
+          permissions: { ...form.permissions, roles: form.roles, phone: form.phone, filial: form.filial },
+        },
+      });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
       toast.success("Usuário criado com sucesso");
       setShowCreate(false);
-      setForm({ email: "", password: "", name: "", role: "user", department: "", phone: "", filial: "", permissions: {} });
+      setForm({ email: "", password: "", name: "", roles: ["user"], department: "", phone: "", filial: "", permissions: {} });
       queryClient.invalidateQueries({ queryKey: ["admin-gateway-users"] });
     } catch (e: any) { toast.error(e.message); } finally { setSaving(false); }
   };
@@ -103,7 +127,7 @@ const AdminUsuarios = () => {
     setEditUser(u);
     setEditForm({
       name: u.name,
-      role: u.role,
+      roles: getUserRoles(u),
       department: u.department || "",
       is_active: u.is_active,
       phone: (u.permissions as any)?.phone || "",
@@ -118,10 +142,10 @@ const AdminUsuarios = () => {
     try {
       const { error } = await supabase.from("gateway_users").update({
         name: editForm.name,
-        role: editForm.role,
+        role: editForm.roles[0] || "user",
         department: editForm.department || null,
         is_active: editForm.is_active,
-        permissions: { ...editForm.permissions, phone: editForm.phone, filial: editForm.filial },
+        permissions: { ...editForm.permissions, roles: editForm.roles, phone: editForm.phone, filial: editForm.filial },
       }).eq("id", editUser.id);
       if (error) throw error;
       toast.success("Usuário atualizado");
@@ -166,6 +190,22 @@ const AdminUsuarios = () => {
     } catch (e: any) { toast.error(e.message); } finally { setSaving(false); }
   };
 
+  const RolesMultiSelect = ({ selectedRoles, onChange }: { selectedRoles: string[]; onChange: (roles: string[]) => void }) => (
+    <div className="space-y-2">
+      {roleOptions.map(r => (
+        <label key={r.value} className="flex items-center gap-2 cursor-pointer py-1 px-2 rounded hover:bg-muted/50 transition-colors">
+          <Checkbox
+            checked={selectedRoles.includes(r.value)}
+            onCheckedChange={() => onChange(toggleRole(selectedRoles, r.value))}
+          />
+          <Badge variant="outline" className={`text-[10px] uppercase font-bold tracking-wider ${roleColors[r.value] || roleColors.user}`}>
+            {r.label}
+          </Badge>
+        </label>
+      ))}
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -181,12 +221,7 @@ const AdminUsuarios = () => {
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-64">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar usuário..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="pl-9"
-            />
+            <Input placeholder="Buscar usuário..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
           </div>
           <Button onClick={() => setShowCreate(true)} className="bg-primary hover:bg-primary/90 shrink-0">
             <Plus className="h-4 w-4 mr-1" /> Novo Usuário
@@ -216,85 +251,64 @@ const AdminUsuarios = () => {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map(u => (
-            <Card key={u.id} className="relative overflow-hidden transition-shadow hover:shadow-md">
-              <CardContent className="p-5 space-y-4">
-                {/* Top row: user info + active toggle */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <UserCog className="h-5 w-5 text-primary" />
+          {filtered.map(u => {
+            const roles = getUserRoles(u);
+            return (
+              <Card key={u.id} className="relative overflow-hidden transition-shadow hover:shadow-md">
+                <CardContent className="p-5 space-y-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <UserCog className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-sm text-foreground truncate">{u.name}</h3>
+                        <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-sm text-foreground truncate">{u.name}</h3>
-                      <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10px] text-muted-foreground">Ativo</span>
+                      <Switch checked={u.is_active} onCheckedChange={() => handleToggleActive(u)} disabled={togglingId === u.id} className="scale-90" />
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-[10px] text-muted-foreground">Ativo</span>
-                    <Switch
-                      checked={u.is_active}
-                      onCheckedChange={() => handleToggleActive(u)}
-                      disabled={togglingId === u.id}
-                      className="scale-90"
-                    />
+
+                  {/* Role badges - multiple */}
+                  <div className="flex flex-wrap gap-1">
+                    {roles.map(role => (
+                      <Badge key={role} variant="outline" className={`uppercase text-[10px] font-bold tracking-wider px-2.5 py-0.5 ${roleColors[role] || roleColors.user}`}>
+                        {roleOptions.find(r => r.value === role)?.label || role}
+                      </Badge>
+                    ))}
                   </div>
-                </div>
 
-                {/* Role badge */}
-                <div>
-                  <Badge
-                    variant="outline"
-                    className={`uppercase text-[10px] font-bold tracking-wider px-2.5 py-0.5 ${roleColors[u.role] || roleColors.user}`}
-                  >
-                    {roleOptions.find(r => r.value === u.role)?.label || u.role}
-                  </Badge>
-                </div>
-
-                {/* Details */}
-                <div className="space-y-1.5 text-xs text-muted-foreground">
-                  {(u.permissions as any)?.phone && (
+                  <div className="space-y-1.5 text-xs text-muted-foreground">
+                    {(u.permissions as any)?.phone && (
+                      <div className="flex items-center gap-1.5">
+                        <Phone className="h-3.5 w-3.5" />
+                        <span>{(u.permissions as any).phone}</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-1.5">
-                      <Phone className="h-3.5 w-3.5" />
-                      <span>{(u.permissions as any).phone}</span>
+                      <Building2 className="h-3.5 w-3.5" />
+                      <span>Filial: {(u.permissions as any)?.filial || u.department || "—"}</span>
                     </div>
-                  )}
-                  <div className="flex items-center gap-1.5">
-                    <Building2 className="h-3.5 w-3.5" />
-                    <span>Filial: {(u.permissions as any)?.filial || u.department || "—"}</span>
                   </div>
-                </div>
 
-                {/* Actions */}
-                <div className="flex items-center gap-2 pt-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 text-xs"
-                    onClick={() => openEdit(u)}
-                  >
-                    <Pencil className="h-3.5 w-3.5 mr-1" /> Editar
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-xs"
-                    onClick={() => setResetPwUser(u)}
-                  >
-                    <Key className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
-                    onClick={() => setDeleteUser(u)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => openEdit(u)}>
+                      <Pencil className="h-3.5 w-3.5 mr-1" /> Editar
+                    </Button>
+                    <Button variant="outline" size="sm" className="text-xs" onClick={() => setResetPwUser(u)}>
+                      <Key className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => setDeleteUser(u)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -310,26 +324,19 @@ const AdminUsuarios = () => {
             <div className="space-y-1"><Label>Email</Label><Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
             <div className="space-y-1"><Label>Senha</Label><Input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Perfil</Label>
-                <Select value={form.role} onValueChange={v => setForm({ ...form, role: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{roleOptions.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
               <div className="space-y-1"><Label>Departamento</Label><Input value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>Telefone</Label><Input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="5551999999999" /></div>
               <div className="space-y-1"><Label>Filial</Label><Input value={form.filial} onChange={e => setForm({ ...form, filial: e.target.value })} placeholder="POA" /></div>
+            </div>
+            <div className="space-y-1"><Label>Telefone</Label><Input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="5551999999999" /></div>
+            <div className="space-y-2">
+              <Label>Perfis de Acesso</Label>
+              <RolesMultiSelect selectedRoles={form.roles} onChange={roles => setForm({ ...form, roles })} />
             </div>
             <div className="space-y-2">
               <Label>Permissões de Sistema</Label>
               <div className="flex flex-wrap gap-2">
                 {systemOptions.map(s => (
-                  <Button key={s} type="button" size="sm" variant={form.permissions[s] ? "default" : "outline"} onClick={() => setForm({ ...form, permissions: togglePerm(form.permissions, s) })}>
-                    {s}
-                  </Button>
+                  <Button key={s} type="button" size="sm" variant={form.permissions[s] ? "default" : "outline"} onClick={() => setForm({ ...form, permissions: togglePerm(form.permissions, s) })}>{s}</Button>
                 ))}
               </div>
             </div>
@@ -351,27 +358,20 @@ const AdminUsuarios = () => {
           <div className="space-y-3">
             <div className="space-y-1"><Label>Nome</Label><Input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Perfil</Label>
-                <Select value={editForm.role} onValueChange={v => setEditForm({ ...editForm, role: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{roleOptions.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
               <div className="space-y-1"><Label>Departamento</Label><Input value={editForm.department} onChange={e => setEditForm({ ...editForm, department: e.target.value })} /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>Telefone</Label><Input value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} /></div>
               <div className="space-y-1"><Label>Filial</Label><Input value={editForm.filial} onChange={e => setEditForm({ ...editForm, filial: e.target.value })} /></div>
             </div>
+            <div className="space-y-1"><Label>Telefone</Label><Input value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} /></div>
             <div className="flex items-center gap-2"><Switch checked={editForm.is_active} onCheckedChange={v => setEditForm({ ...editForm, is_active: v })} /><Label>Ativo</Label></div>
+            <div className="space-y-2">
+              <Label>Perfis de Acesso</Label>
+              <RolesMultiSelect selectedRoles={editForm.roles} onChange={roles => setEditForm({ ...editForm, roles })} />
+            </div>
             <div className="space-y-2">
               <Label>Permissões de Sistema</Label>
               <div className="flex flex-wrap gap-2">
                 {systemOptions.map(s => (
-                  <Button key={s} type="button" size="sm" variant={editForm.permissions[s] ? "default" : "outline"} onClick={() => setEditForm({ ...editForm, permissions: togglePerm(editForm.permissions, s) })}>
-                    {s}
-                  </Button>
+                  <Button key={s} type="button" size="sm" variant={editForm.permissions[s] ? "default" : "outline"} onClick={() => setEditForm({ ...editForm, permissions: togglePerm(editForm.permissions, s) })}>{s}</Button>
                 ))}
               </div>
             </div>
