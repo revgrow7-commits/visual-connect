@@ -252,7 +252,10 @@ const PerfilLogado = () => {
       <Button
         variant="outline"
         className="w-full gap-2 text-destructive hover:text-destructive"
-        onClick={signOut}
+        onClick={async () => {
+          await signOut();
+          window.location.href = "/";
+        }}
       >
         <LogOut className="h-4 w-4" />
         Sair da conta
