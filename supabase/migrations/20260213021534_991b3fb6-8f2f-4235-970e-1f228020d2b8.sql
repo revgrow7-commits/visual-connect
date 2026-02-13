@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS rag_documents_original_filename_unique ON public.rag_documents (original_filename) WHERE original_filename IS NOT NULL;
