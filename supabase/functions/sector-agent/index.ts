@@ -55,7 +55,7 @@ async function fetchHoldprint(apiKey: string, endpoint: string): Promise<{ data:
 
   try {
     const res = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
     });
     if (!res.ok) {
       const t = await res.text();
