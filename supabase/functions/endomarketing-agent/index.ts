@@ -4,8 +4,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-const MODEL = "gemini-2.5-flash";
+const PROVIDER_CONFIG: Record<string, { url: string; model: string; envKey: string }> = {
+  gemini: { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: "gemini-2.5-flash", envKey: "GOOGLE_GEMINI_API_KEY" },
+  claude: { url: "https://api.anthropic.com/v1/messages", model: "claude-sonnet-4-20250514", envKey: "ANTHROPIC_API_KEY" },
+  openai: { url: "https://api.openai.com/v1/chat/completions", model: "gpt-4o", envKey: "OPENAI_API_KEY" },
+  perplexity: { url: "https://api.perplexity.ai/chat/completions", model: "sonar-pro", envKey: "PERPLEXITY_API_KEY" },
+};
 
 const BRAND = {
   colors: { primary: "#A02040", secondary: "#702050", gradientStart: "#C0304A", gradientEnd: "#5030A0", white: "#FFFFFF", dark: "#1A1A1A" },
@@ -61,11 +65,13 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-    if (!apiKey) throw new Error("GOOGLE_GEMINI_API_KEY não configurada");
-
-    const { tema, tom, detalhes } = await req.json();
+    const { tema, tom, detalhes, provider: reqProvider } = await req.json();
     if (!tema) return jsonResponse({ error: "Campo 'tema' é obrigatório" }, 400);
+
+    const provider = reqProvider || "gemini";
+    const providerCfg = PROVIDER_CONFIG[provider] || PROVIDER_CONFIG.gemini;
+    const apiKey = Deno.env.get(providerCfg.envKey);
+    if (!apiKey) throw new Error(`${providerCfg.envKey} não configurada`);
 
     const userPrompt = `Crie um cartaz de endomarketing com as seguintes características:
 - Tema: ${tema}
@@ -74,22 +80,34 @@ ${detalhes ? `- Detalhes adicionais: ${detalhes}` : ""}
 
 Gere a especificação completa do cartaz em JSON.`;
 
-    const res = await fetch(GEMINI_URL, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 4096, messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: userPrompt }] }),
-    });
-
-    if (!res.ok) {
-      if (res.status === 429) return jsonResponse({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }, 429);
-      const t = await res.text();
-      console.error("[endomarketing] Gemini error:", res.status, t);
-      throw new Error("Erro ao gerar especificação");
+    let content = "";
+    if (provider === "claude") {
+      const res = await fetch(providerCfg.url, {
+        method: "POST",
+        headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+        body: JSON.stringify({ model: providerCfg.model, max_tokens: 4096, system: SYSTEM_PROMPT, messages: [{ role: "user", content: userPrompt }] }),
+      });
+      if (!res.ok) {
+        if (res.status === 429) return jsonResponse({ error: "Limite de requisições excedido." }, 429);
+        throw new Error("Erro ao gerar especificação");
+      }
+      const data = await res.json();
+      content = data.content?.[0]?.text || "";
+    } else {
+      const res = await fetch(providerCfg.url, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: providerCfg.model, max_tokens: 4096, messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: userPrompt }] }),
+      });
+      if (!res.ok) {
+        if (res.status === 429) return jsonResponse({ error: "Limite de requisições excedido." }, 429);
+        throw new Error("Erro ao gerar especificação");
+      }
+      const data = await res.json();
+      content = data.choices?.[0]?.message?.content || "";
     }
 
-    const data = await res.json();
-    const spec = extractJSON(data.choices?.[0]?.message?.content || "");
-
+    const spec = extractJSON(content);
     return jsonResponse({ spec, imageUrl: null });
   } catch (e: unknown) {
     const err = e as { message?: string };

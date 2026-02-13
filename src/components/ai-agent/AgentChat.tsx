@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import LLMModelSelector, { type LLMProvider } from "./LLMModelSelector";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -24,6 +25,7 @@ const AgentChat = forwardRef<HTMLDivElement, AgentChatProps>(({ sector, sectorLa
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [llmProvider, setLlmProvider] = useState<LLMProvider>("gemini");
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -38,7 +40,7 @@ const AgentChat = forwardRef<HTMLDivElement, AgentChatProps>(({ sector, sectorLa
         "Content-Type": "application/json",
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ messages: allMessages, sector }),
+      body: JSON.stringify({ messages: allMessages, sector, provider: llmProvider }),
     });
 
     if (resp.status === 429) {
@@ -69,9 +71,13 @@ const AgentChat = forwardRef<HTMLDivElement, AgentChatProps>(({ sector, sectorLa
         if (jsonStr === "[DONE]") { streamDone = true; break; }
         try {
           const parsed = JSON.parse(jsonStr);
+          // OpenAI-compatible (Gemini, OpenAI, Perplexity)
           const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-          if (content) {
-            assistantSoFar += content;
+          // Claude SSE format
+          const claudeContent = parsed.type === "content_block_delta" ? parsed.delta?.text : undefined;
+          const token = content || claudeContent;
+          if (token) {
+            assistantSoFar += token;
             setMessages(prev => {
               const last = prev[prev.length - 1];
               if (last?.role === "assistant") {
@@ -97,7 +103,7 @@ const AgentChat = forwardRef<HTMLDivElement, AgentChatProps>(({ sector, sectorLa
         if (jsonStr === "[DONE]") continue;
         try {
           const parsed = JSON.parse(jsonStr);
-          const content = parsed.choices?.[0]?.delta?.content;
+          const content = parsed.choices?.[0]?.delta?.content || (parsed.type === "content_block_delta" ? parsed.delta?.text : undefined);
           if (content) {
             assistantSoFar += content;
             setMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
@@ -105,7 +111,7 @@ const AgentChat = forwardRef<HTMLDivElement, AgentChatProps>(({ sector, sectorLa
         } catch {}
       }
     }
-  }, [sector]);
+  }, [sector, llmProvider]);
 
   const handleSend = async () => {
     const trimmed = input.trim();
@@ -144,6 +150,7 @@ const AgentChat = forwardRef<HTMLDivElement, AgentChatProps>(({ sector, sectorLa
           <h3 className="text-sm font-semibold text-foreground">Agente IA — {sectorLabel}</h3>
           <p className="text-xs text-muted-foreground">Especialista com acesso aos dados do setor</p>
         </div>
+        <LLMModelSelector value={llmProvider} onChange={setLlmProvider} disabled={isLoading} />
         {messages.length > 0 && (
           <Button variant="ghost" size="icon" onClick={() => setMessages([])} title="Limpar conversa">
             <Trash2 className="h-4 w-4 text-muted-foreground" />
