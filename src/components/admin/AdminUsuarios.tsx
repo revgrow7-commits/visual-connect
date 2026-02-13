@@ -27,8 +27,11 @@ interface GatewayUser {
 
 const roleOptions = [
   { value: "admin", label: "Admin" },
-  { value: "gerente", label: "Gerente" },
-  { value: "instalador", label: "Instalador" },
+  { value: "gestao", label: "Gestão" },
+  { value: "rh", label: "RH" },
+  { value: "operacao", label: "Operação" },
+  { value: "comercial", label: "Comercial" },
+  { value: "financeiro", label: "Financeiro" },
   { value: "user", label: "Usuário" },
 ];
 
@@ -36,9 +39,11 @@ const systemOptions = ["rh_visual", "feedback", "instalador", "gateway"];
 
 const roleColors: Record<string, string> = {
   admin: "bg-destructive/15 text-destructive border-destructive/30",
-  gerente: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30",
-  instalador: "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30",
-  manager: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30",
+  gestao: "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30",
+  rh: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30",
+  operacao: "bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/30",
+  comercial: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
+  financeiro: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30",
   user: "bg-muted text-muted-foreground border-border",
 };
 
