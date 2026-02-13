@@ -8,6 +8,7 @@ import AniversariantesWidget from "@/components/home/AniversariantesWidget";
 import NovosColaboradores from "@/components/home/NovosColaboradores";
 import AtalhosRapidos from "@/components/home/AtalhosRapidos";
 import UsuariosWidget from "@/components/home/UsuariosWidget";
+import HomeUsuariosAdmin from "@/components/home/HomeUsuariosAdmin";
 import AniversarioBalloon from "@/components/home/AniversarioBalloon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -168,6 +169,9 @@ const Index = () => {
       {/* Atalhos */}
       <AtalhosRapidos />
 
+      {/* Administração de Usuários (admin only) */}
+      <HomeUsuariosAdmin />
+
       {/* Grid principal */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -180,8 +184,6 @@ const Index = () => {
           <UsuariosWidget />
         </div>
       </div>
-
-      {/* Tagline */}
       <div className="gradient-bordo-light rounded-xl py-3 mt-4">
         <p className="text-center text-xs font-medium text-primary tracking-wide">
           C.R.I.E. &nbsp;Criar &bull; Relevância &bull; Inovação &bull; Eficiência
