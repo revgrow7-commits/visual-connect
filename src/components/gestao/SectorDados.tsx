@@ -53,7 +53,9 @@ const SectorDados = ({ sector, sectorLabel }: SectorDadosProps) => {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke("holdprint-sync");
+      const { data, error } = await supabase.functions.invoke("holdprint-sync", {
+        body: { startDate: "2025-01-01", endDate: new Date().toISOString().split("T")[0] },
+      });
       if (error) throw error;
       toast({ title: "Sincronização concluída", description: "Dados Holdprint importados com sucesso." });
       queryClient.invalidateQueries({ queryKey: ["holdprint-sector", sector] });
