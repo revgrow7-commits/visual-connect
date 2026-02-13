@@ -98,6 +98,7 @@ const SectorDados = ({ sector, sectorLabel }: SectorDadosProps) => {
   // Upload file
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
+    console.log("[RAG Upload] handleUpload called, files:", files?.length, "user:", user?.id);
     if (!files?.length) return;
     if (!user) {
       toast({ title: "Login necessário", description: "Faça login para enviar arquivos.", variant: "destructive" });
@@ -105,6 +106,7 @@ const SectorDados = ({ sector, sectorLabel }: SectorDadosProps) => {
     }
 
     setUploading(true);
+    console.log("[RAG Upload] Starting upload for", files.length, "file(s)");
     try {
       for (const file of Array.from(files)) {
         const ext = getExt(file.name);
