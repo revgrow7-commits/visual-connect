@@ -119,28 +119,32 @@ const SectorDashboard = forwardRef<HTMLDivElement, SectorDashboardProps>(
     const { data: rawData, isLoading, isError, refetch, isFetching } = useQuery({
       queryKey: ["sector-dashboard", sector, unidade],
       queryFn: async () => {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
         const entries = await Promise.all(
           config.endpoints.map(async (ep) => {
             try {
-              let query = supabase
-                .from("holdprint_cache")
-                .select("content_text, endpoint, record_id")
-                .eq("endpoint", ep);
-
+              let filterStr = `endpoint=eq.${ep}`;
               if (unidade === "poa") {
-                query = query.like("record_id", "poa_%");
+                filterStr += `&record_id=like.poa_%25`;
               } else if (unidade === "sp") {
-                query = query.like("record_id", "sp_%");
+                filterStr += `&record_id=like.sp_%25`;
               }
 
-              const { data, error } = await query
-                .order("last_synced", { ascending: false })
-                .limit(500);
+              const url = `${supabaseUrl}/rest/v1/holdprint_cache?${filterStr}&select=content_text,endpoint,record_id&order=last_synced.desc&limit=500`;
+              const res = await fetch(url, {
+                headers: {
+                  apikey: supabaseKey,
+                  Authorization: `Bearer ${supabaseKey}`,
+                },
+              });
 
-              if (error) {
-                console.warn(`Dashboard ${ep}:`, error.message);
+              if (!res.ok) {
+                console.warn(`Dashboard ${ep}: HTTP ${res.status}`);
                 return [ep, []] as const;
               }
+              const data = await res.json();
               return [ep, data || []] as const;
             } catch (e) {
               console.warn(`Dashboard ${ep} fetch failed:`, e);
