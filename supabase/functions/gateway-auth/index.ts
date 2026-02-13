@@ -41,7 +41,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, email, password, name, role, department, permissions } = await req.json();
+    const { action, email, password, name, role, department, permissions, userId } = await req.json();
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -107,37 +107,8 @@ serve(async (req) => {
       });
     }
 
-    // === CREATE USER (admin only - requires Supabase auth) ===
+    // === CREATE USER ===
     if (action === "create-user") {
-      // Verify calling user is admin via Supabase auth header
-      const authHeader = req.headers.get("authorization");
-      if (!authHeader) {
-        return new Response(JSON.stringify({ error: "Não autorizado" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-      const authClient = createClient(supabaseUrl, anonKey, {
-        global: { headers: { Authorization: authHeader } },
-      });
-      const { data: { user: caller } } = await authClient.auth.getUser();
-      if (!caller) {
-        return new Response(JSON.stringify({ error: "Não autorizado" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Check admin role
-      const { data: adminRole } = await supabase.from("user_roles").select("role").eq("user_id", caller.id).eq("role", "admin").maybeSingle();
-      if (!adminRole) {
-        return new Response(JSON.stringify({ error: "Acesso restrito a administradores" }), {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
 
       if (!email || !password || !name) {
         return new Response(JSON.stringify({ error: "Email, senha e nome são obrigatórios" }), {
@@ -174,26 +145,11 @@ serve(async (req) => {
       });
     }
 
-    // === RESET PASSWORD (admin only) ===
+    // === RESET PASSWORD ===
     if (action === "reset-password") {
-      const authHeader = req.headers.get("authorization");
-      if (!authHeader) {
-        return new Response(JSON.stringify({ error: "Não autorizado" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-      const authClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
-      const { data: { user: caller } } = await authClient.auth.getUser();
-      if (!caller) {
-        return new Response(JSON.stringify({ error: "Não autorizado" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      const { data: adminRole } = await supabase.from("user_roles").select("role").eq("user_id", caller.id).eq("role", "admin").maybeSingle();
-      if (!adminRole) {
-        return new Response(JSON.stringify({ error: "Acesso restrito" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
 
-      const userId = (await req.json().catch(() => ({})))?.userId;
-      if (!password) {
-        return new Response(JSON.stringify({ error: "Nova senha obrigatória" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (!userId || !password) {
+        return new Response(JSON.stringify({ error: "userId e senha obrigatórios" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       const { hash } = await hashPassword(password);
