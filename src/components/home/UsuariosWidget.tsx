@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, Globe } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+
 
 interface GatewayUser {
   id: string;
@@ -22,7 +22,7 @@ function getInitials(name: string) {
 }
 
 const UsuariosWidget = () => {
-  const { isAdmin } = useAuth();
+  
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["home-gateway-users"],
@@ -36,11 +36,9 @@ const UsuariosWidget = () => {
       if (error) throw error;
       return (data || []) as unknown as GatewayUser[];
     },
-    enabled: isAdmin,
     staleTime: 60_000,
   });
 
-  if (!isAdmin) return null;
 
   return (
     <Card>

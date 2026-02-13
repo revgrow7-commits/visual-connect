@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { useAuth } from "@/contexts/AuthContext";
+
 import { Globe, Plus, Pencil, Trash2, Key, Search, Loader2, Users } from "lucide-react";
 
 const roleOptions = [
@@ -42,7 +42,6 @@ function getInitials(name: string) {
 const togglePerm = (p: Record<string, boolean>, s: string) => ({ ...p, [s]: !p[s] });
 
 const HomeUsuariosAdmin = () => {
-  const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
@@ -62,11 +61,8 @@ const HomeUsuariosAdmin = () => {
       if (error) throw error;
       return (data || []) as unknown as GatewayUser[];
     },
-    enabled: isAdmin,
     staleTime: 30_000,
   });
-
-  if (!isAdmin) return null;
 
   const filtered = users.filter(u =>
     !search || u.name?.toLowerCase().includes(search.toLowerCase()) || u.email?.toLowerCase().includes(search.toLowerCase())
