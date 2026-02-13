@@ -7,6 +7,7 @@ import CartazesRecentes from "@/components/home/CartazesRecentes";
 import AniversariantesWidget from "@/components/home/AniversariantesWidget";
 import NovosColaboradores from "@/components/home/NovosColaboradores";
 import AtalhosRapidos from "@/components/home/AtalhosRapidos";
+import UsuariosWidget from "@/components/home/UsuariosWidget";
 import AniversarioBalloon from "@/components/home/AniversarioBalloon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -176,6 +177,7 @@ const Index = () => {
         <div className="space-y-6">
           <AniversariantesWidget />
           <NovosColaboradores />
+          <UsuariosWidget />
         </div>
       </div>
 
