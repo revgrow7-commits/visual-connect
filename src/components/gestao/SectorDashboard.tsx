@@ -225,25 +225,26 @@ const SectorDashboard = ({ sector, sectorLabel }: SectorDashboardProps) => {
   const { data: rawData, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["sector-dashboard", sector],
     queryFn: async () => {
-      const results: Record<string, any[]> = {};
-      for (const ep of config.endpoints) {
-        try {
-          const { data, error } = await supabase
-            .from("holdprint_cache")
-            .select("raw_data, content_text, endpoint")
-            .eq("endpoint", ep);
-          if (error) {
-            console.warn(`Dashboard ${ep}:`, error.message);
-            results[ep] = [];
-          } else {
-            results[ep] = data || [];
+      const entries = await Promise.all(
+        config.endpoints.map(async (ep) => {
+          try {
+            const { data, error } = await supabase
+              .from("holdprint_cache")
+              .select("raw_data, content_text, endpoint")
+              .eq("endpoint", ep)
+              .limit(500);
+            if (error) {
+              console.warn(`Dashboard ${ep}:`, error.message);
+              return [ep, []] as const;
+            }
+            return [ep, data || []] as const;
+          } catch (e) {
+            console.warn(`Dashboard ${ep} fetch failed:`, e);
+            return [ep, []] as const;
           }
-        } catch (e) {
-          console.warn(`Dashboard ${ep} fetch failed:`, e);
-          results[ep] = [];
-        }
-      }
-      return results;
+        })
+      );
+      return Object.fromEntries(entries) as Record<string, any[]>;
     },
     staleTime: 5 * 60 * 1000,
     retry: 1,
