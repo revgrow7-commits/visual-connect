@@ -54,12 +54,9 @@ function extractRecordId(item: Record<string, unknown>): string {
 }
 
 function getAuthHeaders(apiKey: string, endpoint: string): Record<string, string> {
-  // Budgets and Jobs use x-api-key header per Holdprint docs
-  if (endpoint === "budgets" || endpoint === "jobs") {
-    return { "x-api-key": apiKey, "Content-Type": "application/json" };
-  }
-  // Customers, Suppliers, Expenses, Incomes — docs say Bearer but API rejects JWT format
-  // Try x-api-key as fallback since it works for budgets/jobs
+  // Holdprint docs say Bearer for customers/suppliers/expenses/incomes,
+  // but API validates Bearer as JWT and rejects static API keys.
+  // x-api-key works for ALL endpoints regardless of what docs say.
   return { "x-api-key": apiKey, "Content-Type": "application/json" };
 }
 
