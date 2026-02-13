@@ -53,7 +53,17 @@ function extractRecordId(item: Record<string, unknown>): string {
   return String(item.id || item.Id || item.ID || item.code || crypto.randomUUID());
 }
 
-async function fetchAllPages(apiToken: string, endpoint: string): Promise<Record<string, unknown>[]> {
+function getAuthHeaders(apiKey: string, endpoint: string): Record<string, string> {
+  // Budgets and Jobs use x-api-key header per Holdprint docs
+  if (endpoint === "budgets" || endpoint === "jobs") {
+    return { "x-api-key": apiKey, "Content-Type": "application/json" };
+  }
+  // Customers, Suppliers, Expenses, Incomes — docs say Bearer but API rejects JWT format
+  // Try x-api-key as fallback since it works for budgets/jobs
+  return { "x-api-key": apiKey, "Content-Type": "application/json" };
+}
+
+async function fetchAllPages(apiKey: string, endpoint: string): Promise<Record<string, unknown>[]> {
   const config = ENDPOINTS[endpoint];
   if (!config) return [];
 
@@ -80,7 +90,7 @@ async function fetchAllPages(apiToken: string, endpoint: string): Promise<Record
 
     try {
       const res = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
+        headers: getAuthHeaders(apiKey, endpoint),
       });
       if (!res.ok) {
         const errBody = await res.text();
