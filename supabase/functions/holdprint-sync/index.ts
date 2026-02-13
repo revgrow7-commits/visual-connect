@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
         last_synced: new Date().toISOString(),
       }));
 
-      // Upsert in batches of 100
+      // Upsert holdprint_cache in batches of 100
       for (let i = 0; i < rows.length; i += 100) {
         const batch = rows.slice(i, i + 100);
         const { error } = await sb
@@ -176,6 +176,25 @@ Deno.serve(async (req) => {
           .upsert(batch, { onConflict: "endpoint,record_id" });
         if (error) {
           console.error(`[holdprint-sync] [${unit.key}] ${endpoint} upsert error:`, error.message);
+        }
+      }
+
+      // Also save to rag_documents for AI agent context
+      const ragRows = rows.map((r) => ({
+        content: `${r.content_text}\n\nDados: ${JSON.stringify(r.raw_data).slice(0, 3000)}`,
+        sector: endpoint,
+        source_type: "holdprint",
+        original_filename: `holdprint_${unit.key}_${endpoint}_${r.record_id}`,
+        metadata: { endpoint, unit: unit.key, record_id: r.record_id, synced_at: r.last_synced },
+      }));
+
+      for (let i = 0; i < ragRows.length; i += 100) {
+        const batch = ragRows.slice(i, i + 100);
+        const { error } = await sb.from("rag_documents").upsert(batch, {
+          onConflict: "original_filename",
+        });
+        if (error) {
+          console.error(`[holdprint-sync] [${unit.key}] ${endpoint} RAG upsert error:`, error.message);
         }
       }
     }
