@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import {
   Upload, FileText, Image, Table2, Loader2, Trash2, Database, File,
-  CheckCircle2, Clock
+  CheckCircle2, Clock, RefreshCw
 } from "lucide-react";
 
 interface SectorDadosProps {
@@ -48,6 +48,22 @@ const SectorDados = ({ sector, sectorLabel }: SectorDadosProps) => {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("holdprint-sync");
+      if (error) throw error;
+      toast({ title: "Sincronização concluída", description: "Dados Holdprint importados com sucesso." });
+      queryClient.invalidateQueries({ queryKey: ["holdprint-sector", sector] });
+    } catch (err: any) {
+      console.error("Sync error:", err);
+      toast({ title: "Erro na sincronização", description: err.message, variant: "destructive" });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   // Fetch RAG files for this sector
   const { data: ragFiles, isLoading: loadingFiles } = useQuery({
@@ -167,10 +183,25 @@ const SectorDados = ({ sector, sectorLabel }: SectorDadosProps) => {
           <TabsTrigger value="rag" className="gap-1.5 text-xs">
             <FileText className="h-3.5 w-3.5" /> Documentos RAG ({ragFiles?.length || 0})
           </TabsTrigger>
-          <TabsTrigger value="holdprint" className="gap-1.5 text-xs">
+        <TabsTrigger value="holdprint" className="gap-1.5 text-xs">
             <Database className="h-3.5 w-3.5" /> Holdprint ({holdprintData?.total || 0})
           </TabsTrigger>
         </TabsList>
+
+        <div className="flex justify-end mt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSync}
+            disabled={syncing}
+          >
+            {syncing ? (
+              <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Importando...</>
+            ) : (
+              <><RefreshCw className="h-4 w-4 mr-2" /> Importar dados Holdprint</>
+            )}
+          </Button>
+        </div>
 
         <TabsContent value="rag" className="mt-3">
           {loadingFiles ? (
