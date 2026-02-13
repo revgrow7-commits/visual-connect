@@ -238,7 +238,7 @@ const AdminUsuarios = () => {
   };
 
   return (
-    <>
+    <div>
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
@@ -378,7 +378,7 @@ const AdminUsuarios = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 };
 
