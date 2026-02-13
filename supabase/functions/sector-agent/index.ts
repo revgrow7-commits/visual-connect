@@ -147,7 +147,6 @@ async function fetchRagHistorical(sector: string, endpoints: string[]): Promise<
   const sb = createClient(supabaseUrl, serviceKey);
 
   try {
-    // Query rag_documents for holdprint data matching sector endpoints
     const { data, error } = await sb
       .from("rag_documents")
       .select("content, sector, metadata, original_filename")
@@ -161,12 +160,10 @@ async function fetchRagHistorical(sector: string, endpoints: string[]): Promise<
       return "";
     }
 
-    // Group by endpoint/sector
     const grouped: Record<string, string[]> = {};
     for (const doc of data) {
       const ep = doc.sector || "geral";
       if (!grouped[ep]) grouped[ep] = [];
-      // Truncate each doc to keep context manageable
       grouped[ep].push(doc.content.slice(0, 600));
     }
 
@@ -177,6 +174,110 @@ async function fetchRagHistorical(sector: string, endpoints: string[]): Promise<
     return `\n\n## 📂 DADOS HISTÓRICOS (RAG - base sincronizada 2025):\n${sections.join("\n\n")}`;
   } catch (e) {
     console.error("[rag] Error fetching historical:", e);
+    return "";
+  }
+}
+
+// Fetch internal database data for the orchestrator (Cérebro)
+async function fetchInternalDB(): Promise<string> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceKey) return "";
+
+  const sb = createClient(supabaseUrl, serviceKey);
+  const sections: string[] = [];
+
+  try {
+    // 1. Colaboradores summary
+    const { data: colabs, error: colabErr } = await sb
+      .from("colaboradores")
+      .select("nome, sobrenome, cargo, setor, unidade, status, data_admissao")
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (!colabErr && colabs && colabs.length > 0) {
+      const total = colabs.length;
+      const byStatus: Record<string, number> = {};
+      const bySetor: Record<string, number> = {};
+      const byUnidade: Record<string, number> = {};
+      colabs.forEach((c: any) => {
+        byStatus[c.status || "desconhecido"] = (byStatus[c.status || "desconhecido"] || 0) + 1;
+        if (c.setor) bySetor[c.setor] = (bySetor[c.setor] || 0) + 1;
+        if (c.unidade) byUnidade[c.unidade] = (byUnidade[c.unidade] || 0) + 1;
+      });
+      const statusStr = Object.entries(byStatus).map(([k, v]) => `${k}: ${v}`).join(", ");
+      const setorStr = Object.entries(bySetor).slice(0, 8).map(([k, v]) => `${k}: ${v}`).join(", ");
+      const unidadeStr = Object.entries(byUnidade).map(([k, v]) => `${k}: ${v}`).join(", ");
+      const recentes = colabs.slice(0, 5).map((c: any) => `${c.nome} ${c.sobrenome || ""} (${c.cargo || "?"} - ${c.setor || "?"})`).join("; ");
+      sections.push(`### 👥 COLABORADORES (${total} registros)\nStatus: ${statusStr}\nPor setor: ${setorStr}\nPor unidade: ${unidadeStr}\nRecentes: ${recentes}`);
+    }
+
+    // 2. Ouvidoria summary
+    const { data: ouvidoria, error: ouvErr } = await sb
+      .from("ouvidoria_manifestacoes")
+      .select("protocolo, categoria, setor, unidade, urgencia, status, anonimo, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (!ouvErr && ouvidoria && ouvidoria.length > 0) {
+      const total = ouvidoria.length;
+      const byStatus: Record<string, number> = {};
+      const byCategoria: Record<string, number> = {};
+      const byUrgencia: Record<string, number> = {};
+      ouvidoria.forEach((m: any) => {
+        byStatus[m.status || "?"] = (byStatus[m.status || "?"] || 0) + 1;
+        byCategoria[m.categoria || "?"] = (byCategoria[m.categoria || "?"] || 0) + 1;
+        byUrgencia[m.urgencia || "?"] = (byUrgencia[m.urgencia || "?"] || 0) + 1;
+      });
+      const statusStr = Object.entries(byStatus).map(([k, v]) => `${k}: ${v}`).join(", ");
+      const catStr = Object.entries(byCategoria).map(([k, v]) => `${k}: ${v}`).join(", ");
+      const urgStr = Object.entries(byUrgencia).map(([k, v]) => `${k}: ${v}`).join(", ");
+      const abertas = ouvidoria.filter((m: any) => m.status === "aberto").length;
+      sections.push(`### 📢 OUVIDORIA (${total} manifestações)\nStatus: ${statusStr}\nCategorias: ${catStr}\nUrgência: ${urgStr}\nAbertas pendentes: ${abertas}`);
+    }
+
+    // 3. Comunicados summary
+    const { data: comunicados, error: comErr } = await sb
+      .from("comunicados")
+      .select("titulo, categoria, unidade, status, fixado, likes_count, dislikes_count, comentarios_count, created_at")
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (!comErr && comunicados && comunicados.length > 0) {
+      const total = comunicados.length;
+      const ativos = comunicados.filter((c: any) => c.status === "ativo").length;
+      const fixados = comunicados.filter((c: any) => c.fixado).length;
+      const totalLikes = comunicados.reduce((s: number, c: any) => s + (c.likes_count || 0), 0);
+      const totalComments = comunicados.reduce((s: number, c: any) => s + (c.comentarios_count || 0), 0);
+      const byCat: Record<string, number> = {};
+      comunicados.forEach((c: any) => { byCat[c.categoria || "Geral"] = (byCat[c.categoria || "Geral"] || 0) + 1; });
+      const catStr = Object.entries(byCat).map(([k, v]) => `${k}: ${v}`).join(", ");
+      const recentes = comunicados.slice(0, 5).map((c: any) => `"${c.titulo}" (${c.categoria})`).join("; ");
+      sections.push(`### 📰 COMUNICADOS (${total} recentes)\nAtivos: ${ativos} | Fixados: ${fixados}\nTotal likes: ${totalLikes} | Total comentários: ${totalComments}\nCategorias: ${catStr}\nRecentes: ${recentes}`);
+    }
+
+    // 4. Banco de horas summary
+    const { data: bancoHoras, error: bhErr } = await sb
+      .from("banco_horas")
+      .select("nome, departamento, unidade, competencia, saldo_decimal, b_saldo")
+      .order("competencia", { ascending: false })
+      .limit(50);
+
+    if (!bhErr && bancoHoras && bancoHoras.length > 0) {
+      const competencias = [...new Set(bancoHoras.map((b: any) => b.competencia))];
+      const totalColab = new Set(bancoHoras.map((b: any) => b.nome)).size;
+      const positivos = bancoHoras.filter((b: any) => (b.saldo_decimal || 0) > 0).length;
+      const negativos = bancoHoras.filter((b: any) => (b.saldo_decimal || 0) < 0).length;
+      const byDept: Record<string, number> = {};
+      bancoHoras.forEach((b: any) => { if (b.departamento) byDept[b.departamento] = (byDept[b.departamento] || 0) + 1; });
+      const deptStr = Object.entries(byDept).slice(0, 6).map(([k, v]) => `${k}: ${v}`).join(", ");
+      sections.push(`### ⏰ BANCO DE HORAS\nCompetências: ${competencias.slice(0, 3).join(", ")}\nColaboradores: ${totalColab} | Saldo positivo: ${positivos} | Saldo negativo: ${negativos}\nPor departamento: ${deptStr}`);
+    }
+
+    if (sections.length === 0) return "";
+    return `\n\n## 🗄️ DADOS INTERNOS (Banco de Dados - tempo real):\n${sections.join("\n\n")}`;
+  } catch (e) {
+    console.error("[internal-db] Error:", e);
     return "";
   }
 }
@@ -277,8 +378,10 @@ Deno.serve(async (req) => {
     const sectorPrompt = SECTOR_PROMPTS[sector] || SECTOR_PROMPTS.orquestrador;
     const endpoints = SECTOR_ENDPOINTS[sector] || [];
 
-    // Fetch live + historical data in parallel
-    const [holdprintContext, ragContext] = await Promise.all([
+    const isOrquestrador = sector === "orquestrador";
+
+    // Fetch live + historical + internal DB data in parallel
+    const [holdprintContext, ragContext, internalDbContext] = await Promise.all([
       (async () => {
         if (!holdprintKey) return "\n\n⚠️ API Holdprint não configurada. Respondendo com base no conhecimento geral.";
         const results = await Promise.all(
@@ -291,9 +394,10 @@ Deno.serve(async (req) => {
         return `\n\n## 📊 DADOS EM TEMPO REAL (Holdprint API - ${new Date().toLocaleDateString("pt-BR")}):\n${results.join("\n")}`;
       })(),
       fetchRagHistorical(sector, endpoints),
+      isOrquestrador ? fetchInternalDB() : Promise.resolve(""),
     ]);
 
-    const systemContent = `${sectorPrompt}\n${BASE_RULES}${holdprintContext}${ragContext}`;
+    const systemContent = `${sectorPrompt}\n${BASE_RULES}${holdprintContext}${ragContext}${internalDbContext}`;
 
     const apiMessages = [
       { role: "system", content: systemContent },
