@@ -43,6 +43,7 @@ const FiscalPage = lazy(() => import("./pages/gestao/FiscalPage"));
 const MarketingPage = lazy(() => import("./pages/gestao/MarketingPage"));
 const CsPage = lazy(() => import("./pages/gestao/CsPage"));
 const JuridicoPage = lazy(() => import("./pages/gestao/JuridicoPage"));
+const OrquestradorPage = lazy(() => import("./pages/OrquestradorPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -102,6 +103,7 @@ const App = () => (
                 <Route path="/gestao/marketing" element={<MarketingPage />} />
                 <Route path="/gestao/cs" element={<CsPage />} />
                 <Route path="/gestao/juridico" element={<JuridicoPage />} />
+                <Route path="/orquestrador" element={<OrquestradorPage />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
