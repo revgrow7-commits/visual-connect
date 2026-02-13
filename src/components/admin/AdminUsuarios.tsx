@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { ShieldCheck, Loader2, Search, Pencil, Trash2, Eye, UserCog } from "lucide-react";
+import { Loader2, Search, Pencil, Trash2, Eye, UserCog } from "lucide-react";
 
 type AppRole = "admin" | "user" | "rh" | "colaborador" | "gestor";
 
@@ -33,9 +34,45 @@ const roleConfig: Record<AppRole, { label: string; color: string }> = {
 
 const allRoles: AppRole[] = ["admin", "rh", "gestor", "colaborador", "user"];
 
+const getInitials = (name: string | null, email: string | null) => {
+  const src = name || email || "?";
+  return src.split(/[\s@]/).map((s) => s[0]).join("").slice(0, 2).toUpperCase();
+};
+
+const getHighestRole = (roles: AppRole[]): AppRole => {
+  for (const r of allRoles) {
+    if (roles.includes(r)) return r;
+  }
+  return "user";
+};
+
+async function fetchUsers(): Promise<UserWithRole[]> {
+  const { data: profiles, error: profilesErr } = await supabase
+    .from("profiles")
+    .select("id, user_id, email, display_name, avatar_url")
+    .order("display_name");
+
+  if (profilesErr) throw profilesErr;
+
+  const { data: roles } = await supabase
+    .from("user_roles")
+    .select("user_id, role");
+
+  const roleMap = new Map<string, AppRole[]>();
+  (roles || []).forEach((r) => {
+    const existing = roleMap.get(r.user_id) || [];
+    existing.push(r.role as AppRole);
+    roleMap.set(r.user_id, existing);
+  });
+
+  return (profiles || []).map((p) => ({
+    ...p,
+    roles: roleMap.get(p.user_id) || [],
+  }));
+}
+
 const AdminUsuarios = () => {
-  const [users, setUsers] = useState<UserWithRole[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [filterRole, setFilterRole] = useState("todos");
 
@@ -49,60 +86,13 @@ const AdminUsuarios = () => {
   const [deleteUser, setDeleteUser] = useState<UserWithRole | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data: profiles, error: profilesErr } = await supabase
-        .from("profiles")
-        .select("id, user_id, email, display_name, avatar_url")
-        .order("display_name");
-
-      if (profilesErr) {
-        console.error("Error fetching profiles:", profilesErr);
-        toast.error("Erro ao carregar usuários: " + profilesErr.message);
-        setLoading(false);
-        return;
-      }
-
-      const { data: roles, error: rolesErr } = await supabase
-        .from("user_roles")
-        .select("user_id, role");
-
-      if (rolesErr) {
-        console.error("Error fetching roles:", rolesErr);
-      }
-
-      const roleMap = new Map<string, AppRole[]>();
-      (roles || []).forEach((r) => {
-        const existing = roleMap.get(r.user_id) || [];
-        existing.push(r.role as AppRole);
-        roleMap.set(r.user_id, existing);
-      });
-
-      setUsers(
-        (profiles || []).map((p) => ({
-          ...p,
-          roles: roleMap.get(p.user_id) || [],
-        }))
-      );
-    } catch (e: any) {
-      console.error("Unexpected error fetching users:", e);
-      toast.error("Erro inesperado ao carregar usuários");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
-
-  const getHighestRole = (roles: AppRole[]): AppRole => {
-    for (const r of allRoles) {
-      if (roles.includes(r)) return r;
-    }
-    return "user";
-  };
+  const { data: users = [], isLoading: loading } = useQuery({
+    queryKey: ["admin-usuarios"],
+    queryFn: fetchUsers,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
   const filtered = users.filter((u) => {
     const matchSearch =
@@ -115,11 +105,6 @@ const AdminUsuarios = () => {
     return matchSearch && matchRole;
   });
 
-  const getInitials = (name: string | null, email: string | null) => {
-    const src = name || email || "?";
-    return src.split(/[\s@]/).map((s) => s[0]).join("").slice(0, 2).toUpperCase();
-  };
-
   // Edit user
   const openEdit = (u: UserWithRole) => {
     setEditUser(u);
@@ -131,7 +116,6 @@ const AdminUsuarios = () => {
     if (!editUser) return;
     setSaving(true);
     try {
-      // Update display name
       if (editName !== editUser.display_name) {
         const { error } = await supabase
           .from("profiles")
@@ -140,7 +124,6 @@ const AdminUsuarios = () => {
         if (error) throw error;
       }
 
-      // Update role: remove all existing roles, then add the new one
       await supabase
         .from("user_roles")
         .delete()
@@ -155,14 +138,14 @@ const AdminUsuarios = () => {
 
       toast.success("Usuário atualizado com sucesso");
       setEditUser(null);
-      fetchUsers();
+      queryClient.invalidateQueries({ queryKey: ["admin-usuarios"] });
     } catch (e: any) {
       toast.error(e.message || "Erro ao salvar");
     }
     setSaving(false);
   };
 
-  // Delete user profile (not auth user)
+  // Delete user profile
   const handleDelete = async () => {
     if (!deleteUser) return;
     setDeleting(true);
@@ -172,7 +155,7 @@ const AdminUsuarios = () => {
       if (error) throw error;
       toast.success("Perfil removido com sucesso");
       setDeleteUser(null);
-      fetchUsers();
+      queryClient.invalidateQueries({ queryKey: ["admin-usuarios"] });
     } catch (e: any) {
       toast.error(e.message || "Erro ao remover");
     }
@@ -251,7 +234,6 @@ const AdminUsuarios = () => {
                 </TableRow>
               ) : (
                 filtered.map((u) => {
-                  const primary = getHighestRole(u.roles);
                   return (
                     <TableRow key={u.id}>
                       <TableCell>
@@ -304,11 +286,12 @@ const AdminUsuarios = () => {
 
       {/* View Profile Dialog */}
       <Dialog open={!!viewUser} onOpenChange={(o) => !o && setViewUser(null)}>
-        {viewUser && (
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Perfil do Usuário</DialogTitle>
-            </DialogHeader>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Perfil do Usuário</DialogTitle>
+            <DialogDescription>Informações do perfil</DialogDescription>
+          </DialogHeader>
+          {viewUser && (
             <div className="flex flex-col items-center gap-3 py-4">
               <Avatar className="h-16 w-16">
                 <AvatarFallback className="bg-primary/10 text-primary text-lg">
@@ -331,22 +314,22 @@ const AdminUsuarios = () => {
                 )}
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setViewUser(null)}>Fechar</Button>
-              <Button onClick={() => { setViewUser(null); openEdit(viewUser); }}>Editar</Button>
-            </DialogFooter>
-          </DialogContent>
-        )}
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewUser(null)}>Fechar</Button>
+            <Button onClick={() => { if (viewUser) { setViewUser(null); openEdit(viewUser); } }}>Editar</Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={!!editUser} onOpenChange={(o) => !o && setEditUser(null)}>
-        {editUser && (
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Editar Usuário</DialogTitle>
-              <DialogDescription>{editUser.email}</DialogDescription>
-            </DialogHeader>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Editar Usuário</DialogTitle>
+            <DialogDescription>{editUser?.email || ""}</DialogDescription>
+          </DialogHeader>
+          {editUser && (
             <div className="space-y-4 py-2">
               <div className="space-y-2">
                 <Label>Nome de exibição</Label>
@@ -369,37 +352,35 @@ const AdminUsuarios = () => {
                 </p>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setEditUser(null)}>Cancelar</Button>
-              <Button onClick={handleSaveEdit} disabled={saving}>
-                {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                Salvar
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        )}
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditUser(null)}>Cancelar</Button>
+            <Button onClick={handleSaveEdit} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!deleteUser} onOpenChange={(o) => !o && setDeleteUser(null)}>
-        {deleteUser && (
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Remover Usuário</DialogTitle>
-              <DialogDescription>
-                Tem certeza que deseja remover o perfil de <strong>{deleteUser.display_name || deleteUser.email}</strong>?
-                Esta ação remove o perfil e roles, mas não exclui a conta de autenticação.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDeleteUser(null)}>Cancelar</Button>
-              <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-                {deleting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                Remover
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        )}
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Remover Usuário</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja remover o perfil de <strong>{deleteUser?.display_name || deleteUser?.email}</strong>?
+              Esta ação remove o perfil e roles, mas não exclui a conta de autenticação.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteUser(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              Remover
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </Card>
   );
