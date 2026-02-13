@@ -1,8 +1,4 @@
-export interface BudgetChecklist {
-  question: string;
-  answer: string;
-}
-
+// === EXISTING TYPES (preserved) ===
 export interface DeliveryProduct {
   name: string;
   description: string;
@@ -30,7 +26,7 @@ export interface Warranty {
   type: string;
   startDate: string;
   endDate: string;
-  status: "active" | "expiring" | "expired" | "none";
+  status: "active" | "expiring" | "expiring_30" | "expiring_90" | "expired" | "none";
   daysRemaining: number;
   coverage: string;
   exclusions: string;
@@ -96,4 +92,138 @@ export interface CSCustomer {
   complaint_count: number;
   open_complaints: number;
   total_revenue: number;
+}
+
+// === NEW TYPES ===
+
+export interface HealthScoreComponent {
+  score: number;
+  raw: number | string;
+}
+
+export interface CustomerHealthScore {
+  id: number;
+  name: string;
+  document: string;
+  contact_person: string;
+  phone: string;
+  email: string;
+  healthScore: number;
+  previousScore: number;
+  trend: "up" | "down" | "stable";
+  components: {
+    nps: HealthScoreComponent;
+    delivery: HealthScoreComponent;
+    frequency: HealthScoreComponent;
+    complaints: HealthScoreComponent;
+    recency: HealthScoreComponent;
+  };
+  totalJobs: number;
+  totalRevenue: number;
+  complaintCount: number;
+  openComplaints: number;
+  lastJobDate: string;
+  riskLevel: "none" | "low" | "medium" | "high" | "critical";
+  suggestedAction: string | null;
+}
+
+export interface ComplaintSLA {
+  responseDeadline: string;
+  responseActual: string | null;
+  responseBreached: boolean;
+  resolutionDeadline: string;
+  resolutionActual: string | null;
+  resolutionBreached: boolean;
+}
+
+export interface EscalationEntry {
+  level: "N1" | "N2" | "N3" | "diretoria";
+  person: string;
+  date: string;
+  reason: string;
+}
+
+export interface ComplaintWithSLA {
+  id: string;
+  date: string;
+  customerName: string;
+  jobCode: number;
+  jobTitle: string;
+  category: "delivery_delay" | "production_defect" | "budget_divergence" | "installation" | "other";
+  priority: "critical" | "high" | "medium" | "low";
+  description: string;
+  status: "open" | "in_progress" | "resolved" | "cancelled";
+  responsibleName: string;
+  resolvedDate: string | null;
+  resolution: string | null;
+  sla: ComplaintSLA;
+  escalationLevel: "N1" | "N2" | "N3" | "diretoria";
+  escalationHistory: EscalationEntry[];
+}
+
+export interface WarrantyRecord {
+  jobCode: number;
+  customerName: string;
+  product: string;
+  type: string;
+  startDate: string;
+  endDate: string;
+  daysRemaining: number;
+  status: "active" | "expiring_30" | "expiring_90" | "expired";
+  coverage: string;
+  serviceCalls: number;
+}
+
+export interface TechnicalVisit {
+  id: string;
+  scheduled_date: string;
+  customerName: string;
+  customerAddress: string;
+  type: "preventive_maintenance" | "warranty_repair" | "acceptance_inspection" | "relationship";
+  description: string;
+  technicianName: string;
+  jobCode: number | null;
+  complaintId: string | null;
+  status: "scheduled" | "completed" | "cancelled" | "rescheduled";
+  report_status: "pending" | "submitted" | null;
+  report_notes: string | null;
+  duration_minutes: number | null;
+}
+
+export interface Touchpoint {
+  id: string;
+  date: string;
+  customerName: string;
+  type: "nps_survey" | "post_delivery_follow" | "warranty_reminder" | "reorder_nudge" | "churn_alert" | "anniversary" | "seasonal_campaign" | "complaint_resolved_check";
+  channel: "email" | "phone" | "whatsapp" | "visit";
+  trigger: string;
+  status: "pending" | "completed" | "postponed" | "skipped";
+  responsibleName: string;
+  notes: string | null;
+}
+
+export type OpportunityType = "upsell" | "cross_sell" | "reorder" | "maintenance_contract" | "warranty_renewal" | "referral";
+
+export interface Opportunity {
+  id: string;
+  type: OpportunityType;
+  customerName: string;
+  healthScore: number;
+  estimatedValue: number;
+  description: string;
+  context: string;
+  nextStep: string;
+  timing: string;
+  status: "active" | "converted" | "postponed" | "discarded";
+  createdDate: string;
+  responsibleName: string;
+  relatedJobCode: number | null;
+}
+
+export interface CSAlert {
+  type: string;
+  icon: string;
+  message: string;
+  action: string;
+  priority: "critical" | "high" | "medium";
 }
