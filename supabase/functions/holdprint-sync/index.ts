@@ -129,32 +129,38 @@ Deno.serve(async (req) => {
       stats[unit.key] = {};
       console.log(`[holdprint-sync] === Sincronizando ${unit.label} ===`);
 
-      for (const endpoint of Object.keys(ENDPOINTS)) {
+    // Fetch all endpoints in parallel for this unit
+    const endpointResults = await Promise.all(
+      Object.keys(ENDPOINTS).map(async (endpoint) => {
         console.log(`[holdprint-sync] [${unit.key}] Fetching ${endpoint}...`);
         const items = await fetchAllPages(token, endpoint);
-        stats[unit.key][endpoint] = items.length;
+        return { endpoint, items };
+      })
+    );
 
-        if (items.length === 0) continue;
+    for (const { endpoint, items } of endpointResults) {
+      stats[unit.key][endpoint] = items.length;
+      if (items.length === 0) continue;
 
-        const rows = items.map((item) => ({
-          endpoint,
-          record_id: `${unit.key}_${extractRecordId(item)}`,
-          raw_data: { ...item, _unidade: unit.label, _unit_key: unit.key },
-          content_text: `[${unit.label}] ${buildContentText(endpoint, item)}`,
-          last_synced: new Date().toISOString(),
-        }));
+      const rows = items.map((item) => ({
+        endpoint,
+        record_id: `${unit.key}_${extractRecordId(item)}`,
+        raw_data: { ...item, _unidade: unit.label, _unit_key: unit.key },
+        content_text: `[${unit.label}] ${buildContentText(endpoint, item)}`,
+        last_synced: new Date().toISOString(),
+      }));
 
-        // Upsert in batches of 100
-        for (let i = 0; i < rows.length; i += 100) {
-          const batch = rows.slice(i, i + 100);
-          const { error } = await sb
-            .from("holdprint_cache")
-            .upsert(batch, { onConflict: "endpoint,record_id" });
-          if (error) {
-            console.error(`[holdprint-sync] [${unit.key}] ${endpoint} upsert error:`, error.message);
-          }
+      // Upsert in batches of 100
+      for (let i = 0; i < rows.length; i += 100) {
+        const batch = rows.slice(i, i + 100);
+        const { error } = await sb
+          .from("holdprint_cache")
+          .upsert(batch, { onConflict: "endpoint,record_id" });
+        if (error) {
+          console.error(`[holdprint-sync] [${unit.key}] ${endpoint} upsert error:`, error.message);
         }
       }
+    }
     }
 
     console.log("[holdprint-sync] Done:", stats);
