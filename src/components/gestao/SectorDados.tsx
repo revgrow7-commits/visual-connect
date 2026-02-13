@@ -98,7 +98,11 @@ const SectorDados = ({ sector, sectorLabel }: SectorDadosProps) => {
   // Upload file
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files?.length || !user) return;
+    if (!files?.length) return;
+    if (!user) {
+      toast({ title: "Login necessário", description: "Faça login para enviar arquivos.", variant: "destructive" });
+      return;
+    }
 
     setUploading(true);
     try {
@@ -106,16 +110,23 @@ const SectorDados = ({ sector, sectorLabel }: SectorDadosProps) => {
         const ext = getExt(file.name);
         const path = `${sector}/${user.id}/${Date.now()}-${file.name}`;
 
+        console.log("[RAG Upload] Uploading to storage:", path, "size:", file.size);
+
         // Upload to storage
         const { error: uploadErr } = await supabase.storage
           .from("rag-documents")
           .upload(path, file);
 
-        if (uploadErr) throw uploadErr;
+        if (uploadErr) {
+          console.error("[RAG Upload] Storage error:", uploadErr);
+          throw uploadErr;
+        }
 
         const { data: urlData } = supabase.storage
           .from("rag-documents")
           .getPublicUrl(path);
+
+        console.log("[RAG Upload] Inserting into rag_files...");
 
         // Register in rag_files
         const { error: insertErr } = await supabase.from("rag_files").insert({
@@ -128,14 +139,18 @@ const SectorDados = ({ sector, sectorLabel }: SectorDadosProps) => {
           tags: [sector],
         });
 
-        if (insertErr) throw insertErr;
+        if (insertErr) {
+          console.error("[RAG Upload] Insert error:", insertErr);
+          throw insertErr;
+        }
+        console.log("[RAG Upload] Success:", file.name);
       }
 
       toast({ title: "Upload concluído", description: `${files.length} arquivo(s) enviados para base RAG.` });
       queryClient.invalidateQueries({ queryKey: ["rag-files", sector] });
     } catch (err: any) {
-      console.error("Upload error:", err);
-      toast({ title: "Erro no upload", description: err.message, variant: "destructive" });
+      console.error("[RAG Upload] Error:", err);
+      toast({ title: "Erro no upload", description: err.message || String(err), variant: "destructive" });
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
