@@ -1,380 +1,408 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Loader2, Search, Pencil, Trash2, Eye, UserCog } from "lucide-react";
+import { Loader2, Search, Pencil, Trash2, Plus, Key, UserCog, Phone, Building2 } from "lucide-react";
 
-type AppRole = "admin" | "user" | "rh" | "colaborador" | "gestor";
-
-interface UserWithRole {
+interface GatewayUser {
   id: string;
-  user_id: string;
-  email: string | null;
-  display_name: string | null;
-  avatar_url: string | null;
-  roles: AppRole[];
+  name: string;
+  email: string;
+  role: string;
+  department: string | null;
+  permissions: Record<string, boolean>;
+  is_active: boolean;
+  last_login_at: string | null;
+  created_at: string;
 }
 
-const roleConfig: Record<AppRole, { label: string; color: string }> = {
-  admin: { label: "Administrador", color: "bg-destructive/15 text-destructive" },
-  rh: { label: "RH", color: "bg-blue-500/15 text-blue-700 dark:text-blue-400" },
-  gestor: { label: "Gestor", color: "bg-purple-500/15 text-purple-700 dark:text-purple-400" },
-  colaborador: { label: "Colaborador", color: "bg-green-500/15 text-green-700 dark:text-green-400" },
-  user: { label: "Usuário", color: "bg-muted text-muted-foreground" },
+const roleOptions = [
+  { value: "admin", label: "Admin" },
+  { value: "gerente", label: "Gerente" },
+  { value: "instalador", label: "Instalador" },
+  { value: "user", label: "Usuário" },
+];
+
+const systemOptions = ["rh_visual", "feedback", "instalador", "gateway"];
+
+const roleColors: Record<string, string> = {
+  admin: "bg-destructive/15 text-destructive border-destructive/30",
+  gerente: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30",
+  instalador: "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30",
+  manager: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30",
+  user: "bg-muted text-muted-foreground border-border",
 };
 
-const allRoles: AppRole[] = ["admin", "rh", "gestor", "colaborador", "user"];
-
-function getInitials(name: string | null, email: string | null) {
-  const src = name || email || "?";
-  return src.split(/[\s@]/).map((s) => s[0]).join("").slice(0, 2).toUpperCase();
-}
-
-function getHighestRole(roles: AppRole[]): AppRole {
-  for (const r of allRoles) {
-    if (roles.includes(r)) return r;
-  }
-  return "user";
-}
-
-async function fetchUsers(): Promise<UserWithRole[]> {
-  const [profilesRes, rolesRes] = await Promise.all([
-    supabase.from("profiles").select("id, user_id, email, display_name, avatar_url").order("display_name"),
-    supabase.from("user_roles").select("user_id, role"),
-  ]);
-
-  if (profilesRes.error) {
-    console.error("Erro ao buscar perfis:", profilesRes.error);
-    throw new Error(profilesRes.error.message);
-  }
-
-  const roleMap = new Map<string, AppRole[]>();
-  (rolesRes.data || []).forEach((r) => {
-    const arr = roleMap.get(r.user_id) || [];
-    arr.push(r.role as AppRole);
-    roleMap.set(r.user_id, arr);
-  });
-
-  return (profilesRes.data || []).map((p) => ({
-    ...p,
-    roles: roleMap.get(p.user_id) || [],
-  }));
-}
-
-function RoleBadges({ roles }: { roles: AppRole[] }) {
-  if (roles.length === 0) {
-    return (
-      <Badge variant="secondary" className={roleConfig.user.color}>
-        {roleConfig.user.label}
-      </Badge>
-    );
-  }
-  return (
-    <div className="flex flex-wrap gap-1">
-      {roles.map((r) => (
-        <Badge key={r} variant="secondary" className={roleConfig[r]?.color || ""}>
-          {roleConfig[r]?.label || r}
-        </Badge>
-      ))}
-    </div>
-  );
-}
+const togglePerm = (p: Record<string, boolean>, s: string) => ({ ...p, [s]: !p[s] });
 
 const AdminUsuarios = () => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [filterRole, setFilterRole] = useState("todos");
-
-  const [viewUser, setViewUser] = useState<UserWithRole | null>(null);
-  const [editUser, setEditUser] = useState<UserWithRole | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editRole, setEditRole] = useState<AppRole>("user");
+  const [showCreate, setShowCreate] = useState(false);
+  const [editUser, setEditUser] = useState<GatewayUser | null>(null);
+  const [deleteUser, setDeleteUser] = useState<GatewayUser | null>(null);
+  const [resetPwUser, setResetPwUser] = useState<GatewayUser | null>(null);
   const [saving, setSaving] = useState(false);
-  const [deleteUser, setDeleteUser] = useState<UserWithRole | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
-  const { data: users = [], isLoading, isError, error } = useQuery({
-    queryKey: ["admin-usuarios"],
-    queryFn: fetchUsers,
-    staleTime: 60_000,
-    gcTime: 5 * 60_000,
-    refetchOnWindowFocus: false,
-    retry: 1,
+  const [form, setForm] = useState({
+    email: "", password: "", name: "", role: "user", department: "",
+    phone: "", filial: "",
+    permissions: {} as Record<string, boolean>,
+  });
+  const [editForm, setEditForm] = useState({
+    name: "", role: "", department: "", is_active: true,
+    phone: "", filial: "",
+    permissions: {} as Record<string, boolean>,
+  });
+  const [newPassword, setNewPassword] = useState("");
+
+  const { data: users = [], isLoading } = useQuery({
+    queryKey: ["admin-gateway-users"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("gateway_users_safe").select("*").order("name");
+      if (error) throw error;
+      return (data || []) as unknown as GatewayUser[];
+    },
+    staleTime: 30_000,
   });
 
-  const filtered = users.filter((u) => {
-    const matchSearch =
-      !search ||
-      (u.display_name || "").toLowerCase().includes(search.toLowerCase()) ||
-      (u.email || "").toLowerCase().includes(search.toLowerCase());
-    const matchRole =
-      filterRole === "todos" ||
-      (filterRole === "user" ? u.roles.length === 0 : u.roles.includes(filterRole as AppRole));
-    return matchSearch && matchRole;
-  });
+  const filtered = users.filter(u =>
+    !search || u.name?.toLowerCase().includes(search.toLowerCase()) || u.email?.toLowerCase().includes(search.toLowerCase())
+  );
 
-  const openEdit = (u: UserWithRole) => {
+  const handleCreate = async () => {
+    if (!form.email || !form.password || !form.name) { toast.error("Preencha email, senha e nome"); return; }
+    setSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("gateway-auth", { body: { action: "create-user", ...form } });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      toast.success("Usuário criado com sucesso");
+      setShowCreate(false);
+      setForm({ email: "", password: "", name: "", role: "user", department: "", phone: "", filial: "", permissions: {} });
+      queryClient.invalidateQueries({ queryKey: ["admin-gateway-users"] });
+    } catch (e: any) { toast.error(e.message); } finally { setSaving(false); }
+  };
+
+  const openEdit = (u: GatewayUser) => {
     setEditUser(u);
-    setEditName(u.display_name || "");
-    setEditRole(getHighestRole(u.roles));
+    setEditForm({
+      name: u.name,
+      role: u.role,
+      department: u.department || "",
+      is_active: u.is_active,
+      phone: (u.permissions as any)?.phone || "",
+      filial: (u.permissions as any)?.filial || "",
+      permissions: (u.permissions || {}) as Record<string, boolean>,
+    });
   };
 
   const handleSaveEdit = async () => {
     if (!editUser) return;
     setSaving(true);
     try {
-      if (editName !== editUser.display_name) {
-        const { error } = await supabase
-          .from("profiles")
-          .update({ display_name: editName })
-          .eq("user_id", editUser.user_id);
-        if (error) throw error;
-      }
-      await supabase.from("user_roles").delete().eq("user_id", editUser.user_id);
-      if (editRole !== "user") {
-        const { error } = await supabase
-          .from("user_roles")
-          .insert({ user_id: editUser.user_id, role: editRole });
-        if (error) throw error;
-      }
-      toast.success("Usuário atualizado com sucesso");
+      const { error } = await supabase.from("gateway_users").update({
+        name: editForm.name,
+        role: editForm.role,
+        department: editForm.department || null,
+        is_active: editForm.is_active,
+        permissions: { ...editForm.permissions, phone: editForm.phone, filial: editForm.filial },
+      }).eq("id", editUser.id);
+      if (error) throw error;
+      toast.success("Usuário atualizado");
       setEditUser(null);
-      queryClient.invalidateQueries({ queryKey: ["admin-usuarios"] });
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao salvar");
-    } finally {
-      setSaving(false);
-    }
+      queryClient.invalidateQueries({ queryKey: ["admin-gateway-users"] });
+    } catch (e: any) { toast.error(e.message); } finally { setSaving(false); }
+  };
+
+  const handleToggleActive = async (u: GatewayUser) => {
+    setTogglingId(u.id);
+    try {
+      const { error } = await supabase.from("gateway_users").update({ is_active: !u.is_active }).eq("id", u.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["admin-gateway-users"] });
+    } catch (e: any) { toast.error(e.message); } finally { setTogglingId(null); }
   };
 
   const handleDelete = async () => {
     if (!deleteUser) return;
-    setDeleting(true);
+    setSaving(true);
     try {
-      await supabase.from("user_roles").delete().eq("user_id", deleteUser.user_id);
-      const { error } = await supabase.from("profiles").delete().eq("user_id", deleteUser.user_id);
+      const { error } = await supabase.from("gateway_users").delete().eq("id", deleteUser.id);
       if (error) throw error;
-      toast.success("Perfil removido com sucesso");
+      toast.success("Usuário removido");
       setDeleteUser(null);
-      queryClient.invalidateQueries({ queryKey: ["admin-usuarios"] });
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao remover");
-    } finally {
-      setDeleting(false);
-    }
+      queryClient.invalidateQueries({ queryKey: ["admin-gateway-users"] });
+    } catch (e: any) { toast.error(e.message); } finally { setSaving(false); }
   };
 
-  const renderTableBody = () => {
-    if (isLoading) {
-      return (
-        <TableRow>
-          <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin mx-auto" />
-          </TableCell>
-        </TableRow>
-      );
-    }
-
-    if (isError) {
-      return (
-        <TableRow>
-          <TableCell colSpan={4} className="h-24 text-center text-destructive">
-            Erro ao carregar: {(error as Error)?.message || "Tente novamente"}
-          </TableCell>
-        </TableRow>
-      );
-    }
-
-    if (filtered.length === 0) {
-      return (
-        <TableRow>
-          <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-            Nenhum usuário encontrado.
-          </TableCell>
-        </TableRow>
-      );
-    }
-
-    return filtered.map((u) => (
-      <TableRow key={u.id}>
-        <TableCell>
-          <div className="flex items-center gap-3">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                {getInitials(u.display_name, u.email)}
-              </AvatarFallback>
-            </Avatar>
-            <span className="font-medium text-sm">{u.display_name || "—"}</span>
-          </div>
-        </TableCell>
-        <TableCell className="text-sm text-muted-foreground">{u.email || "—"}</TableCell>
-        <TableCell>
-          <RoleBadges roles={u.roles} />
-        </TableCell>
-        <TableCell className="text-right">
-          <div className="flex items-center justify-end gap-1">
-            <Button variant="ghost" size="sm" onClick={() => setViewUser(u)} title="Ver perfil">
-              <Eye className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => openEdit(u)} title="Editar">
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setDeleteUser(u)} title="Remover" className="text-destructive hover:text-destructive">
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </TableCell>
-      </TableRow>
-    ));
+  const handleResetPassword = async () => {
+    if (!resetPwUser || !newPassword) return;
+    setSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("gateway-auth", {
+        body: { action: "reset-password", userId: resetPwUser.id, password: newPassword },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      toast.success("Senha resetada com sucesso");
+      setResetPwUser(null);
+      setNewPassword("");
+    } catch (e: any) { toast.error(e.message); } finally { setSaving(false); }
   };
 
   return (
-    <div>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <UserCog className="h-5 w-5" /> Gestão de Usuários
-          </CardTitle>
-          <CardDescription>Edite perfis, atribua roles e gerencie permissões</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome ou e-mail..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={filterRole} onValueChange={setFilterRole}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="Filtrar role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                {allRoles.map((r) => (
-                  <SelectItem key={r} value={r}>{roleConfig[r].label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <UserCog className="h-6 w-6" /> Usuários
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Gerencie usuários e permissões do sistema ({users.length} usuários)
+          </p>
+        </div>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar usuário..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-9"
+            />
           </div>
+          <Button onClick={() => setShowCreate(true)} className="bg-primary hover:bg-primary/90 shrink-0">
+            <Plus className="h-4 w-4 mr-1" /> Novo Usuário
+          </Button>
+        </div>
+      </div>
 
-          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-            <span>{users.length} usuários</span>
-            <span>•</span>
-            <span>{users.filter((u) => u.roles.includes("admin")).length} admins</span>
-            <span>•</span>
-            <span>{users.filter((u) => u.roles.includes("rh")).length} RH</span>
-            <span>•</span>
-            <span>{users.filter((u) => u.roles.includes("gestor")).length} gestores</span>
-            <span>•</span>
-            <span>{users.filter((u) => u.roles.includes("colaborador")).length} colaboradores</span>
-          </div>
+      {/* Grid Cards */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="p-5">
+              <div className="flex items-start gap-3">
+                <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-5 w-20 mt-2" />
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <Card className="p-12 text-center">
+          <p className="text-muted-foreground">Nenhum usuário encontrado</p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map(u => (
+            <Card key={u.id} className="relative overflow-hidden transition-shadow hover:shadow-md">
+              <CardContent className="p-5 space-y-4">
+                {/* Top row: user info + active toggle */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <UserCog className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-sm text-foreground truncate">{u.name}</h3>
+                      <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-[10px] text-muted-foreground">Ativo</span>
+                    <Switch
+                      checked={u.is_active}
+                      onCheckedChange={() => handleToggleActive(u)}
+                      disabled={togglingId === u.id}
+                      className="scale-90"
+                    />
+                  </div>
+                </div>
 
-          <div className="rounded-lg border overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Usuário</TableHead>
-                  <TableHead>E-mail</TableHead>
-                  <TableHead>Perfil / Role</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>{renderTableBody()}</TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                {/* Role badge */}
+                <div>
+                  <Badge
+                    variant="outline"
+                    className={`uppercase text-[10px] font-bold tracking-wider px-2.5 py-0.5 ${roleColors[u.role] || roleColors.user}`}
+                  >
+                    {roleOptions.find(r => r.value === u.role)?.label || u.role}
+                  </Badge>
+                </div>
 
-      {/* Dialogs fora do Card para evitar conflito de refs */}
-      <Dialog open={!!viewUser} onOpenChange={(o) => { if (!o) setViewUser(null); }}>
-        <DialogContent className="max-w-sm">
+                {/* Details */}
+                <div className="space-y-1.5 text-xs text-muted-foreground">
+                  {(u.permissions as any)?.phone && (
+                    <div className="flex items-center gap-1.5">
+                      <Phone className="h-3.5 w-3.5" />
+                      <span>{(u.permissions as any).phone}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1.5">
+                    <Building2 className="h-3.5 w-3.5" />
+                    <span>Filial: {(u.permissions as any)?.filial || u.department || "—"}</span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 pt-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-xs"
+                    onClick={() => openEdit(u)}
+                  >
+                    <Pencil className="h-3.5 w-3.5 mr-1" /> Editar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => setResetPwUser(u)}
+                  >
+                    <Key className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+                    onClick={() => setDeleteUser(u)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Create Dialog */}
+      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Perfil do Usuário</DialogTitle>
-            <DialogDescription>Informações do perfil</DialogDescription>
+            <DialogTitle>Novo Usuário</DialogTitle>
+            <DialogDescription>Crie credenciais de acesso ao sistema</DialogDescription>
           </DialogHeader>
-          {viewUser && (
-            <div className="flex flex-col items-center gap-3 py-4">
-              <Avatar className="h-16 w-16">
-                <AvatarFallback className="bg-primary/10 text-primary text-lg">
-                  {getInitials(viewUser.display_name, viewUser.email)}
-                </AvatarFallback>
-              </Avatar>
-              <h3 className="font-semibold text-lg">{viewUser.display_name || "Sem nome"}</h3>
-              <p className="text-sm text-muted-foreground">{viewUser.email || "Sem e-mail"}</p>
-              <RoleBadges roles={viewUser.roles} />
+          <div className="space-y-3">
+            <div className="space-y-1"><Label>Nome</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
+            <div className="space-y-1"><Label>Email</Label><Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+            <div className="space-y-1"><Label>Senha</Label><Input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Perfil</Label>
+                <Select value={form.role} onValueChange={v => setForm({ ...form, role: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{roleOptions.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1"><Label>Departamento</Label><Input value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} /></div>
             </div>
-          )}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1"><Label>Telefone</Label><Input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="5551999999999" /></div>
+              <div className="space-y-1"><Label>Filial</Label><Input value={form.filial} onChange={e => setForm({ ...form, filial: e.target.value })} placeholder="POA" /></div>
+            </div>
+            <div className="space-y-2">
+              <Label>Permissões de Sistema</Label>
+              <div className="flex flex-wrap gap-2">
+                {systemOptions.map(s => (
+                  <Button key={s} type="button" size="sm" variant={form.permissions[s] ? "default" : "outline"} onClick={() => setForm({ ...form, permissions: togglePerm(form.permissions, s) })}>
+                    {s}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setViewUser(null)}>Fechar</Button>
-            <Button onClick={() => { if (viewUser) { const u = viewUser; setViewUser(null); openEdit(u); } }}>Editar</Button>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>Cancelar</Button>
+            <Button onClick={handleCreate} disabled={saving}>{saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}Criar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!editUser} onOpenChange={(o) => { if (!o) setEditUser(null); }}>
-        <DialogContent className="max-w-sm">
+      {/* Edit Dialog */}
+      <Dialog open={!!editUser} onOpenChange={o => { if (!o) setEditUser(null); }}>
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Editar Usuário</DialogTitle>
-            <DialogDescription>{editUser?.email || "Editar dados do usuário"}</DialogDescription>
+            <DialogDescription>{editUser?.email}</DialogDescription>
           </DialogHeader>
-          {editUser && (
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label>Nome de exibição</Label>
-                <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Perfil / Role</Label>
-                <Select value={editRole} onValueChange={(v) => setEditRole(v as AppRole)}>
+          <div className="space-y-3">
+            <div className="space-y-1"><Label>Nome</Label><Input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Perfil</Label>
+                <Select value={editForm.role} onValueChange={v => setEditForm({ ...editForm, role: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {allRoles.map((r) => (
-                      <SelectItem key={r} value={r}>{roleConfig[r].label}</SelectItem>
-                    ))}
-                  </SelectContent>
+                  <SelectContent>{roleOptions.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">Define o nível de acesso principal do usuário.</p>
+              </div>
+              <div className="space-y-1"><Label>Departamento</Label><Input value={editForm.department} onChange={e => setEditForm({ ...editForm, department: e.target.value })} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1"><Label>Telefone</Label><Input value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} /></div>
+              <div className="space-y-1"><Label>Filial</Label><Input value={editForm.filial} onChange={e => setEditForm({ ...editForm, filial: e.target.value })} /></div>
+            </div>
+            <div className="flex items-center gap-2"><Switch checked={editForm.is_active} onCheckedChange={v => setEditForm({ ...editForm, is_active: v })} /><Label>Ativo</Label></div>
+            <div className="space-y-2">
+              <Label>Permissões de Sistema</Label>
+              <div className="flex flex-wrap gap-2">
+                {systemOptions.map(s => (
+                  <Button key={s} type="button" size="sm" variant={editForm.permissions[s] ? "default" : "outline"} onClick={() => setEditForm({ ...editForm, permissions: togglePerm(editForm.permissions, s) })}>
+                    {s}
+                  </Button>
+                ))}
               </div>
             </div>
-          )}
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditUser(null)}>Cancelar</Button>
-            <Button onClick={handleSaveEdit} disabled={saving}>
-              {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-              Salvar
-            </Button>
+            <Button onClick={handleSaveEdit} disabled={saving}>{saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!deleteUser} onOpenChange={(o) => { if (!o) setDeleteUser(null); }}>
+      {/* Reset Password Dialog */}
+      <Dialog open={!!resetPwUser} onOpenChange={o => { if (!o) setResetPwUser(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Resetar Senha</DialogTitle>
+            <DialogDescription>{resetPwUser?.name}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2"><Label>Nova Senha</Label><Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={6} /></div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetPwUser(null)}>Cancelar</Button>
+            <Button onClick={handleResetPassword} disabled={saving || !newPassword}>{saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}Resetar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Dialog */}
+      <Dialog open={!!deleteUser} onOpenChange={o => { if (!o) setDeleteUser(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Remover Usuário</DialogTitle>
-            <DialogDescription>
-              Tem certeza que deseja remover o perfil de <strong>{deleteUser?.display_name || deleteUser?.email}</strong>?
-              Esta ação remove o perfil e roles, mas não exclui a conta de autenticação.
-            </DialogDescription>
+            <DialogDescription>Remover <strong>{deleteUser?.name}</strong> do sistema?</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteUser(null)}>Cancelar</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-              {deleting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-              Remover
-            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={saving}>{saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}Remover</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
