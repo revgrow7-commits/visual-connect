@@ -78,6 +78,7 @@ const groups: NavGroup[] = [
       { label: "Endomarketing", icon: Megaphone, path: "/endomarketing", highlight: true, badge: "Ação" },
       { label: "Ouvidoria", icon: ShieldAlert, path: "/ouvidoria", highlight: true, badge: "Canal" },
       { label: "Meu Perfil", icon: User, path: "/perfil" },
+      { label: "Orquestrador", icon: Brain, path: "/orquestrador", highlight: true, badge: "IA" },
       { label: "Admin", icon: Settings, path: "/admin" },
     ],
     collapsible: true,
