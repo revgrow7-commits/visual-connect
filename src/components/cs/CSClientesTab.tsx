@@ -6,12 +6,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
-import { Users, UserCheck, UserX, Search } from "lucide-react";
+import { Users, UserCheck, UserX, Search, Loader2, Calendar } from "lucide-react";
 import { mockCSCustomers } from "./mockData";
-import type { CSCustomer } from "./types";
+import CSMeetingDialog from "./CSMeetingDialog";
+import type { CSCustomer, CSWorkspaceCustomer } from "./types";
+import type { HoldprintJob } from "@/hooks/useCSHoldprintData";
 
 const formatCurrency = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const formatDate = (d: string) => new Date(d).toLocaleDateString("pt-BR");
+const formatDate = (d: string) => d ? new Date(d).toLocaleDateString("pt-BR") : "—";
 const renderStars = (n: number) => "⭐".repeat(Math.round(n)) + "☆".repeat(5 - Math.round(n));
 
 const npsColor = (score: number | null) => {
@@ -21,17 +23,28 @@ const npsColor = (score: number | null) => {
   return "text-red-600 font-bold";
 };
 
-const CSClientesTab = React.forwardRef<HTMLDivElement>((_, ref) => {
+interface CSClientesTabProps {
+  holdprintCustomers?: CSCustomer[] | null;
+  wsCustomers?: CSWorkspaceCustomer[] | null;
+  holdprintJobs?: HoldprintJob[];
+  isLoading?: boolean;
+}
+
+const CSClientesTab = React.forwardRef<HTMLDivElement, CSClientesTabProps>(({ holdprintCustomers, wsCustomers, holdprintJobs, isLoading }, ref) => {
   const [search, setSearch] = useState("");
   const [npsFilter, setNpsFilter] = useState("all");
   const [selected, setSelected] = useState<CSCustomer | null>(null);
 
-  const promoters = mockCSCustomers.filter((c) => c.nps_category === "promoter").length;
-  const passives = mockCSCustomers.filter((c) => c.nps_category === "passive").length;
-  const detractors = mockCSCustomers.filter((c) => c.nps_category === "detractor").length;
-  const total = mockCSCustomers.length;
+  // Use real data if available, fallback to mock
+  const customers = holdprintCustomers && holdprintCustomers.length > 0 ? holdprintCustomers : mockCSCustomers;
+  const isRealData = holdprintCustomers && holdprintCustomers.length > 0;
 
-  const filtered = mockCSCustomers.filter((c) => {
+  const promoters = customers.filter((c) => c.nps_category === "promoter").length;
+  const passives = customers.filter((c) => c.nps_category === "passive").length;
+  const detractors = customers.filter((c) => c.nps_category === "detractor").length;
+  const total = customers.length;
+
+  const filtered = customers.filter((c) => {
     if (npsFilter !== "all" && c.nps_category !== npsFilter) return false;
     if (search) {
       const s = search.toLowerCase();
@@ -40,15 +53,28 @@ const CSClientesTab = React.forwardRef<HTMLDivElement>((_, ref) => {
     return true;
   });
 
+  // Get customer jobs from Holdprint data
+  const getCustomerJobs = (customerId: number) => {
+    if (!holdprintJobs) return [];
+    return holdprintJobs.filter(j => j.customer?.id === customerId);
+  };
+
   const kpis = [
-    { label: "Total Clientes Atendidos", value: String(total), icon: Users, bg: "bg-muted", color: "text-muted-foreground" },
-    { label: `Promotores (NPS 9-10)`, value: `${promoters} (${Math.round((promoters / total) * 100)}%)`, icon: UserCheck, bg: "bg-green-50", color: "text-green-600" },
-    { label: `Passivos (NPS 7-8)`, value: `${passives} (${Math.round((passives / total) * 100)}%)`, icon: Users, bg: "bg-yellow-50", color: "text-yellow-600" },
-    { label: `Detratores (NPS 0-6)`, value: `${detractors} (${Math.round((detractors / total) * 100)}%)`, icon: UserX, bg: "bg-red-50", color: "text-red-600" },
+    { label: "Total Clientes", value: String(total), icon: Users, bg: "bg-muted", color: "text-muted-foreground" },
+    { label: `Promotores (NPS 9-10)`, value: total > 0 ? `${promoters} (${Math.round((promoters / total) * 100)}%)` : "0", icon: UserCheck, bg: "bg-green-50", color: "text-green-600" },
+    { label: `Passivos (NPS 7-8)`, value: total > 0 ? `${passives} (${Math.round((passives / total) * 100)}%)` : "0", icon: Users, bg: "bg-yellow-50", color: "text-yellow-600" },
+    { label: `Detratores (NPS 0-6)`, value: total > 0 ? `${detractors} (${Math.round((detractors / total) * 100)}%)` : "0", icon: UserX, bg: "bg-red-50", color: "text-red-600" },
   ];
 
   return (
     <div ref={ref} className="space-y-6">
+      {/* Source indicator */}
+      <div className="flex items-center gap-2">
+        <Badge variant={isRealData ? "default" : "outline"} className="text-[10px]">
+          {isLoading ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Carregando...</> : isRealData ? "🟢 Dados Holdprint (tempo real)" : "🟡 Dados mock (demo)"}
+        </Badge>
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {kpis.map((k) => (
           <Card key={k.label}>
@@ -98,6 +124,7 @@ const CSClientesTab = React.forwardRef<HTMLDivElement>((_, ref) => {
                 <TableHead>Satisfação</TableHead>
                 <TableHead className="text-center">Recl.</TableHead>
                 <TableHead className="text-right">Receita Total</TableHead>
+                <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -113,7 +140,7 @@ const CSClientesTab = React.forwardRef<HTMLDivElement>((_, ref) => {
                   <TableCell className="text-center">{c.total_jobs}</TableCell>
                   <TableCell>{formatDate(c.last_job_date)}</TableCell>
                   <TableCell className={`text-center ${npsColor(c.nps_score)}`}>{c.nps_score ?? "—"}</TableCell>
-                  <TableCell>{renderStars(c.avg_satisfaction)}</TableCell>
+                  <TableCell>{c.avg_satisfaction > 0 ? renderStars(c.avg_satisfaction) : "—"}</TableCell>
                   <TableCell className="text-center">
                     {c.complaint_count > 0 ? (
                       <Badge className="bg-red-100 text-red-800 hover:bg-red-100">{c.complaint_count}{c.open_complaints > 0 ? ` (${c.open_complaints} aberta${c.open_complaints > 1 ? "s" : ""})` : ""}</Badge>
@@ -122,6 +149,13 @@ const CSClientesTab = React.forwardRef<HTMLDivElement>((_, ref) => {
                     )}
                   </TableCell>
                   <TableCell className="text-right font-medium">{formatCurrency(c.total_revenue)}</TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <CSMeetingDialog
+                      customerName={c.name}
+                      customerEmail={c.email}
+                      trigger={<button className="p-1 hover:bg-muted rounded" title="Agendar reunião"><Calendar className="h-4 w-4 text-muted-foreground" /></button>}
+                    />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -143,7 +177,7 @@ const CSClientesTab = React.forwardRef<HTMLDivElement>((_, ref) => {
                   <p>Contato: {selected.contact_person}</p>
                   <p>Email: {selected.email}</p>
                   <p>Telefone: {selected.phone}</p>
-                  <p>Cidade: {selected.city} - {selected.state}</p>
+                  {selected.city && <p>Cidade: {selected.city} - {selected.state}</p>}
                 </div>
                 <Separator />
                 <div className="grid grid-cols-2 gap-4">
@@ -157,8 +191,12 @@ const CSClientesTab = React.forwardRef<HTMLDivElement>((_, ref) => {
                   <Card>
                     <CardContent className="p-3 text-center">
                       <p className="text-xs text-muted-foreground">Satisfação</p>
-                      <p className="text-lg">{renderStars(selected.avg_satisfaction)}</p>
-                      <p className="text-xs">{selected.avg_satisfaction.toFixed(1)}/5</p>
+                      {selected.avg_satisfaction > 0 ? (
+                        <>
+                          <p className="text-lg">{renderStars(selected.avg_satisfaction)}</p>
+                          <p className="text-xs">{selected.avg_satisfaction.toFixed(1)}/5</p>
+                        </>
+                      ) : <p className="text-lg text-muted-foreground">—</p>}
                     </CardContent>
                   </Card>
                   <Card>
@@ -173,6 +211,37 @@ const CSClientesTab = React.forwardRef<HTMLDivElement>((_, ref) => {
                       <p className="text-lg font-bold">{formatCurrency(selected.total_revenue)}</p>
                     </CardContent>
                   </Card>
+                </div>
+
+                {/* Jobs from Holdprint */}
+                {holdprintJobs && (
+                  <>
+                    <Separator />
+                    <div>
+                      <h4 className="font-semibold text-sm mb-2">Jobs Recentes (Holdprint)</h4>
+                      {getCustomerJobs(selected.id).length === 0 ? (
+                        <p className="text-sm text-muted-foreground">Nenhum job encontrado.</p>
+                      ) : (
+                        <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                          {getCustomerJobs(selected.id).slice(0, 10).map((j) => (
+                            <div key={j.id} className="text-sm p-2 bg-muted/30 rounded">
+                              <p className="font-medium">#{j.code || j.id} — {j.title || "Sem título"}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Status: {j.productionStatus || j.status || "?"} | 
+                                Valor: {formatCurrency(j.totalPrice || 0)} |
+                                {j.deliveryDate ? ` Entregue: ${formatDate(j.deliveryDate)}` : j.deliveryNeeded ? ` Prazo: ${formatDate(j.deliveryNeeded)}` : ""}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                <Separator />
+                <div className="flex gap-2">
+                  <CSMeetingDialog customerName={selected.name} customerEmail={selected.email} />
                 </div>
                 <Separator />
                 <div>

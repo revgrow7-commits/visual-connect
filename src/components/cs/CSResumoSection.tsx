@@ -4,11 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
-import { X, Bell, ChevronDown, ChevronUp, Heart, MessageSquarePlus, CalendarPlus, PhoneCall } from "lucide-react";
+import { X, Bell, ChevronDown, ChevronUp, Heart, MessageSquarePlus, CalendarPlus, PhoneCall, Loader2 } from "lucide-react";
 import { LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-import { mockAlerts, mockTasks } from "./workspaceData";
+import { mockAlerts, mockTasks, mockWSCustomers } from "./workspaceData";
 import { npsEvolution, deliveryChartData } from "./mockData";
-import type { CSSectionId } from "./types";
+import CSMeetingDialog from "./CSMeetingDialog";
+import type { CSSectionId, CSWorkspaceCustomer } from "./types";
+import type { CSHoldprintData } from "@/hooks/useCSHoldprintData";
 
 const severityStyles: Record<string, string> = {
   critical: "bg-red-50 border-l-4 border-l-red-500",
@@ -22,12 +24,18 @@ const priorityColors: Record<string, string> = { high: "bg-red-100 text-red-700"
 
 interface Props {
   onNavigate: (section: CSSectionId) => void;
+  holdprintData?: CSHoldprintData | null;
+  wsCustomers?: CSWorkspaceCustomer[] | null;
+  isLoading?: boolean;
 }
 
-const CSResumoSection: React.FC<Props> = ({ onNavigate }) => {
+const CSResumoSection: React.FC<Props> = ({ onNavigate, holdprintData, wsCustomers, isLoading }) => {
   const [alertsExpanded, setAlertsExpanded] = useState(true);
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set(mockTasks.filter(t => t.completed).map(t => t.id)));
+
+  const customers = wsCustomers && wsCustomers.length > 0 ? wsCustomers : mockWSCustomers;
+  const isRealData = wsCustomers && wsCustomers.length > 0;
 
   const visibleAlerts = mockAlerts.filter(a => !dismissedAlerts.has(a.id));
   const totalTasks = mockTasks.length;
@@ -40,10 +48,30 @@ const CSResumoSection: React.FC<Props> = ({ onNavigate }) => {
 
   const scheduleItems = mockTasks.filter(t => !completedTasks.has(t.id)).map(t => ({ time: t.dueTime, icon: taskIcons[t.type], label: `${t.customerName.split(" ")[0]} (${t.type})` }));
 
+  // Compute health score stats from real data
+  const avgHealth = customers.length > 0 ? Math.round(customers.reduce((s, c) => s + c.healthScore, 0) / customers.length) : 68;
+  const excellentCount = customers.filter(c => c.healthScore >= 90).length;
+  const goodCount = customers.filter(c => c.healthScore >= 70 && c.healthScore < 90).length;
+  const attentionCount = customers.filter(c => c.healthScore >= 50 && c.healthScore < 70).length;
+  const riskCount = customers.filter(c => c.healthScore < 50).length;
+  const totalCustomers = customers.length;
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
       {/* Left Column (3/5) */}
       <div className="lg:col-span-3 space-y-6">
+        {/* Data source indicator */}
+        <div className="flex items-center gap-2">
+          <Badge variant={isRealData ? "default" : "outline"} className="text-[10px]">
+            {isLoading ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Carregando Holdprint...</> : isRealData ? `🟢 ${totalCustomers} clientes Holdprint` : "🟡 Dados demo"}
+          </Badge>
+          {holdprintData?.fetchedAt && (
+            <span className="text-[10px] text-muted-foreground">
+              Atualizado: {new Date(holdprintData.fetchedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+        </div>
+
         {/* Alerts */}
         {visibleAlerts.length > 0 && (
           <Card>
@@ -105,21 +133,20 @@ const CSResumoSection: React.FC<Props> = ({ onNavigate }) => {
         {/* Health Score Overview */}
         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onNavigate("health")}>
           <CardContent className="p-4">
-            <h3 className="font-semibold text-sm mb-3">Health Score Overview</h3>
+            <h3 className="font-semibold text-sm mb-3">Health Score Overview {isRealData && <span className="text-[10px] text-muted-foreground font-normal">(calculado da Holdprint)</span>}</h3>
             <div className="flex items-center gap-6">
               <div className="text-center">
-                <div className="h-16 w-16 rounded-full bg-yellow-500 flex items-center justify-center">
-                  <span className="text-2xl font-bold text-white">68</span>
+                <div className={`h-16 w-16 rounded-full flex items-center justify-center ${avgHealth >= 70 ? "bg-green-500" : avgHealth >= 50 ? "bg-yellow-500" : "bg-red-500"}`}>
+                  <span className="text-2xl font-bold text-white">{avgHealth}</span>
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1">Score Médio</p>
-                <p className="text-xs text-red-600">▼ -3</p>
               </div>
               <div className="grid grid-cols-2 gap-2 flex-1">
                 {[
-                  { label: "Excelente", count: 2, color: "bg-green-700" },
-                  { label: "Bom", count: 5, color: "bg-green-500" },
-                  { label: "Atenção", count: 2, color: "bg-yellow-500" },
-                  { label: "Risco", count: 3, color: "bg-red-500" },
+                  { label: "Excelente", count: excellentCount, color: "bg-green-700" },
+                  { label: "Bom", count: goodCount, color: "bg-green-500" },
+                  { label: "Atenção", count: attentionCount, color: "bg-yellow-500" },
+                  { label: "Risco", count: riskCount, color: "bg-red-500" },
                 ].map((item) => (
                   <div key={item.label} className="flex items-center gap-2">
                     <div className={`h-3 w-3 rounded-full ${item.color}`} />
@@ -137,7 +164,10 @@ const CSResumoSection: React.FC<Props> = ({ onNavigate }) => {
         {/* Schedule */}
         <Card>
           <CardContent className="p-4">
-            <h3 className="font-semibold text-sm mb-3">Agenda do Dia</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-sm">Agenda do Dia</h3>
+              <CSMeetingDialog trigger={<button className="text-xs text-primary hover:underline">+ Reunião</button>} />
+            </div>
             <div className="space-y-1">
               {["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"].map((time) => {
                 const event = scheduleItems.find(s => s.time === time);
@@ -197,6 +227,7 @@ const CSResumoSection: React.FC<Props> = ({ onNavigate }) => {
           <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => onNavigate("regua")}>
             <PhoneCall className="h-4 w-4" /> Registrar Contato
           </Button>
+          <CSMeetingDialog />
         </div>
       </div>
     </div>

@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.holdprint-sync]
 verify_jwt = false
+
+[functions.cs-holdprint-data]
+verify_jwt = false
