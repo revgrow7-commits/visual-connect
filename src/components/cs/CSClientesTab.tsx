@@ -123,6 +123,7 @@ const CSClientesTab = React.forwardRef<HTMLDivElement, CSClientesTabProps>(({ ho
                 <TableHead>Contato</TableHead>
                 <TableHead className="text-center">Jobs</TableHead>
                 <TableHead>Último Job</TableHead>
+                <TableHead>Título Último Job</TableHead>
                 <TableHead className="text-center">NPS</TableHead>
                 <TableHead>Satisfação</TableHead>
                 <TableHead className="text-center">Recl.</TableHead>
@@ -142,6 +143,7 @@ const CSClientesTab = React.forwardRef<HTMLDivElement, CSClientesTabProps>(({ ho
                   <TableCell className="text-sm">{c.contact_person}</TableCell>
                   <TableCell className="text-center">{c.total_jobs}</TableCell>
                   <TableCell>{formatDate(c.last_job_date)}</TableCell>
+                  <TableCell className="text-sm max-w-[200px] truncate" title={c.last_job_title || "—"}>{c.last_job_title || "—"}</TableCell>
                   <TableCell className={`text-center ${npsColor(c.nps_score)}`}>{c.nps_score ?? "—"}</TableCell>
                   <TableCell>{c.avg_satisfaction > 0 ? renderStars(c.avg_satisfaction) : "—"}</TableCell>
                   <TableCell className="text-center">

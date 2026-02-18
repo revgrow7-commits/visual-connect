@@ -195,6 +195,7 @@ export function transformToCSCustomersList(data: CSHoldprintData): CSCustomer[] 
       state: c.state || "",
       total_jobs: customerJobs.length,
       last_job_date: lastJobDate ? new Date(lastJobDate).toISOString().split("T")[0] : "",
+      last_job_title: sortedJobs[0]?.title || sortedJobs[0]?.description || "",
       nps_score: null,
       nps_category: null,
       avg_satisfaction: 0,

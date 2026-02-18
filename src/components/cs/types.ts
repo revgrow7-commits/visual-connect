@@ -86,6 +86,7 @@ export interface CSCustomer {
   state: string;
   total_jobs: number;
   last_job_date: string;
+  last_job_title?: string;
   nps_score: number | null;
   nps_category: "promoter" | "passive" | "detractor" | null;
   avg_satisfaction: number;
