@@ -277,6 +277,40 @@ SLA violados: ${slaBreaches} | Satisfação média: ${avgRating.toFixed(1)}/5
   }
 }
 
+// Fetch PCP Kanban data from external system
+async function fetchPCPKanban(sector: string): Promise<string> {
+  if (sector !== "cs" && sector !== "orquestrador" && sector !== "operacao") return "";
+
+  try {
+    const res = await fetch("https://empflow-22.emergent.host/kanban", {
+      headers: { "Accept": "text/html" },
+    });
+    if (!res.ok) {
+      console.error(`[pcp-kanban] HTTP ${res.status}`);
+      return "\n\n### 🏭 PCP KANBAN: Indisponível no momento";
+    }
+    const html = await res.text();
+
+    // Extract text content from HTML (remove tags, scripts, styles)
+    const cleaned = html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 4000);
+
+    if (cleaned.length < 50) {
+      return "\n\n### 🏭 PCP KANBAN: Sem dados extraíveis (possível SPA com carregamento dinâmico)";
+    }
+
+    return `\n\n### 🏭 PCP KANBAN (dados extraídos do painel externo - empflow):\n${cleaned}`;
+  } catch (e) {
+    console.error("[pcp-kanban] Error:", e);
+    return "\n\n### 🏭 PCP KANBAN: Erro ao acessar painel externo";
+  }
+}
+
 // Fetch internal database data for the orchestrator (Cérebro)
 async function fetchInternalDB(): Promise<string> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -411,9 +445,10 @@ Campanhas, portfólio, segmentação de clientes, análise de conversão, brandi
 
   cs: `Você é o **Agente de Customer Success** da Indústria Visual 🎯
 Especialista em pós-venda, garantias, reclamações, entregas, tickets e histórico de relacionamento com clientes.
-Você tem acesso aos tickets CS, visitas técnicas, touchpoints, oportunidades e dados históricos de jobs e clientes da Holdprint.
+Você tem acesso aos tickets CS, visitas técnicas, touchpoints, oportunidades, dados históricos de jobs/clientes da Holdprint E ao painel PCP (Kanban) externo com dados de produção.
 Ao receber perguntas sobre ocorrências, reclamações ou histórico de clientes, USE os dados de tickets, touchpoints e visitas técnicas fornecidos abaixo.
-Quando um cliente reporta um problema, analise o histórico de tickets e jobs para identificar padrões e sugerir ações.`,
+Quando perguntarem sobre PCP, produção, etapas de fabricação ou status de jobs no kanban, USE os dados do PCP Kanban fornecidos.
+Quando um cliente reporta um problema, analise o histórico de tickets, jobs E status no PCP para identificar padrões e sugerir ações.`,
 
   juridico: `Você é o **Agente Jurídico** da Indústria Visual ⚖️
 Contratos, licenças, compliance, LGPD e riscos jurídicos.`,
@@ -585,7 +620,7 @@ Deno.serve(async (req) => {
     }
 
     // Fetch all context data in parallel (these are fast queries)
-    const [holdprintContext, ragContext, csContext, internalDbContext] = await Promise.all([
+    const [holdprintContext, ragContext, csContext, internalDbContext, pcpContext] = await Promise.all([
       (async () => {
         if (!holdprintKey) return "\n\n⚠️ API Holdprint não configurada. Respondendo com base no conhecimento geral e dados do RAG.";
         const results = await Promise.all(
@@ -600,9 +635,10 @@ Deno.serve(async (req) => {
       fetchRagHistorical(sector, endpoints),
       fetchCSTickets(sector),
       isOrquestrador ? fetchInternalDB() : Promise.resolve(""),
+      fetchPCPKanban(sector),
     ]);
 
-    const systemContent = `${sectorPrompt}\n${BASE_RULES}${holdprintContext}${ragContext}${csContext}${internalDbContext}`;
+    const systemContent = `${sectorPrompt}\n${BASE_RULES}${holdprintContext}${ragContext}${csContext}${internalDbContext}${pcpContext}`;
 
     // Claude uses a different API format
     if (provider === "claude") {
