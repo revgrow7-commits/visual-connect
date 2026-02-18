@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { CSCustomer, CSWorkspaceCustomer } from "@/components/cs/types";
 
 export interface HoldprintCustomer {
-  id: number;
+  id: number | string;
   name: string;
   fantasyName?: string;
   cnpj?: string;
@@ -84,17 +84,21 @@ export interface CSHoldprintData {
 export function transformToCSCustomers(data: CSHoldprintData): CSWorkspaceCustomer[] {
   const { customers, jobs, incomes } = data;
 
-  return customers.map((c) => {
+  const mapped = customers.map((c) => {
     const customerId = c.id;
     const customerName = c.fantasyName || c.name || "Sem nome";
     const customerJobs = jobs.filter(j => {
       const jobCustId = j.customer?.id;
-      const jobCustName = j.customerName || j.customer?.name || j.customer?.fantasyName || "";
-      return jobCustId === customerId || jobCustName.toLowerCase() === customerName.toLowerCase();
+      const jobCustName = (j.customerName || j.customer?.name || j.customer?.fantasyName || "").trim();
+      const cn = customerName.trim();
+      return String(jobCustId) === String(customerId) || jobCustName.toLowerCase() === cn.toLowerCase();
     });
-    const customerIncomes = incomes.filter(i => i.customer?.id === customerId || i.customer?.name === customerName);
+    const customerIncomes = incomes.filter(i => String(i.customer?.id) === String(customerId) || i.customer?.name === customerName);
 
-    const totalRevenue = customerIncomes.reduce((sum, i) => sum + (i.amount || i.value || 0), 0);
+    // Revenue from jobs costs (budgetedTotalPrice) + incomes
+    const jobRevenue = customerJobs.reduce((sum, j) => sum + (j.costs?.budgetedTotalPrice || j.costs?.approvedTotalPrice || j.totalPrice || 0), 0);
+    const incomeRevenue = customerIncomes.reduce((sum, i) => sum + (i.amount || i.value || 0), 0);
+    const totalRevenue = jobRevenue > 0 ? jobRevenue : incomeRevenue;
     const totalJobs = customerJobs.length;
 
     const sortedJobs = [...customerJobs].sort((a, b) => {
@@ -104,7 +108,6 @@ export function transformToCSCustomers(data: CSHoldprintData): CSWorkspaceCustom
     });
     const lastJobDate = sortedJobs[0]?.finalizedTime || sortedJobs[0]?.deliveryDate || sortedJobs[0]?.creationTime || sortedJobs[0]?.createdAt || "";
 
-    // Basic health score calculation
     const daysSinceLastJob = lastJobDate
       ? Math.floor((Date.now() - new Date(lastJobDate).getTime()) / (1000 * 60 * 60 * 24))
       : 999;
@@ -121,7 +124,7 @@ export function transformToCSCustomers(data: CSHoldprintData): CSWorkspaceCustom
     else if (totalJobs >= 2) frequencyScore = 10;
     else frequencyScore = 5;
 
-    const healthScore = Math.min(100, Math.max(0, recencyScore + frequencyScore + 45)); // base 45 for simplicity
+    const healthScore = Math.min(100, Math.max(0, recencyScore + frequencyScore + 45));
 
     let riskLevel: "none" | "low" | "medium" | "high" | "critical" = "none";
     if (healthScore < 30) riskLevel = "critical";
@@ -152,21 +155,27 @@ export function transformToCSCustomers(data: CSHoldprintData): CSWorkspaceCustom
       frequency: totalJobs >= 6 ? "mensal" : totalJobs >= 3 ? "trimestral" : totalJobs >= 2 ? "semestral" : "anual",
     };
   });
+
+  // Sort by total revenue descending (highest first)
+  return mapped.sort((a, b) => b.totalRevenue - a.totalRevenue);
 }
 
 export function transformToCSCustomersList(data: CSHoldprintData): CSCustomer[] {
   const { customers, jobs, incomes } = data;
 
-  return customers.map((c) => {
+  const mapped = customers.map((c) => {
     const customerId = c.id;
     const customerName = c.fantasyName || c.name || "Sem nome";
     const customerJobs = jobs.filter(j => {
       const jobCustId = j.customer?.id;
-      const jobCustName = j.customerName || j.customer?.name || j.customer?.fantasyName || "";
-      return jobCustId === customerId || jobCustName.toLowerCase() === customerName.toLowerCase();
+      const jobCustName = (j.customerName || j.customer?.name || j.customer?.fantasyName || "").trim();
+      const cn = customerName.trim();
+      return String(jobCustId) === String(customerId) || jobCustName.toLowerCase() === cn.toLowerCase();
     });
-    const customerIncomes = incomes.filter(i => i.customer?.id === customerId || i.customer?.name === customerName);
-    const totalRevenue = customerIncomes.reduce((sum, i) => sum + (i.amount || i.value || 0), 0);
+    const customerIncomes = incomes.filter(i => String(i.customer?.id) === String(customerId) || i.customer?.name === customerName);
+    const jobRevenue = customerJobs.reduce((sum, j) => sum + (j.costs?.budgetedTotalPrice || j.costs?.approvedTotalPrice || j.totalPrice || 0), 0);
+    const incomeRevenue = customerIncomes.reduce((sum, i) => sum + (i.amount || i.value || 0), 0);
+    const totalRevenue = jobRevenue > 0 ? jobRevenue : incomeRevenue;
 
     const sortedJobs = [...customerJobs].sort((a, b) => {
       const da = a.finalizedTime || a.deliveryDate || a.creationTime || a.createdAt || "";
@@ -194,6 +203,9 @@ export function transformToCSCustomersList(data: CSHoldprintData): CSCustomer[] 
       total_revenue: totalRevenue,
     };
   });
+
+  // Sort by total revenue descending
+  return mapped.sort((a, b) => b.total_revenue - a.total_revenue);
 }
 
 export function useCSHoldprintData(endpoints?: string[]) {
