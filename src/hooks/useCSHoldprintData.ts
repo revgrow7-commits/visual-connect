@@ -6,15 +6,20 @@ export interface HoldprintCustomer {
   id: number | string;
   name: string;
   fantasyName?: string;
+  fullName?: string;
   cnpj?: string;
   document?: string;
   contactName?: string;
   contact_person?: string;
   email?: string;
+  mainEmail?: string;
   phone?: string;
+  mainPhoneNumber?: string;
   city?: string;
   state?: string;
   active?: boolean;
+  addresses?: Array<{ city?: string; state?: string; street?: string; number?: string; zipCode?: string }>;
+  contacts?: Array<{ name?: string; email?: string; phoneNumber?: string }>;
   _unidade?: string;
   _unit_key?: string;
   [key: string]: unknown;
@@ -86,14 +91,24 @@ export function transformToCSCustomers(data: CSHoldprintData): CSWorkspaceCustom
 
   const mapped = customers.map((c) => {
     const customerId = c.id;
-    const customerName = c.fantasyName || c.name || "Sem nome";
+    const customerName = c.name || c.fantasyName || "Sem nome";
+    const customerFullName = (c as Record<string, unknown>).fullName as string || "";
+    const cn = customerName.trim().toLowerCase();
+    const cfn = customerFullName.trim().toLowerCase();
+    
     const customerJobs = jobs.filter(j => {
-      const jobCustId = j.customer?.id;
-      const jobCustName = (j.customerName || j.customer?.name || j.customer?.fantasyName || "").trim();
-      const cn = customerName.trim();
-      return String(jobCustId) === String(customerId) || jobCustName.toLowerCase() === cn.toLowerCase();
+      const jobCustName = (j.customerName || j.customer?.name || j.customer?.fantasyName || "").trim().toLowerCase();
+      if (!jobCustName) return false;
+      // Match by name (exact or contained)
+      return jobCustName === cn || jobCustName === cfn || 
+             (cn.length > 5 && jobCustName.includes(cn)) || 
+             (cfn.length > 5 && jobCustName.includes(cfn)) ||
+             (cn.length > 5 && cn.includes(jobCustName));
     });
-    const customerIncomes = incomes.filter(i => String(i.customer?.id) === String(customerId) || i.customer?.name === customerName);
+    const customerIncomes = incomes.filter(i => {
+      const incName = (i.customer?.name || "").trim().toLowerCase();
+      return incName === cn || String(i.customer?.id) === String(customerId);
+    });
 
     // Revenue from jobs costs (budgetedTotalPrice) + incomes
     const jobRevenue = customerJobs.reduce((sum, j) => sum + (j.costs?.budgetedTotalPrice || j.costs?.approvedTotalPrice || j.totalPrice || 0), 0);
@@ -138,9 +153,9 @@ export function transformToCSCustomers(data: CSHoldprintData): CSWorkspaceCustom
       id: customerId,
       name: customerName,
       document: c.cnpj || c.document || "",
-      contact_person: c.contactName || c.contact_person || "",
-      phone: c.phone || "",
-      email: c.email || "",
+      contact_person: c.contacts?.[0]?.name || c.contactName || c.contact_person || "",
+      phone: c.mainPhoneNumber || c.phone || c.contacts?.[0]?.phoneNumber || "",
+      email: c.mainEmail || c.email || c.contacts?.[0]?.email || "",
       healthScore,
       previousScore: healthScore,
       trend,
@@ -165,14 +180,23 @@ export function transformToCSCustomersList(data: CSHoldprintData): CSCustomer[] 
 
   const mapped = customers.map((c) => {
     const customerId = c.id;
-    const customerName = c.fantasyName || c.name || "Sem nome";
+    const customerName = c.name || c.fantasyName || "Sem nome";
+    const customerFullName = (c as Record<string, unknown>).fullName as string || "";
+    const cn = customerName.trim().toLowerCase();
+    const cfn = customerFullName.trim().toLowerCase();
+    
     const customerJobs = jobs.filter(j => {
-      const jobCustId = j.customer?.id;
-      const jobCustName = (j.customerName || j.customer?.name || j.customer?.fantasyName || "").trim();
-      const cn = customerName.trim();
-      return String(jobCustId) === String(customerId) || jobCustName.toLowerCase() === cn.toLowerCase();
+      const jobCustName = (j.customerName || j.customer?.name || j.customer?.fantasyName || "").trim().toLowerCase();
+      if (!jobCustName) return false;
+      return jobCustName === cn || jobCustName === cfn || 
+             (cn.length > 5 && jobCustName.includes(cn)) || 
+             (cfn.length > 5 && jobCustName.includes(cfn)) ||
+             (cn.length > 5 && cn.includes(jobCustName));
     });
-    const customerIncomes = incomes.filter(i => String(i.customer?.id) === String(customerId) || i.customer?.name === customerName);
+    const customerIncomes = incomes.filter(i => {
+      const incName = (i.customer?.name || "").trim().toLowerCase();
+      return incName === cn || String(i.customer?.id) === String(customerId);
+    });
     const jobRevenue = customerJobs.reduce((sum, j) => sum + (j.costs?.budgetedTotalPrice || j.costs?.approvedTotalPrice || j.totalPrice || 0), 0);
     const incomeRevenue = customerIncomes.reduce((sum, i) => sum + (i.amount || i.value || 0), 0);
     const totalRevenue = jobRevenue > 0 ? jobRevenue : incomeRevenue;
@@ -188,11 +212,11 @@ export function transformToCSCustomersList(data: CSHoldprintData): CSCustomer[] 
       id: customerId,
       name: customerName,
       document: c.cnpj || c.document || "",
-      contact_person: c.contactName || c.contact_person || "",
-      email: c.email || "",
-      phone: c.phone || "",
-      city: c.city || "",
-      state: c.state || "",
+      contact_person: c.contacts?.[0]?.name || c.contactName || c.contact_person || "",
+      email: c.mainEmail || c.email || c.contacts?.[0]?.email || "",
+      phone: c.mainPhoneNumber || c.phone || c.contacts?.[0]?.phoneNumber || "",
+      city: c.addresses?.[0]?.city || c.city || "",
+      state: c.addresses?.[0]?.state || c.state || "",
       total_jobs: customerJobs.length,
       last_job_date: lastJobDate ? new Date(lastJobDate).toISOString().split("T")[0] : "",
       last_job_title: sortedJobs[0]?.title || sortedJobs[0]?.description || "",
@@ -216,6 +240,8 @@ export function useCSHoldprintData(endpoints?: string[]) {
       const { data, error } = await supabase.functions.invoke("cs-holdprint-data", {
         body: {
           endpoints: endpoints || ["customers", "jobs", "budgets", "incomes"],
+          startDate: "2023-01-01",
+          maxPages: 30,
         },
       });
 
@@ -231,7 +257,7 @@ export function useCSHoldprintData(endpoints?: string[]) {
         fetchedAt: data.fetchedAt,
       };
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: false,
   });
 }
