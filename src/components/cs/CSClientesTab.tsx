@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Users, UserCheck, UserX, Search, Loader2, Calendar } from "lucide-react";
 import { mockCSCustomers } from "./mockData";
 import CSMeetingDialog from "./CSMeetingDialog";
+import CSTicketFromClientDialog from "./CSTicketFromClientDialog";
 import type { CSCustomer, CSWorkspaceCustomer } from "./types";
 import type { HoldprintJob } from "@/hooks/useCSHoldprintData";
 
@@ -249,6 +250,7 @@ const CSClientesTab = React.forwardRef<HTMLDivElement, CSClientesTabProps>(({ ho
                 <Separator />
                 <div className="flex gap-2">
                   <CSMeetingDialog customerName={selected.name} customerEmail={selected.email} />
+                  <CSTicketFromClientDialog customerName={selected.name} customerId={selected.id} />
                 </div>
                 <Separator />
                 <div>
