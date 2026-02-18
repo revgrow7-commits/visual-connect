@@ -10,10 +10,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { AlertCircle, Loader2, CheckCircle, Clock, Search, AlertOctagon, Phone, Plus } from "lucide-react";
+import { AlertCircle, Loader2, CheckCircle, Clock, Search, AlertOctagon, Phone, Plus, Link2, Copy, Star } from "lucide-react";
 import { useCSTickets, useCreateCSTicket } from "@/hooks/useCSData";
 import { mockComplaintsWithSLA } from "./mockData";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const statusCfg: Record<string, { label: string; className: string }> = {
   open: { label: "🔴 Aberta", className: "bg-red-100 text-red-800 hover:bg-red-100" },
@@ -69,6 +70,10 @@ const ReclamacoesTab = React.forwardRef<HTMLDivElement>((_, ref) => {
     },
     escalationLevel: t.escalation_level || "N1",
     escalationHistory: Array.isArray(t.escalation_history) ? t.escalation_history : JSON.parse(typeof t.escalation_history === "string" ? t.escalation_history : "[]"),
+    surveyCompletedAt: (t as any).survey_completed_at,
+    surveyRating: (t as any).survey_rating,
+    surveyFeedback: (t as any).survey_feedback,
+    surveyWouldRecommend: (t as any).survey_would_recommend,
     _dbId: t.id,
   })) : mockComplaintsWithSLA;
 
@@ -96,6 +101,30 @@ const ReclamacoesTab = React.forwardRef<HTMLDivElement>((_, ref) => {
     { label: "Tempo Médio Resolução", value: "2,3 dias", icon: Clock, bg: "bg-muted", color: "text-muted-foreground" },
     { label: "% Resolução 1° Contato", value: "35%", icon: Phone, bg: "bg-blue-50", color: "text-blue-600" },
   ];
+
+  const generateSurveyLink = async (ticket: any) => {
+    const dbId = ticket._dbId;
+    if (!dbId) {
+      toast.error("Disponível apenas para tickets reais (não mock)");
+      return;
+    }
+    // Check if already has token
+    const { data: existing } = await supabase
+      .from("cs_tickets")
+      .select("survey_token")
+      .eq("id", dbId)
+      .single();
+
+    let token = existing?.survey_token;
+    if (!token) {
+      token = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+      await supabase.from("cs_tickets").update({ survey_token: token } as any).eq("id", dbId);
+    }
+    const url = `${window.location.origin}/pesquisa/${token}`;
+    await navigator.clipboard.writeText(url);
+    toast.success("Link copiado para a área de transferência!");
+    return url;
+  };
 
   const handleCreate = async () => {
     if (!form.customer_name || !form.description) {
@@ -337,6 +366,37 @@ const ReclamacoesTab = React.forwardRef<HTMLDivElement>((_, ref) => {
                     </div>
                   </>
                 )}
+                <Separator />
+                <div>
+                  <h4 className="font-semibold text-sm mb-3">📋 Pesquisa de Satisfação</h4>
+                  {selected.surveyCompletedAt ? (
+                    <div className="space-y-2 p-3 rounded-lg bg-green-50 border border-green-200">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <span className="text-sm font-medium text-green-700">Pesquisa respondida</span>
+                      </div>
+                      {selected.surveyRating && (
+                        <div className="flex items-center gap-1">
+                          {[1,2,3,4,5].map(s => (
+                            <Star key={s} className={`h-4 w-4 ${s <= selected.surveyRating ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/30"}`} />
+                          ))}
+                          <span className="text-xs text-muted-foreground ml-1">({selected.surveyRating}/5)</span>
+                        </div>
+                      )}
+                      {selected.surveyFeedback && <p className="text-xs text-muted-foreground">{selected.surveyFeedback}</p>}
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-2"
+                      onClick={() => generateSurveyLink(selected)}
+                    >
+                      <Link2 className="h-4 w-4" />
+                      Gerar & Copiar Link da Pesquisa
+                    </Button>
+                  )}
+                </div>
               </div>
             </>
           )}
