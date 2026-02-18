@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,6 +91,29 @@ const CSTicketFromClientDialog: React.FC<CSTicketFromClientDialogProps> = ({ cus
         description: descriptionWithContext,
         responsible_name: form.responsible_name || "Não atribuído",
       });
+
+      // Register complaint/ticket in RAG for AI agents
+      const ragContent = `[TICKET CS] Cliente: ${customerName} | Departamento: ${deptLabel} | Status: ${status || "Novo"} | Categoria: ${form.category} | Prioridade: ${form.priority} | Job: ${form.job_title || form.job_code || "N/A"} | Descrição: ${form.description}`;
+      const ragFilename = `cs_ticket_${customerName.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}`;
+      
+      supabase.from("rag_documents").insert({
+        content: ragContent,
+        sector: "cs",
+        source_type: "ticket",
+        original_filename: ragFilename,
+        metadata: { 
+          type: "cs_ticket", 
+          customer_name: customerName, 
+          department: deptLabel, 
+          category: form.category, 
+          priority: form.priority,
+          created_at: new Date().toISOString() 
+        },
+      }).then(({ error }) => {
+        if (error) console.error("RAG insert error:", error.message);
+        else console.log("Ticket registrado no RAG");
+      });
+
       toast.success("Ticket criado com sucesso!");
       setOpen(false);
       resetForm();
