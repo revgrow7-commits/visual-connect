@@ -182,6 +182,101 @@ async function fetchRagHistorical(sector: string, endpoints: string[]): Promise<
   }
 }
 
+// Fetch CS tickets and complaints from the database
+async function fetchCSTickets(sector: string): Promise<string> {
+  if (sector !== "cs" && sector !== "orquestrador") return "";
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceKey) return "";
+
+  const sb = createClient(supabaseUrl, serviceKey);
+  const sections: string[] = [];
+
+  try {
+    // Fetch recent tickets
+    const { data: tickets, error: ticketsErr } = await sb
+      .from("cs_tickets")
+      .select("code, customer_name, category, priority, status, description, date, resolution, resolved_date, job_code, job_title, sla_response_breached, sla_resolution_breached, survey_rating")
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (!ticketsErr && tickets && tickets.length > 0) {
+      const total = tickets.length;
+      const byStatus: Record<string, number> = {};
+      const byCategory: Record<string, number> = {};
+      const byPriority: Record<string, number> = {};
+      tickets.forEach((t: any) => {
+        byStatus[t.status || "?"] = (byStatus[t.status || "?"] || 0) + 1;
+        byCategory[t.category || "?"] = (byCategory[t.category || "?"] || 0) + 1;
+        byPriority[t.priority || "?"] = (byPriority[t.priority || "?"] || 0) + 1;
+      });
+      const slaBreaches = tickets.filter((t: any) => t.sla_response_breached || t.sla_resolution_breached).length;
+      const avgRating = tickets.filter((t: any) => t.survey_rating).reduce((s: number, t: any) => s + t.survey_rating, 0) / (tickets.filter((t: any) => t.survey_rating).length || 1);
+
+      const recentTickets = tickets.slice(0, 10).map((t: any) =>
+        `- [${t.code}] ${t.customer_name}: ${t.description?.slice(0, 100) || "?"} (${t.status}, ${t.priority}) ${t.resolution ? `→ Resolução: ${t.resolution.slice(0, 80)}` : ""}`
+      ).join("\n");
+
+      sections.push(`### 🎫 TICKETS CS (${total} registros)
+Status: ${Object.entries(byStatus).map(([k, v]) => `${k}: ${v}`).join(", ")}
+Categorias: ${Object.entries(byCategory).map(([k, v]) => `${k}: ${v}`).join(", ")}
+Prioridade: ${Object.entries(byPriority).map(([k, v]) => `${k}: ${v}`).join(", ")}
+SLA violados: ${slaBreaches} | Satisfação média: ${avgRating.toFixed(1)}/5
+\nÚltimos tickets:\n${recentTickets}`);
+    }
+
+    // Fetch recent touchpoints
+    const { data: touchpoints, error: tpErr } = await sb
+      .from("cs_touchpoints")
+      .select("customer_name, type, channel, status, date, notes, trigger_reason")
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (!tpErr && touchpoints && touchpoints.length > 0) {
+      const tpSummary = touchpoints.slice(0, 8).map((tp: any) =>
+        `- ${tp.customer_name}: ${tp.type} via ${tp.channel} (${tp.status}) ${tp.notes ? `- ${tp.notes.slice(0, 60)}` : ""}`
+      ).join("\n");
+      sections.push(`### 📞 TOUCHPOINTS RECENTES (${touchpoints.length})\n${tpSummary}`);
+    }
+
+    // Fetch opportunities
+    const { data: opps, error: oppErr } = await sb
+      .from("cs_oportunidades")
+      .select("customer_name, type, status, estimated_value, description, next_step")
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (!oppErr && opps && opps.length > 0) {
+      const totalValue = opps.reduce((s: number, o: any) => s + (o.estimated_value || 0), 0);
+      const oppSummary = opps.slice(0, 5).map((o: any) =>
+        `- ${o.customer_name}: ${o.type} — R$${(o.estimated_value || 0).toLocaleString("pt-BR")} (${o.status})`
+      ).join("\n");
+      sections.push(`### 💡 OPORTUNIDADES CS (${opps.length} — R$${totalValue.toLocaleString("pt-BR")})\n${oppSummary}`);
+    }
+
+    // Fetch visits
+    const { data: visitas, error: visErr } = await sb
+      .from("cs_visitas")
+      .select("code, customer_name, type, status, scheduled_date, technician_name, report_notes")
+      .order("scheduled_date", { ascending: false })
+      .limit(15);
+
+    if (!visErr && visitas && visitas.length > 0) {
+      const visSummary = visitas.slice(0, 5).map((v: any) =>
+        `- [${v.code}] ${v.customer_name}: ${v.type} (${v.status}) — ${new Date(v.scheduled_date).toLocaleDateString("pt-BR")}`
+      ).join("\n");
+      sections.push(`### 🚗 VISITAS TÉCNICAS (${visitas.length})\n${visSummary}`);
+    }
+
+    if (sections.length === 0) return "";
+    return `\n\n## 🎯 DADOS CS (Banco de Dados - tempo real):\n${sections.join("\n\n")}`;
+  } catch (e) {
+    console.error("[cs-tickets] Error:", e);
+    return "";
+  }
+}
+
 // Fetch internal database data for the orchestrator (Cérebro)
 async function fetchInternalDB(): Promise<string> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -315,7 +410,10 @@ Impostos, CFOP, SPED, obrigações acessórias e guias.`,
 Campanhas, portfólio, segmentação de clientes, análise de conversão, branding.`,
 
   cs: `Você é o **Agente de Customer Success** da Indústria Visual 🎯
-Pós-venda, garantias, reclamações, histórico de entregas por cliente.`,
+Especialista em pós-venda, garantias, reclamações, entregas, tickets e histórico de relacionamento com clientes.
+Você tem acesso aos tickets CS, visitas técnicas, touchpoints, oportunidades e dados históricos de jobs e clientes da Holdprint.
+Ao receber perguntas sobre ocorrências, reclamações ou histórico de clientes, USE os dados de tickets, touchpoints e visitas técnicas fornecidos abaixo.
+Quando um cliente reporta um problema, analise o histórico de tickets e jobs para identificar padrões e sugerir ações.`,
 
   juridico: `Você é o **Agente Jurídico** da Indústria Visual ⚖️
 Contratos, licenças, compliance, LGPD e riscos jurídicos.`,
@@ -356,11 +454,11 @@ Integradora de comunicação visual. Smart Signage (Flat, Waved, Curved, Convex)
 6. Formate valores em R$ brasileiro
 7. Quando comparar períodos, deixe claro a fonte (tempo real vs histórico)`;
 
-// Sync Holdprint data for sector endpoints into DB (holdprint_cache + rag_documents)
-async function syncHoldprintToDB(endpoints: string[]): Promise<string> {
+// Fire-and-forget sync (non-blocking) — limited to 5 pages max to avoid timeout
+async function syncHoldprintLightweight(endpoints: string[]): Promise<void> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !serviceKey) return "⚠️ Supabase não configurado para sync";
+  if (!supabaseUrl || !serviceKey) return;
 
   const sb = createClient(supabaseUrl, serviceKey);
 
@@ -369,8 +467,8 @@ async function syncHoldprintToDB(endpoints: string[]): Promise<string> {
     { key: "sp", label: "São Paulo", envVar: "HOLDPRINT_TOKEN_SP" },
   ];
 
-  const BATCH_SIZE = 50;
-  let totalSynced = 0;
+  const MAX_PAGES = 3;
+  const PAGE_SIZE = 50;
 
   for (const unit of UNITS) {
     const token = Deno.env.get(unit.envVar);
@@ -380,22 +478,20 @@ async function syncHoldprintToDB(endpoints: string[]): Promise<string> {
       const config = ENDPOINT_CONFIG[endpoint];
       if (!config) continue;
 
-      // Fetch all pages
       const allItems: Record<string, unknown>[] = [];
-      let page = 1;
-      while (true) {
+      for (let page = 1; page <= MAX_PAGES; page++) {
         const url = new URL(`${HOLDPRINT_BASE}${config.path}`);
         url.searchParams.set(config.pageParam, String(page));
-        url.searchParams.set(config.limitParam, String(BATCH_SIZE));
+        url.searchParams.set(config.limitParam, String(PAGE_SIZE));
         url.searchParams.set("language", "pt-BR");
 
         if (config.dateFilters) {
           const now = new Date();
-          const start = new Date(2025, 0, 1);
+          const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
           const fmt = (d: Date) => d.toISOString().split("T")[0];
           const sk = endpoint === "expenses" || endpoint === "incomes" ? "start_date" : "startDate";
           const ek = endpoint === "expenses" || endpoint === "incomes" ? "end_date" : "endDate";
-          url.searchParams.set(sk, fmt(start));
+          url.searchParams.set(sk, fmt(threeMonthsAgo));
           url.searchParams.set(ek, fmt(now));
         }
 
@@ -408,20 +504,18 @@ async function syncHoldprintToDB(endpoints: string[]): Promise<string> {
           const items = Array.isArray(json) ? json : json?.data || json?.items || json?.results || [];
           if (!Array.isArray(items) || items.length === 0) break;
           allItems.push(...items);
-          if (items.length < BATCH_SIZE) break;
-          page++;
+          if (items.length < PAGE_SIZE) break;
         } catch { break; }
       }
 
       if (allItems.length === 0) continue;
 
-      // Build content text helper
       const buildText = (item: Record<string, unknown>): string => {
         switch (endpoint) {
           case "customers": return `Cliente: ${item.name || item.fantasyName || "?"} | CNPJ: ${item.cnpj || "N/A"}`;
           case "suppliers": return `Fornecedor: ${item.name || "?"} | Categoria: ${item.category || "N/A"}`;
           case "budgets": return `Orçamento #${item.id || "?"} | Estado: ${item.budgetState || item.state || "?"}`;
-          case "jobs": return `Job #${item.id || "?"} | Status: ${item.productionStatus || item.status || "?"}`;
+          case "jobs": return `Job #${item.id || "?"} | ${item.title || item.description || "?"} | Cliente: ${(item as any).customerName || "?"} | Status: ${item.productionStatus || item.status || "?"}`;
           case "expenses": return `Despesa #${item.id || "?"} | Valor: R$${item.amount || item.value || 0}`;
           case "incomes": return `Receita #${item.id || "?"} | Valor: R$${item.amount || item.value || 0}`;
           default: return JSON.stringify(item).slice(0, 200);
@@ -431,42 +525,28 @@ async function syncHoldprintToDB(endpoints: string[]): Promise<string> {
       const extractId = (item: Record<string, unknown>) =>
         String(item.id || item.Id || item.ID || item.code || crypto.randomUUID());
 
-      const rows = allItems.map((item) => ({
-        endpoint,
-        record_id: `${unit.key}_${extractId(item)}`,
-        raw_data: { ...item, _unidade: unit.label, _unit_key: unit.key },
-        content_text: `[${unit.label}] ${buildText(item)}`,
-        last_synced: new Date().toISOString(),
-      }));
-
-      // Upsert holdprint_cache
-      for (let i = 0; i < rows.length; i += 100) {
-        const batch = rows.slice(i, i + 100);
-        const { error } = await sb.from("holdprint_cache").upsert(batch, { onConflict: "endpoint,record_id" });
-        if (error) console.error(`[sync] ${unit.key}/${endpoint} cache error:`, error.message);
-      }
-
-      // Upsert rag_documents
-      const ragRows = rows.map((r) => ({
-        content: `${r.content_text}\n\nDados: ${JSON.stringify(r.raw_data).slice(0, 3000)}`,
-        sector: endpoint,
-        source_type: "holdprint",
-        original_filename: `holdprint_${unit.key}_${endpoint}_${r.record_id}`,
-        metadata: { endpoint, unit: unit.key, record_id: r.record_id, synced_at: r.last_synced },
-      }));
+      // Upsert rag_documents only (skip cache for speed)
+      const ragRows = allItems.map((item) => {
+        const rid = `${unit.key}_${extractId(item)}`;
+        return {
+          content: `[${unit.label}] ${buildText(item)}\n\nDados: ${JSON.stringify(item).slice(0, 2000)}`,
+          sector: endpoint,
+          source_type: "holdprint",
+          original_filename: `holdprint_${unit.key}_${endpoint}_${rid}`,
+          metadata: { endpoint, unit: unit.key, record_id: rid, synced_at: new Date().toISOString() },
+        };
+      });
 
       for (let i = 0; i < ragRows.length; i += 100) {
         const batch = ragRows.slice(i, i + 100);
-        const { error } = await sb.from("rag_documents").upsert(batch, { onConflict: "original_filename" });
-        if (error) console.error(`[sync] ${unit.key}/${endpoint} rag error:`, error.message);
+        await sb.from("rag_documents").upsert(batch, { onConflict: "original_filename" }).then(({ error }) => {
+          if (error) console.error(`[sync-light] ${unit.key}/${endpoint} rag error:`, error.message);
+        });
       }
 
-      totalSynced += allItems.length;
-      console.log(`[sync] ${unit.key}/${endpoint}: ${allItems.length} registros sincronizados`);
+      console.log(`[sync-light] ${unit.key}/${endpoint}: ${allItems.length} registros`);
     }
   }
-
-  return `✅ ${totalSynced} registros Holdprint importados para o banco`;
 }
 
 function jsonResponse(data: unknown, status = 200) {
@@ -499,9 +579,15 @@ Deno.serve(async (req) => {
 
     const isOrquestrador = sector === "orquestrador";
 
-    const [holdprintContext, ragContext, internalDbContext, syncResult] = await Promise.all([
+    // Fire-and-forget sync — DO NOT await (prevents timeout)
+    if (endpoints.length > 0) {
+      syncHoldprintLightweight(endpoints).catch((e) => console.error("[sync-bg] error:", e));
+    }
+
+    // Fetch all context data in parallel (these are fast queries)
+    const [holdprintContext, ragContext, csContext, internalDbContext] = await Promise.all([
       (async () => {
-        if (!holdprintKey) return "\n\n⚠️ API Holdprint não configurada. Respondendo com base no conhecimento geral.";
+        if (!holdprintKey) return "\n\n⚠️ API Holdprint não configurada. Respondendo com base no conhecimento geral e dados do RAG.";
         const results = await Promise.all(
           endpoints.map(async (ep) => {
             const { data, error } = await fetchHoldprint(holdprintKey, ep);
@@ -512,12 +598,11 @@ Deno.serve(async (req) => {
         return `\n\n## 📊 DADOS EM TEMPO REAL (Holdprint API - ${new Date().toLocaleDateString("pt-BR")}):\n${results.join("\n")}`;
       })(),
       fetchRagHistorical(sector, endpoints),
+      fetchCSTickets(sector),
       isOrquestrador ? fetchInternalDB() : Promise.resolve(""),
-      endpoints.length > 0 ? syncHoldprintToDB(endpoints) : Promise.resolve(""),
     ]);
-    console.log(`[sector-agent] Sync: ${syncResult}`);
 
-    const systemContent = `${sectorPrompt}\n${BASE_RULES}${holdprintContext}${ragContext}${internalDbContext}`;
+    const systemContent = `${sectorPrompt}\n${BASE_RULES}${holdprintContext}${ragContext}${csContext}${internalDbContext}`;
 
     // Claude uses a different API format
     if (provider === "claude") {
