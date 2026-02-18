@@ -76,7 +76,7 @@ export interface Delivery {
 }
 
 export interface CSCustomer {
-  id: number;
+  id: number | string;
   name: string;
   document: string;
   contact_person: string;
@@ -272,7 +272,7 @@ export interface Playbook {
 }
 
 export interface CSWorkspaceCustomer {
-  id: number;
+  id: number | string;
   name: string;
   document: string;
   contact_person: string;
