@@ -33,6 +33,7 @@ const sectionTitles: Record<CSSectionId, string> = {
   upsell: "Oportunidades",
   playbooks: "Playbooks",
   relatorios: "Relatórios",
+  pcp: "PCP (Kanban)",
   agente: "Agente IA",
 };
 
@@ -70,6 +71,16 @@ const CsPage = () => {
       case "upsell": return <OportunidadesTab />;
       case "playbooks": return <CSPlaybooksSection />;
       case "relatorios": return <CSRelatoriosSection />;
+      case "pcp": return (
+        <div className="h-full w-full -m-4 md:-m-6">
+          <iframe
+            src="https://empflow-22.emergent.host/kanban"
+            className="w-full h-[calc(100vh-var(--topbar-height)-6rem)] border-0 rounded-lg"
+            title="PCP Kanban"
+            allow="clipboard-read; clipboard-write"
+          />
+        </div>
+      );
       case "agente": return <AgentChat sector="cs" sectorLabel="Customer Success" />;
       default: return null;
     }

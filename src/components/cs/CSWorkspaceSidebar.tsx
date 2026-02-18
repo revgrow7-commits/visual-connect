@@ -6,7 +6,7 @@ import {
   BarChart3, Users, Heart, Package, DollarSign,
   MessageSquare, Wrench, Calendar, Lightbulb,
   ClipboardList, LineChart, Bot, Target, Eye,
-  AlertTriangle, Trophy, Plus
+  AlertTriangle, Trophy, Plus, Kanban
 } from "lucide-react";
 import type { CSSectionId } from "./types";
 
@@ -27,6 +27,7 @@ const sections: Array<{ id: CSSectionId; label: string; icon: React.ElementType;
   { id: "upsell", label: "Oportunidades", icon: Lightbulb },
   { id: "playbooks", label: "Playbooks", icon: ClipboardList },
   { id: "relatorios", label: "Relatórios", icon: LineChart },
+  { id: "pcp", label: "PCP (Kanban)", icon: Kanban },
   { id: "agente", label: "Agente IA", icon: Bot },
 ];
 

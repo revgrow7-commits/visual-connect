@@ -293,4 +293,4 @@ export interface CSWorkspaceCustomer {
   frequency: string;
 }
 
-export type CSSectionId = "resumo" | "clientes" | "health" | "entregas" | "receita" | "tickets" | "visitas" | "regua" | "upsell" | "playbooks" | "relatorios" | "agente";
+export type CSSectionId = "resumo" | "clientes" | "health" | "entregas" | "receita" | "tickets" | "visitas" | "regua" | "upsell" | "playbooks" | "relatorios" | "pcp" | "agente";
