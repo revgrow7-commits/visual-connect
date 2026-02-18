@@ -27,7 +27,7 @@ const UNITS = [
   { key: "sp",  label: "São Paulo",    envVar: "HOLDPRINT_TOKEN_SP" },
 ];
 
-async function fetchAllPages(apiKey: string, endpoint: string, startDate?: string, endDate?: string): Promise<Record<string, unknown>[]> {
+async function fetchAllPages(apiKey: string, endpoint: string, startDate?: string, endDate?: string, maxPages = 50): Promise<Record<string, unknown>[]> {
   const config = ENDPOINTS[endpoint];
   if (!config) return [];
 
@@ -35,7 +35,7 @@ async function fetchAllPages(apiKey: string, endpoint: string, startDate?: strin
   let page = 1;
   const limit = 100;
 
-  while (true) {
+  while (page <= maxPages) {
     const url = new URL(`${HOLDPRINT_BASE}${config.path}`);
     url.searchParams.set(config.pageParam, String(page));
     url.searchParams.set(config.limitParam, String(limit));
@@ -43,7 +43,8 @@ async function fetchAllPages(apiKey: string, endpoint: string, startDate?: strin
 
     if (config.dateFilters) {
       const now = new Date();
-      const start = startDate || new Date(now.getFullYear() - 1, now.getMonth(), 1).toISOString().split("T")[0];
+      // Default: fetch from 2023 for good historical coverage
+      const start = startDate || "2023-01-01";
       const end = endDate || new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
       const sk = endpoint === "incomes" ? "start_date" : "startDate";
       const ek = endpoint === "incomes" ? "end_date" : "endDate";
@@ -70,6 +71,7 @@ async function fetchAllPages(apiKey: string, endpoint: string, startDate?: strin
       break;
     }
   }
+  console.log(`[cs-holdprint-data] ${endpoint}: fetched ${allItems.length} items (${page} pages)`);
   return allItems;
 }
 
@@ -83,6 +85,7 @@ Deno.serve(async (req) => {
     let startDate: string | undefined;
     let endDate: string | undefined;
     let unit: string | undefined;
+    let maxPages = 50;
 
     try {
       const body = await req.json();
@@ -90,6 +93,7 @@ Deno.serve(async (req) => {
       if (body?.startDate) startDate = body.startDate;
       if (body?.endDate) endDate = body.endDate;
       if (body?.unit) unit = body.unit;
+      if (body?.maxPages) maxPages = Math.min(body.maxPages, 100);
     } catch { /* no body */ }
 
     const results: Record<string, Record<string, unknown>[]> = {};
@@ -104,8 +108,21 @@ Deno.serve(async (req) => {
 
       const endpointResults = await Promise.all(
         requestedEndpoints.map(async (ep) => {
-          const items = await fetchAllPages(token, ep, startDate, endDate);
-          return { endpoint: ep, items: items.map(item => ({ ...item, _unidade: u.label, _unit_key: u.key })) };
+          const items = await fetchAllPages(token, ep, startDate, endDate, maxPages);
+          // Strip heavy fields to reduce payload size
+          const processed = items.map(item => {
+            const rec = item as Record<string, unknown>;
+            if (ep === "jobs") {
+              const { production, products, ...slim } = rec;
+              return { ...slim, _unidade: u.label, _unit_key: u.key };
+            }
+            if (ep === "customers") {
+              const { customFields, ...slim } = rec;
+              return { ...slim, _unidade: u.label, _unit_key: u.key };
+            }
+            return { ...rec, _unidade: u.label, _unit_key: u.key };
+          });
+          return { endpoint: ep, items: processed };
         })
       );
 

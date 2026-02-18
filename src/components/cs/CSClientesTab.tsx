@@ -56,9 +56,11 @@ const CSClientesTab = React.forwardRef<HTMLDivElement, CSClientesTabProps>(({ ho
   // Get customer jobs from Holdprint data
   const getCustomerJobs = (customer: CSCustomer) => {
     if (!holdprintJobs) return [];
+    const cn = customer.name.trim().toLowerCase();
     return holdprintJobs.filter(j => {
-      const jobCustName = j.customerName || j.customer?.name || j.customer?.fantasyName || "";
-      return j.customer?.id === customer.id || jobCustName.toLowerCase() === customer.name.toLowerCase();
+      const jobCustName = (j.customerName || j.customer?.name || j.customer?.fantasyName || "").trim().toLowerCase();
+      if (!jobCustName) return false;
+      return jobCustName === cn || (cn.length > 5 && (jobCustName.includes(cn) || cn.includes(jobCustName)));
     });
   };
 
