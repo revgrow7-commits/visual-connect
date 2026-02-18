@@ -2,11 +2,10 @@ import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Heart, TrendingUp, TrendingDown, Minus, Phone, FileText } from "lucide-react";
+import { Search, TrendingUp, TrendingDown, Minus, Loader2 } from "lucide-react";
 import { mockHealthScores } from "./mockData";
-import type { CustomerHealthScore } from "./types";
+import type { CSWorkspaceCustomer } from "./types";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
@@ -34,13 +33,43 @@ const riskBg: Record<string, string> = {
 
 const formatCurrency = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-const HealthScoreTab = () => {
+interface HealthScoreTabProps {
+  wsCustomers?: CSWorkspaceCustomer[] | null;
+  isLoading?: boolean;
+}
+
+const HealthScoreTab: React.FC<HealthScoreTabProps> = ({ wsCustomers, isLoading }) => {
   const [search, setSearch] = useState("");
   const [scoreFilter, setScoreFilter] = useState("all");
   const [trendFilter, setTrendFilter] = useState("all");
-  const [selected, setSelected] = useState<CustomerHealthScore | null>(null);
+  const [selected, setSelected] = useState<any | null>(null);
 
-  const filtered = mockHealthScores.filter((c) => {
+  // Transform wsCustomers to health score cards or fallback to mock
+  const customers = wsCustomers && wsCustomers.length > 0
+    ? wsCustomers.map(c => ({
+        id: c.id,
+        name: c.name,
+        document: c.document,
+        contact_person: c.contact_person,
+        phone: c.phone,
+        email: c.email,
+        healthScore: c.healthScore,
+        previousScore: c.previousScore,
+        trend: c.trend,
+        totalJobs: c.totalJobs,
+        totalRevenue: c.totalRevenue,
+        complaintCount: c.openComplaints,
+        openComplaints: c.openComplaints,
+        lastJobDate: c.lastJobDate,
+        riskLevel: c.riskLevel,
+        frequency: c.frequency,
+        suggestedAction: c.riskLevel === "critical" ? "⚠️ Risco de churn — Agendar reunião urgente" : c.riskLevel === "high" ? "Contato prioritário necessário" : null,
+      }))
+    : mockHealthScores;
+
+  const isRealData = wsCustomers && wsCustomers.length > 0;
+
+  const filtered = customers.filter((c: any) => {
     if (scoreFilter === "excellent" && c.healthScore < 90) return false;
     if (scoreFilter === "good" && (c.healthScore < 70 || c.healthScore >= 90)) return false;
     if (scoreFilter === "attention" && (c.healthScore < 50 || c.healthScore >= 70)) return false;
@@ -48,15 +77,19 @@ const HealthScoreTab = () => {
     if (trendFilter !== "all" && c.trend !== trendFilter) return false;
     if (search) {
       const s = search.toLowerCase();
-      return c.name.toLowerCase().includes(s) || c.document.includes(s);
+      return c.name.toLowerCase().includes(s) || c.document?.includes(s);
     }
     return true;
-  }).sort((a, b) => a.healthScore - b.healthScore);
-
-  const componentLabels: Record<string, string> = { nps: "NPS", delivery: "Entregas", frequency: "Frequência", complaints: "Reclamações", recency: "Recência" };
+  }).sort((a: any, b: any) => a.healthScore - b.healthScore);
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-2">
+        <Badge variant={isRealData ? "default" : "outline"} className="text-[10px]">
+          {isLoading ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Carregando...</> : isRealData ? `🟢 ${customers.length} clientes Holdprint` : "🟡 Dados mock (demo)"}
+        </Badge>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-end">
         <Select value={scoreFilter} onValueChange={setScoreFilter}>
@@ -86,8 +119,10 @@ const HealthScoreTab = () => {
 
       {/* Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filtered.map((c) => (
-          <Card key={c.id} className={`cursor-pointer hover:shadow-md transition-shadow ${riskBg[c.riskLevel]}`} onClick={() => setSelected(c)}>
+        {filtered.length === 0 ? (
+          <Card className="col-span-full"><CardContent className="p-8 text-center text-muted-foreground">Nenhum cliente encontrado.</CardContent></Card>
+        ) : filtered.map((c: any) => (
+          <Card key={c.id} className={`cursor-pointer hover:shadow-md transition-shadow ${riskBg[c.riskLevel] || ""}`} onClick={() => setSelected(c)}>
             <CardContent className="p-4">
               <div className="flex items-start gap-3 mb-3">
                 <div className={`h-14 w-14 rounded-xl ${scoreColor(c.healthScore)} flex flex-col items-center justify-center flex-shrink-0`}>
@@ -109,20 +144,10 @@ const HealthScoreTab = () => {
                 </div>
               </div>
 
-              <div className="space-y-1.5 mb-3">
-                {Object.entries(c.components).map(([key, comp]) => (
-                  <div key={key} className="flex items-center gap-2 text-xs">
-                    <span className="w-20 text-muted-foreground">{componentLabels[key]}</span>
-                    <Progress value={comp.score} className="h-2 flex-1" />
-                    <span className="w-16 text-right text-muted-foreground">{String(comp.raw)}</span>
-                  </div>
-                ))}
-              </div>
-
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 <span>📊 {c.totalJobs} jobs</span>
                 <span>💰 {formatCurrency(c.totalRevenue)}</span>
-                {c.complaintCount > 0 && <span className="text-red-600">📢 {c.complaintCount} rec.</span>}
+                {c.frequency && <span>📅 {c.frequency}</span>}
               </div>
 
               {c.suggestedAction && (
@@ -146,28 +171,16 @@ const HealthScoreTab = () => {
               </SheetHeader>
               <div className="mt-6 space-y-4">
                 <div className="text-sm space-y-1 text-muted-foreground">
-                  <p>CNPJ: {selected.document}</p>
+                  {selected.document && <p>CNPJ: {selected.document}</p>}
                   <p>Contato: {selected.contact_person}</p>
                   <p>Email: {selected.email}</p>
                   <p>Telefone: {selected.phone}</p>
                 </div>
                 <Separator />
-                <div>
-                  <h4 className="font-semibold text-sm mb-3">Componentes do Health Score</h4>
-                  {Object.entries(selected.components).map(([key, comp]) => (
-                    <div key={key} className="flex items-center gap-2 mb-2">
-                      <span className="w-24 text-sm font-medium">{componentLabels[key]}</span>
-                      <Progress value={comp.score} className="h-3 flex-1" />
-                      <span className="w-8 text-sm text-right font-bold">{comp.score}</span>
-                      <span className="w-24 text-xs text-muted-foreground text-right">{String(comp.raw)}</span>
-                    </div>
-                  ))}
-                </div>
-                <Separator />
                 <div className="grid grid-cols-2 gap-3">
                   <Card><CardContent className="p-3 text-center"><p className="text-xs text-muted-foreground">Jobs</p><p className="text-xl font-bold">{selected.totalJobs}</p></CardContent></Card>
                   <Card><CardContent className="p-3 text-center"><p className="text-xs text-muted-foreground">Receita Total</p><p className="text-lg font-bold">{formatCurrency(selected.totalRevenue)}</p></CardContent></Card>
-                  <Card><CardContent className="p-3 text-center"><p className="text-xs text-muted-foreground">Reclamações</p><p className={`text-xl font-bold ${selected.openComplaints > 0 ? "text-red-600" : ""}`}>{selected.complaintCount}</p></CardContent></Card>
+                  <Card><CardContent className="p-3 text-center"><p className="text-xs text-muted-foreground">Frequência</p><p className="text-lg font-bold">{selected.frequency || "—"}</p></CardContent></Card>
                   <Card><CardContent className="p-3 text-center"><p className="text-xs text-muted-foreground">Risco</p><Badge className={`${selected.riskLevel === "critical" ? "bg-red-600 text-white" : selected.riskLevel === "high" ? "bg-orange-500 text-white" : selected.riskLevel === "medium" ? "bg-yellow-500 text-white" : "bg-green-500 text-white"}`}>{selected.riskLevel}</Badge></CardContent></Card>
                 </div>
                 {selected.suggestedAction && (

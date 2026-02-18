@@ -61,8 +61,8 @@ const CsPage = () => {
     switch (activeSection) {
       case "resumo": return <CSResumoSection onNavigate={setActiveSection} holdprintData={holdprintData} wsCustomers={wsCustomers} isLoading={isLoading} />;
       case "clientes": return <CSClientesTab holdprintCustomers={csCustomers} wsCustomers={wsCustomers} holdprintJobs={holdprintData?.jobs} isLoading={isLoading} />;
-      case "health": return <HealthScoreTab />;
-      case "entregas": return <EntregasTab />;
+      case "health": return <HealthScoreTab wsCustomers={wsCustomers} isLoading={isLoading} />;
+      case "entregas": return <EntregasTab holdprintJobs={holdprintData?.jobs} isLoading={isLoading} />;
       case "receita": return <CSReceitaSection holdprintData={holdprintData} wsCustomers={wsCustomers} isLoading={isLoading} />;
       case "tickets": return <ReclamacoesTab />;
       case "visitas": return <VisitasTecnicasTab />;
