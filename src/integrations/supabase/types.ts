@@ -477,6 +477,270 @@ export type Database = {
         }
         Relationships: []
       }
+      cs_oportunidades: {
+        Row: {
+          context: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: number | null
+          customer_name: string
+          description: string
+          estimated_value: number | null
+          health_score: number | null
+          id: string
+          next_step: string | null
+          related_job_code: number | null
+          responsible_name: string
+          status: string
+          timing: string | null
+          type: string
+          unidade: string | null
+          updated_at: string
+        }
+        Insert: {
+          context?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: number | null
+          customer_name: string
+          description?: string
+          estimated_value?: number | null
+          health_score?: number | null
+          id?: string
+          next_step?: string | null
+          related_job_code?: number | null
+          responsible_name?: string
+          status?: string
+          timing?: string | null
+          type?: string
+          unidade?: string | null
+          updated_at?: string
+        }
+        Update: {
+          context?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: number | null
+          customer_name?: string
+          description?: string
+          estimated_value?: number | null
+          health_score?: number | null
+          id?: string
+          next_step?: string | null
+          related_job_code?: number | null
+          responsible_name?: string
+          status?: string
+          timing?: string | null
+          type?: string
+          unidade?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cs_tickets: {
+        Row: {
+          category: string
+          code: string
+          created_at: string
+          created_by: string | null
+          customer_id: number | null
+          customer_name: string
+          date: string
+          description: string
+          escalation_history: Json | null
+          escalation_level: string | null
+          id: string
+          job_code: number | null
+          job_title: string | null
+          priority: string
+          resolution: string | null
+          resolved_date: string | null
+          responsible_name: string
+          sla_resolution_actual: string | null
+          sla_resolution_breached: boolean | null
+          sla_resolution_deadline: string | null
+          sla_response_actual: string | null
+          sla_response_breached: boolean | null
+          sla_response_deadline: string | null
+          status: string
+          unidade: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: number | null
+          customer_name: string
+          date?: string
+          description: string
+          escalation_history?: Json | null
+          escalation_level?: string | null
+          id?: string
+          job_code?: number | null
+          job_title?: string | null
+          priority?: string
+          resolution?: string | null
+          resolved_date?: string | null
+          responsible_name?: string
+          sla_resolution_actual?: string | null
+          sla_resolution_breached?: boolean | null
+          sla_resolution_deadline?: string | null
+          sla_response_actual?: string | null
+          sla_response_breached?: boolean | null
+          sla_response_deadline?: string | null
+          status?: string
+          unidade?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: number | null
+          customer_name?: string
+          date?: string
+          description?: string
+          escalation_history?: Json | null
+          escalation_level?: string | null
+          id?: string
+          job_code?: number | null
+          job_title?: string | null
+          priority?: string
+          resolution?: string | null
+          resolved_date?: string | null
+          responsible_name?: string
+          sla_resolution_actual?: string | null
+          sla_resolution_breached?: boolean | null
+          sla_resolution_deadline?: string | null
+          sla_response_actual?: string | null
+          sla_response_breached?: boolean | null
+          sla_response_deadline?: string | null
+          status?: string
+          unidade?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cs_touchpoints: {
+        Row: {
+          channel: string
+          created_at: string
+          created_by: string | null
+          customer_id: number | null
+          customer_name: string
+          date: string
+          id: string
+          notes: string | null
+          responsible_name: string
+          status: string
+          trigger_reason: string | null
+          type: string
+          unidade: string | null
+          updated_at: string
+        }
+        Insert: {
+          channel?: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: number | null
+          customer_name: string
+          date: string
+          id?: string
+          notes?: string | null
+          responsible_name?: string
+          status?: string
+          trigger_reason?: string | null
+          type?: string
+          unidade?: string | null
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: number | null
+          customer_name?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          responsible_name?: string
+          status?: string
+          trigger_reason?: string | null
+          type?: string
+          unidade?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cs_visitas: {
+        Row: {
+          code: string
+          complaint_id: string | null
+          created_at: string
+          created_by: string | null
+          customer_address: string | null
+          customer_id: number | null
+          customer_name: string
+          description: string
+          duration_minutes: number | null
+          id: string
+          job_code: number | null
+          report_notes: string | null
+          report_status: string | null
+          scheduled_date: string
+          status: string
+          technician_name: string
+          type: string
+          unidade: string | null
+          updated_at: string
+        }
+        Insert: {
+          code?: string
+          complaint_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_address?: string | null
+          customer_id?: number | null
+          customer_name: string
+          description?: string
+          duration_minutes?: number | null
+          id?: string
+          job_code?: number | null
+          report_notes?: string | null
+          report_status?: string | null
+          scheduled_date: string
+          status?: string
+          technician_name?: string
+          type?: string
+          unidade?: string | null
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          complaint_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_address?: string | null
+          customer_id?: number | null
+          customer_name?: string
+          description?: string
+          duration_minutes?: number | null
+          id?: string
+          job_code?: number | null
+          report_notes?: string | null
+          report_status?: string | null
+          scheduled_date?: string
+          status?: string
+          technician_name?: string
+          type?: string
+          unidade?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       gateway_users: {
         Row: {
           created_at: string
