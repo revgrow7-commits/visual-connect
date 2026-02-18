@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Bell, Settings } from "lucide-react";
+import { Menu, Bell, Settings, RefreshCw, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import CSWorkspaceSidebar from "@/components/cs/CSWorkspaceSidebar";
 import CSResumoSection from "@/components/cs/CSResumoSection";
-import CSDashboardTab from "@/components/cs/CSDashboardTab";
 import HealthScoreTab from "@/components/cs/HealthScoreTab";
 import EntregasTab from "@/components/cs/EntregasTab";
 import CSReceitaSection from "@/components/cs/CSReceitaSection";
@@ -16,7 +16,9 @@ import OportunidadesTab from "@/components/cs/OportunidadesTab";
 import CSPlaybooksSection from "@/components/cs/CSPlaybooksSection";
 import CSRelatoriosSection from "@/components/cs/CSRelatoriosSection";
 import CSClientesTab from "@/components/cs/CSClientesTab";
+import CSMeetingDialog from "@/components/cs/CSMeetingDialog";
 import AgentChat from "@/components/ai-agent/AgentChat";
+import { useCSHoldprintData, transformToCSCustomers, transformToCSCustomersList } from "@/hooks/useCSHoldprintData";
 import type { CSSectionId } from "@/components/cs/types";
 
 const sectionTitles: Record<CSSectionId, string> = {
@@ -38,14 +40,30 @@ const CsPage = () => {
   const [activeSection, setActiveSection] = useState<CSSectionId>("resumo");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
+  const { data: holdprintData, isLoading, isFetching, refetch, dataUpdatedAt } = useCSHoldprintData();
+
+  const wsCustomers = holdprintData ? transformToCSCustomers(holdprintData) : null;
+  const csCustomers = holdprintData ? transformToCSCustomersList(holdprintData) : null;
+
+  const handleRefresh = async () => {
+    toast.info("Sincronizando dados da Holdprint...");
+    await refetch();
+    toast.success("Dados atualizados!");
+  };
+
+  const lastSyncLabel = dataUpdatedAt
+    ? `Sync: ${new Date(dataUpdatedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+    : holdprintData?.lastSync
+      ? `Sync: ${new Date(holdprintData.lastSync).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+      : "Sem sync";
 
   const renderSection = () => {
     switch (activeSection) {
-      case "resumo": return <CSResumoSection onNavigate={setActiveSection} />;
-      case "clientes": return <CSClientesTab />;
+      case "resumo": return <CSResumoSection onNavigate={setActiveSection} holdprintData={holdprintData} wsCustomers={wsCustomers} isLoading={isLoading} />;
+      case "clientes": return <CSClientesTab holdprintCustomers={csCustomers} wsCustomers={wsCustomers} holdprintJobs={holdprintData?.jobs} isLoading={isLoading} />;
       case "health": return <HealthScoreTab />;
       case "entregas": return <EntregasTab />;
-      case "receita": return <CSReceitaSection />;
+      case "receita": return <CSReceitaSection holdprintData={holdprintData} wsCustomers={wsCustomers} isLoading={isLoading} />;
       case "tickets": return <ReclamacoesTab />;
       case "visitas": return <VisitasTecnicasTab />;
       case "regua": return <ReguaRelacionamentoTab />;
@@ -85,6 +103,16 @@ const CsPage = () => {
           )}
           <h1 className="text-lg font-bold flex-1">{sectionTitles[activeSection]}</h1>
           <div className="flex items-center gap-2">
+            {/* Last sync info */}
+            <span className="text-[10px] text-muted-foreground hidden md:flex items-center gap-1">
+              {isFetching && <Loader2 className="h-3 w-3 animate-spin" />}
+              {lastSyncLabel}
+              {holdprintData && ` • ${holdprintData.customers?.length || 0} clientes`}
+            </span>
+            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleRefresh} disabled={isFetching} title="Atualizar dados Holdprint">
+              <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+            </Button>
+            <CSMeetingDialog />
             <span className="text-xs text-muted-foreground hidden md:block">Bom dia, Carlos</span>
             <Button size="icon" variant="ghost" className="h-8 w-8 relative">
               <Bell className="h-4 w-4" />

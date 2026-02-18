@@ -2,30 +2,19 @@ import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DollarSign, TrendingUp, Repeat, AlertTriangle } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell, Legend } from "recharts";
+import { DollarSign, TrendingUp, Repeat, AlertTriangle, Loader2 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from "recharts";
 import { mockWSCustomers, revenueMonthlyData } from "./workspaceData";
+import type { CSWorkspaceCustomer } from "./types";
+import type { CSHoldprintData } from "@/hooks/useCSHoldprintData";
 
 const formatCurrency = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-const topClients = [...mockWSCustomers].sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, 10);
-const totalRevenue = mockWSCustomers.reduce((s, c) => s + c.totalRevenue, 0);
-const avgRevenue = Math.round(totalRevenue / mockWSCustomers.length);
-const recurrentClients = mockWSCustomers.filter(c => c.totalJobs >= 3).length;
-const revenueAtRisk = mockWSCustomers.filter(c => c.healthScore < 50).reduce((s, c) => s + c.totalRevenue, 0);
-
-const top3Revenue = topClients.slice(0, 3).reduce((s, c) => s + c.totalRevenue, 0);
-const concentrationData = [
-  { name: "Top 3", value: top3Revenue, fill: "hsl(350 67% 37%)" },
-  { name: "Outros", value: totalRevenue - top3Revenue, fill: "hsl(0 0% 80%)" },
-];
-
-const kpis = [
-  { label: "Receita Total (12m)", value: formatCurrency(totalRevenue), icon: DollarSign, color: "text-green-600", bg: "bg-green-50", extra: "▲ 12%" },
-  { label: "Receita Média/Cliente", value: formatCurrency(avgRevenue), icon: TrendingUp, color: "text-blue-600", bg: "bg-blue-50" },
-  { label: "Clientes Recorrentes", value: `${recurrentClients} (${Math.round((recurrentClients / mockWSCustomers.length) * 100)}%)`, icon: Repeat, color: "text-blue-600", bg: "bg-blue-50" },
-  { label: "Revenue at Risk", value: formatCurrency(revenueAtRisk), icon: AlertTriangle, color: "text-red-600", bg: "bg-red-50" },
-];
+interface CSReceitaSectionProps {
+  holdprintData?: CSHoldprintData | null;
+  wsCustomers?: CSWorkspaceCustomer[] | null;
+  isLoading?: boolean;
+}
 
 const scoreColor = (s: number) => {
   if (s >= 70) return "bg-green-500";
@@ -33,9 +22,52 @@ const scoreColor = (s: number) => {
   return "bg-red-500";
 };
 
-const CSReceitaSection = () => {
+const CSReceitaSection: React.FC<CSReceitaSectionProps> = ({ holdprintData, wsCustomers: realCustomers, isLoading }) => {
+  const customers = realCustomers && realCustomers.length > 0 ? realCustomers : mockWSCustomers;
+  const isRealData = realCustomers && realCustomers.length > 0;
+
+  // Build monthly revenue from incomes if we have real data
+  const monthlyData = holdprintData?.incomes && holdprintData.incomes.length > 0
+    ? (() => {
+        const byMonth: Record<string, number> = {};
+        holdprintData.incomes.forEach(inc => {
+          const d = inc.dueDate || inc.paidDate;
+          if (!d) return;
+          const date = new Date(d as string);
+          const key = `${date.toLocaleString("pt-BR", { month: "short" })}/${String(date.getFullYear()).slice(-2)}`;
+          byMonth[key] = (byMonth[key] || 0) + (inc.amount || inc.value || 0);
+        });
+        return Object.entries(byMonth).map(([month, revenue]) => ({ month, revenue, forecast: null }));
+      })()
+    : revenueMonthlyData;
+
+  const topClients = [...customers].sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, 10);
+  const totalRevenue = customers.reduce((s, c) => s + c.totalRevenue, 0);
+  const avgRevenue = customers.length > 0 ? Math.round(totalRevenue / customers.length) : 0;
+  const recurrentClients = customers.filter(c => c.totalJobs >= 3).length;
+  const revenueAtRisk = customers.filter(c => c.healthScore < 50).reduce((s, c) => s + c.totalRevenue, 0);
+
+  const top3Revenue = topClients.slice(0, 3).reduce((s, c) => s + c.totalRevenue, 0);
+  const concentrationData = [
+    { name: "Top 3", value: top3Revenue, fill: "hsl(350 67% 37%)" },
+    { name: "Outros", value: totalRevenue - top3Revenue, fill: "hsl(0 0% 80%)" },
+  ];
+
+  const kpis = [
+    { label: "Receita Total (12m)", value: formatCurrency(totalRevenue), icon: DollarSign, color: "text-green-600", bg: "bg-green-50", extra: isRealData ? "Holdprint" : "▲ 12%" },
+    { label: "Receita Média/Cliente", value: formatCurrency(avgRevenue), icon: TrendingUp, color: "text-blue-600", bg: "bg-blue-50" },
+    { label: "Clientes Recorrentes", value: customers.length > 0 ? `${recurrentClients} (${Math.round((recurrentClients / customers.length) * 100)}%)` : "0", icon: Repeat, color: "text-blue-600", bg: "bg-blue-50" },
+    { label: "Revenue at Risk", value: formatCurrency(revenueAtRisk), icon: AlertTriangle, color: "text-red-600", bg: "bg-red-50" },
+  ];
+
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-2">
+        <Badge variant={isRealData ? "default" : "outline"} className="text-[10px]">
+          {isLoading ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Carregando...</> : isRealData ? "🟢 Dados Holdprint (tempo real)" : "🟡 Dados mock (demo)"}
+        </Badge>
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {kpis.map((k) => (
           <Card key={k.label}>
@@ -54,7 +86,6 @@ const CSReceitaSection = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top 10 Revenue */}
         <Card>
           <CardContent className="p-4">
             <h3 className="font-semibold mb-4">Top 10 Clientes por Receita</h3>
@@ -70,12 +101,11 @@ const CSReceitaSection = () => {
           </CardContent>
         </Card>
 
-        {/* Revenue Monthly */}
         <Card>
           <CardContent className="p-4">
-            <h3 className="font-semibold mb-4">Receita Mensal + Previsão</h3>
+            <h3 className="font-semibold mb-4">Receita Mensal {isRealData ? "(Holdprint)" : "+ Previsão"}</h3>
             <ResponsiveContainer width="100%" height={320}>
-              <AreaChart data={revenueMonthlyData}>
+              <AreaChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" fontSize={10} />
                 <YAxis tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} fontSize={11} />
@@ -88,7 +118,6 @@ const CSReceitaSection = () => {
         </Card>
       </div>
 
-      {/* Concentration */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card>
           <CardContent className="p-4">
@@ -101,13 +130,12 @@ const CSReceitaSection = () => {
                 <Tooltip formatter={(v: number) => formatCurrency(v)} />
               </PieChart>
             </ResponsiveContainer>
-            {Math.round((top3Revenue / totalRevenue) * 100) > 60 && (
+            {totalRevenue > 0 && Math.round((top3Revenue / totalRevenue) * 100) > 60 && (
               <p className="text-xs text-red-600 text-center mt-2">⚠️ Top 3 concentra {Math.round((top3Revenue / totalRevenue) * 100)}% da receita</p>
             )}
           </CardContent>
         </Card>
 
-        {/* Revenue Table */}
         <Card className="lg:col-span-2">
           <CardContent className="p-4">
             <h3 className="font-semibold mb-4">Receita por Cliente</h3>
@@ -132,7 +160,7 @@ const CSReceitaSection = () => {
                       </TableCell>
                       <TableCell className="text-right font-medium">{formatCurrency(c.totalRevenue)}</TableCell>
                       <TableCell className="text-center">{c.totalJobs}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(Math.round(c.totalRevenue / c.totalJobs))}</TableCell>
+                      <TableCell className="text-right">{c.totalJobs > 0 ? formatCurrency(Math.round(c.totalRevenue / c.totalJobs)) : "—"}</TableCell>
                       <TableCell className="text-xs capitalize">{c.frequency}</TableCell>
                     </TableRow>
                   ))}
