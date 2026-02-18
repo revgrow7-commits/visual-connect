@@ -158,7 +158,7 @@ const ReclamacoesTab = React.forwardRef<HTMLDivElement>((_, ref) => {
         </Badge>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="gap-1"><Plus className="h-4 w-4" /> Nova Reclamação</Button>
+            <Button className="gap-2"><Plus className="h-4 w-4" /> Abrir Ticket Manualmente</Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>Nova Reclamação</DialogTitle></DialogHeader>
