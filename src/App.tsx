@@ -28,6 +28,7 @@ const AdminPage = lazy(() => import("./pages/Admin"));
 const GerarLinkPage = lazy(() => import("./pages/rh/GerarLink"));
 const FormularioCandidato = lazy(() => import("./pages/FormularioCandidato"));
 const OuvidoriaPage = lazy(() => import("./pages/Ouvidoria"));
+const PesquisaSatisfacao = lazy(() => import("./pages/PesquisaSatisfacao"));
 
 // Gestão pages
 const OperacaoPage = lazy(() => import("./pages/gestao/OperacaoPage"));
@@ -69,6 +70,7 @@ const App = () => (
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/gateway-login" element={<GatewayLogin />} />
+            <Route path="/pesquisa/:token" element={<PesquisaSatisfacao />} />
             <Route path="/formulario/:token" element={<FormularioCandidato />} />
             <Route element={<AppLayout />}>
               <Route path="/" element={<Index />} />

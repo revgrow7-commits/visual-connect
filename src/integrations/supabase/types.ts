@@ -563,6 +563,11 @@ export type Database = {
           sla_response_breached: boolean | null
           sla_response_deadline: string | null
           status: string
+          survey_completed_at: string | null
+          survey_feedback: string | null
+          survey_rating: number | null
+          survey_token: string | null
+          survey_would_recommend: boolean | null
           unidade: string | null
           updated_at: string
         }
@@ -591,6 +596,11 @@ export type Database = {
           sla_response_breached?: boolean | null
           sla_response_deadline?: string | null
           status?: string
+          survey_completed_at?: string | null
+          survey_feedback?: string | null
+          survey_rating?: number | null
+          survey_token?: string | null
+          survey_would_recommend?: boolean | null
           unidade?: string | null
           updated_at?: string
         }
@@ -619,6 +629,11 @@ export type Database = {
           sla_response_breached?: boolean | null
           sla_response_deadline?: string | null
           status?: string
+          survey_completed_at?: string | null
+          survey_feedback?: string | null
+          survey_rating?: number | null
+          survey_token?: string | null
+          survey_would_recommend?: boolean | null
           unidade?: string | null
           updated_at?: string
         }
