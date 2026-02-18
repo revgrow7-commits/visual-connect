@@ -61,11 +61,11 @@ export const satisfactionHeatmap = [
   { service: "Vitrines/Adesivos", quality: 4.2, prazo: 3.5, atendimento: 4.0, preco: 4.3 },
 ];
 
-export const activeAlerts: CSAlert[] = [
-  { type: "sla_breach", icon: "🚨", message: "SLA estourado: RCL-006 (Padaria Pão Quente) — 5 dias sem resolução", action: "Ver reclamação", priority: "critical" },
-  { type: "warranty_expiring", icon: "⏰", message: "5 garantias expiram nos próximos 30 dias — oportunidade de contrato manutenção", action: "Ver garantias", priority: "medium" },
-  { type: "churn_risk", icon: "⚠️", message: "3 clientes com Health Score abaixo de 50 — ação imediata necessária", action: "Ver clientes em risco", priority: "high" },
-  { type: "nps_detractor", icon: "👎", message: "2 detratores no último NPS — follow-up pendente", action: "Ver detratores", priority: "high" },
+export const activeAlerts = [
+  { type: "sla_breach", icon: "🚨", message: "SLA estourado: RCL-006 (Padaria Pão Quente) — 5 dias sem resolução", action: "Ver reclamação", priority: "critical" as const },
+  { type: "warranty_expiring", icon: "⏰", message: "5 garantias expiram nos próximos 30 dias — oportunidade de contrato manutenção", action: "Ver garantias", priority: "medium" as const },
+  { type: "churn_risk", icon: "⚠️", message: "3 clientes com Health Score abaixo de 50 — ação imediata necessária", action: "Ver clientes em risco", priority: "high" as const },
+  { type: "nps_detractor", icon: "👎", message: "2 detratores no último NPS — follow-up pendente", action: "Ver detratores", priority: "high" as const },
 ];
 
 // === DELIVERIES ===

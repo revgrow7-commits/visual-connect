@@ -1,4 +1,4 @@
-// === EXISTING TYPES (preserved) ===
+// === DELIVERY TYPES ===
 export interface DeliveryProduct {
   name: string;
   description: string;
@@ -94,8 +94,7 @@ export interface CSCustomer {
   total_revenue: number;
 }
 
-// === NEW TYPES ===
-
+// === HEALTH SCORE ===
 export interface HealthScoreComponent {
   score: number;
   raw: number | string;
@@ -127,6 +126,7 @@ export interface CustomerHealthScore {
   suggestedAction: string | null;
 }
 
+// === COMPLAINTS WITH SLA ===
 export interface ComplaintSLA {
   responseDeadline: string;
   responseActual: string | null;
@@ -220,10 +220,76 @@ export interface Opportunity {
   relatedJobCode: number | null;
 }
 
+// === WORKSPACE TYPES ===
 export interface CSAlert {
-  type: string;
-  icon: string;
-  message: string;
-  action: string;
-  priority: "critical" | "high" | "medium";
+  id: string;
+  type: "health_drop" | "sla_breach" | "warranty_expiring" | "churn_risk" | "nps_detractor" | "overdue_task" | "new_complaint";
+  severity: "critical" | "high" | "medium" | "info";
+  title: string;
+  description: string;
+  customerName: string;
+  timestamp: string;
+  actionLabel: string;
+  actionTarget: string;
+  dismissed: boolean;
 }
+
+export interface CSTask {
+  id: string;
+  title: string;
+  type: "call" | "email" | "visit" | "review" | "followup";
+  customerName: string;
+  dueTime: string;
+  priority: "high" | "medium" | "low";
+  completed: boolean;
+  linkedTo: string;
+}
+
+export interface PlaybookField {
+  label: string;
+  type: "text" | "textarea" | "select" | "rating";
+  options?: string[];
+  required: boolean;
+}
+
+export interface PlaybookStep {
+  order: number;
+  title: string;
+  type: "checklist" | "action" | "question" | "note";
+  content: string;
+  fields?: PlaybookField[];
+}
+
+export interface Playbook {
+  id: string;
+  name: string;
+  trigger: string;
+  category: "recovery" | "retention" | "onboarding" | "growth";
+  estimatedTime: string;
+  stepsCount: number;
+  successMetric: string;
+  steps: PlaybookStep[];
+}
+
+export interface CSWorkspaceCustomer {
+  id: number;
+  name: string;
+  document: string;
+  contact_person: string;
+  phone: string;
+  email: string;
+  healthScore: number;
+  previousScore: number;
+  trend: "up" | "down" | "stable";
+  npsScore: number | null;
+  npsCategory: "promoter" | "passive" | "detractor" | null;
+  totalJobs: number;
+  totalRevenue: number;
+  openComplaints: number;
+  lastJobDate: string;
+  csmName: string;
+  riskLevel: "none" | "low" | "medium" | "high" | "critical";
+  frequency: string;
+}
+
+export type CSSectionId = "resumo" | "clientes" | "health" | "entregas" | "receita" | "tickets" | "visitas" | "regua" | "upsell" | "playbooks" | "relatorios" | "agente";
