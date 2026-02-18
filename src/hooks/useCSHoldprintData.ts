@@ -21,18 +21,25 @@ export interface HoldprintCustomer {
 }
 
 export interface HoldprintJob {
-  id: number;
+  id: number | string;
   code?: number;
   title?: string;
   description?: string;
   productionStatus?: string;
   status?: string;
+  currentProductionStepName?: string;
   progressPercentage?: number;
   totalPrice?: number;
   customer?: { id?: number; name?: string; fantasyName?: string };
+  customerName?: string;
   deliveryNeeded?: string;
   deliveryDate?: string;
+  deliveryExpected?: string;
   createdAt?: string;
+  creationTime?: string;
+  finalizedTime?: string;
+  isFinalized?: boolean;
+  costs?: { budgetedTotalPrice?: number; approvedTotalPrice?: number; realizedTotalPrice?: number };
   _unidade?: string;
   _unit_key?: string;
   [key: string]: unknown;
@@ -80,18 +87,22 @@ export function transformToCSCustomers(data: CSHoldprintData): CSWorkspaceCustom
   return customers.map((c) => {
     const customerId = c.id;
     const customerName = c.fantasyName || c.name || "Sem nome";
-    const customerJobs = jobs.filter(j => j.customer?.id === customerId || j.customer?.name === customerName);
+    const customerJobs = jobs.filter(j => {
+      const jobCustId = j.customer?.id;
+      const jobCustName = j.customerName || j.customer?.name || j.customer?.fantasyName || "";
+      return jobCustId === customerId || jobCustName.toLowerCase() === customerName.toLowerCase();
+    });
     const customerIncomes = incomes.filter(i => i.customer?.id === customerId || i.customer?.name === customerName);
 
     const totalRevenue = customerIncomes.reduce((sum, i) => sum + (i.amount || i.value || 0), 0);
     const totalJobs = customerJobs.length;
 
     const sortedJobs = [...customerJobs].sort((a, b) => {
-      const da = a.deliveryDate || a.createdAt || "";
-      const db = b.deliveryDate || b.createdAt || "";
+      const da = a.finalizedTime || a.deliveryDate || a.creationTime || a.createdAt || "";
+      const db = b.finalizedTime || b.deliveryDate || b.creationTime || b.createdAt || "";
       return db.localeCompare(da);
     });
-    const lastJobDate = sortedJobs[0]?.deliveryDate || sortedJobs[0]?.createdAt || "";
+    const lastJobDate = sortedJobs[0]?.finalizedTime || sortedJobs[0]?.deliveryDate || sortedJobs[0]?.creationTime || sortedJobs[0]?.createdAt || "";
 
     // Basic health score calculation
     const daysSinceLastJob = lastJobDate
@@ -149,16 +160,20 @@ export function transformToCSCustomersList(data: CSHoldprintData): CSCustomer[] 
   return customers.map((c) => {
     const customerId = c.id;
     const customerName = c.fantasyName || c.name || "Sem nome";
-    const customerJobs = jobs.filter(j => j.customer?.id === customerId || j.customer?.name === customerName);
+    const customerJobs = jobs.filter(j => {
+      const jobCustId = j.customer?.id;
+      const jobCustName = j.customerName || j.customer?.name || j.customer?.fantasyName || "";
+      return jobCustId === customerId || jobCustName.toLowerCase() === customerName.toLowerCase();
+    });
     const customerIncomes = incomes.filter(i => i.customer?.id === customerId || i.customer?.name === customerName);
     const totalRevenue = customerIncomes.reduce((sum, i) => sum + (i.amount || i.value || 0), 0);
 
     const sortedJobs = [...customerJobs].sort((a, b) => {
-      const da = a.deliveryDate || a.createdAt || "";
-      const db = b.deliveryDate || b.createdAt || "";
+      const da = a.finalizedTime || a.deliveryDate || a.creationTime || a.createdAt || "";
+      const db = b.finalizedTime || b.deliveryDate || b.creationTime || b.createdAt || "";
       return db.localeCompare(da);
     });
-    const lastJobDate = sortedJobs[0]?.deliveryDate || sortedJobs[0]?.createdAt || "";
+    const lastJobDate = sortedJobs[0]?.finalizedTime || sortedJobs[0]?.deliveryDate || sortedJobs[0]?.creationTime || sortedJobs[0]?.createdAt || "";
 
     return {
       id: customerId,

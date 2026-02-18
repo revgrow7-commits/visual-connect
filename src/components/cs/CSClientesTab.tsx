@@ -54,9 +54,12 @@ const CSClientesTab = React.forwardRef<HTMLDivElement, CSClientesTabProps>(({ ho
   });
 
   // Get customer jobs from Holdprint data
-  const getCustomerJobs = (customerId: number) => {
+  const getCustomerJobs = (customer: CSCustomer) => {
     if (!holdprintJobs) return [];
-    return holdprintJobs.filter(j => j.customer?.id === customerId);
+    return holdprintJobs.filter(j => {
+      const jobCustName = j.customerName || j.customer?.name || j.customer?.fantasyName || "";
+      return j.customer?.id === customer.id || jobCustName.toLowerCase() === customer.name.toLowerCase();
+    });
   };
 
   const kpis = [
@@ -219,17 +222,17 @@ const CSClientesTab = React.forwardRef<HTMLDivElement, CSClientesTabProps>(({ ho
                     <Separator />
                     <div>
                       <h4 className="font-semibold text-sm mb-2">Jobs Recentes (Holdprint)</h4>
-                      {getCustomerJobs(selected.id).length === 0 ? (
+                      {getCustomerJobs(selected).length === 0 ? (
                         <p className="text-sm text-muted-foreground">Nenhum job encontrado.</p>
                       ) : (
                         <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                          {getCustomerJobs(selected.id).slice(0, 10).map((j) => (
-                            <div key={j.id} className="text-sm p-2 bg-muted/30 rounded">
+                          {getCustomerJobs(selected).slice(0, 10).map((j) => (
+                            <div key={String(j.id)} className="text-sm p-2 bg-muted/30 rounded">
                               <p className="font-medium">#{j.code || j.id} — {j.title || "Sem título"}</p>
                               <p className="text-xs text-muted-foreground">
-                                Status: {j.productionStatus || j.status || "?"} | 
-                                Valor: {formatCurrency(j.totalPrice || 0)} |
-                                {j.deliveryDate ? ` Entregue: ${formatDate(j.deliveryDate)}` : j.deliveryNeeded ? ` Prazo: ${formatDate(j.deliveryNeeded)}` : ""}
+                                Status: {j.currentProductionStepName || j.productionStatus || j.status || "?"} | 
+                                Valor: {formatCurrency(j.costs?.budgetedTotalPrice || j.totalPrice || 0)} |
+                                {j.finalizedTime ? ` Finalizado: ${formatDate(j.finalizedTime)}` : j.deliveryNeeded ? ` Prazo: ${formatDate(j.deliveryNeeded)}` : ""}
                               </p>
                             </div>
                           ))}
