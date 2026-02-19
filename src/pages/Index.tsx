@@ -3,7 +3,7 @@ import CartazesRecentes from "@/components/home/CartazesRecentes";
 import AniversariantesWidget from "@/components/home/AniversariantesWidget";
 import NovosColaboradores from "@/components/home/NovosColaboradores";
 import AtalhosRapidos from "@/components/home/AtalhosRapidos";
-import UsuariosWidget from "@/components/home/UsuariosWidget";
+import VagasInternasWidget from "@/components/home/VagasInternasWidget";
 import HomeUsuariosAdmin from "@/components/home/HomeUsuariosAdmin";
 import AniversarioBalloon from "@/components/home/AniversarioBalloon";
 import logo from "@/assets/logo-industria-visual.png";
@@ -51,7 +51,7 @@ const Index = () => {
         <div className="space-y-6">
           <AniversariantesWidget />
           <NovosColaboradores />
-          <UsuariosWidget />
+          <VagasInternasWidget />
         </div>
       </div>
 

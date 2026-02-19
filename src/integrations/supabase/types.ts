@@ -1306,6 +1306,48 @@ export type Database = {
         }
         Relationships: []
       }
+      vagas_internas: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          id: string
+          requisitos: string | null
+          setor: string
+          status: string
+          tipo: string
+          titulo: string
+          unidade: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          requisitos?: string | null
+          setor: string
+          status?: string
+          tipo?: string
+          titulo: string
+          unidade?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          requisitos?: string | null
+          setor?: string
+          status?: string
+          tipo?: string
+          titulo?: string
+          unidade?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       gateway_users_safe: {
