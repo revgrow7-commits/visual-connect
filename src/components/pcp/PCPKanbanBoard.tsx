@@ -158,7 +158,7 @@ function trelloBoardToColumns(lists: TrelloList[], cards: TrelloCard[]): PCPColu
 // ─── Main Board ───
 const PCPKanbanBoard: React.FC = () => {
   const [dataSource, setDataSource] = useState<"holdprint" | "trello">("holdprint");
-  const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
+  const [selectedBoardId, setSelectedBoardId] = useState<string | null>("XiH7Nd9A");
 
   // Holdprint data
   const { data: holdprintData, isLoading: hpLoading, isError: hpError, refetch: hpRefetch, isFetching: hpFetching } = useKanbanHoldprintJobs();
