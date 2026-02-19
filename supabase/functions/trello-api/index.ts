@@ -16,6 +16,8 @@ serve(async (req) => {
   try {
     const apiKey = Deno.env.get("TRELLO_API_KEY");
     const token = Deno.env.get("TRELLO_TOKEN");
+    console.log("TRELLO_API_KEY length:", apiKey?.length || 0);
+    console.log("TRELLO_TOKEN length:", token?.length || 0);
     if (!apiKey || !token) {
       throw new Error("TRELLO_API_KEY ou TRELLO_TOKEN não configurados");
     }
