@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { initialPcpColumns, PCPCard as PCPCardType, PCPColumn } from "./pcpMockData";
 import { useKanbanHoldprintJobs } from "./useKanbanHoldprint";
+import { useTrelloBoardData, trelloColorToTw, type TrelloCard, type TrelloList } from "./useTrelloData";
+import TrelloBoardSelector from "./TrelloBoardSelector";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,7 +14,7 @@ import {
 import {
   MessageSquare, Paperclip, Eye, Lock, AlignLeft, Clock, CheckCircle2,
   MoreHorizontal, Plus, ClipboardList, X, RefreshCw, Wifi, WifiOff, Loader2,
-  Filter, Search,
+  Search, LayoutGrid, Trello,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -43,9 +45,11 @@ const PCPCardComponent: React.FC<{
             {card.tags.map((tag, i) => (
               <span
                 key={i}
-                className={`h-2 rounded-full ${tag.color} ${tag.label ? "w-auto px-1.5" : "w-10"}`}
+                className={`rounded-sm text-[10px] font-medium text-white px-2 py-0.5 ${tag.color} ${!tag.label ? "w-10 h-2" : ""}`}
                 title={tag.label}
-              />
+              >
+                {tag.label || ""}
+              </span>
             ))}
           </div>
         )}
@@ -115,22 +119,78 @@ const KanbanSkeleton = () => (
   </div>
 );
 
+// ─── Transform Trello data to Kanban columns ───
+function trelloBoardToColumns(lists: TrelloList[], cards: TrelloCard[]): PCPColumn[] {
+  return lists.map((list) => {
+    const listCards = cards.filter((c) => c.idList === list.id);
+    const mapped: PCPCardType[] = listCards.map((c) => {
+      const dueDate = c.due ? new Date(c.due) : null;
+      const isOverdue = dueDate ? dueDate < new Date() && !c.dueComplete : false;
+      return {
+        id: `trello-${c.id}`,
+        title: c.name,
+        description: c.desc || undefined,
+        tags: c.labels.map((l) => ({ color: trelloColorToTw(l.color), label: l.name })),
+        date: dueDate
+          ? `${dueDate.getDate()} de ${["jan.", "fev.", "mar.", "abr.", "mai.", "jun.", "jul.", "ago.", "set.", "out.", "nov.", "dez."][dueDate.getMonth()]}`
+          : undefined,
+        overdue: isOverdue,
+        done: c.dueComplete,
+        comments: c.badges.comments,
+        attachments: c.badges.attachments,
+        hasList: c.badges.checkItems > 0,
+        hasWatcher: false,
+        _trelloCardId: c.id,
+        _trelloLabelIds: c.labels.map((l) => l.id),
+      } as PCPCardType & { _trelloCardId?: string; _trelloLabelIds?: string[] };
+    });
+
+    return {
+      id: `trello-list-${list.id}`,
+      title: list.name,
+      subSections: [
+        { id: `trello-sub-${list.id}`, label: "", color: "", cards: mapped },
+      ],
+    };
+  });
+}
+
 // ─── Main Board ───
 const PCPKanbanBoard: React.FC = () => {
-  const { data: holdprintData, isLoading, isError, refetch, isFetching } = useKanbanHoldprintJobs();
+  const [dataSource, setDataSource] = useState<"holdprint" | "trello">("holdprint");
+  const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
+
+  // Holdprint data
+  const { data: holdprintData, isLoading: hpLoading, isError: hpError, refetch: hpRefetch, isFetching: hpFetching } = useKanbanHoldprintJobs();
+
+  // Trello data
+  const { data: trelloData, isLoading: trLoading, isError: trError, refetch: trRefetch, isFetching: trFetching } = useTrelloBoardData(
+    dataSource === "trello" ? selectedBoardId : null
+  );
+
   const [columns, setColumns] = useState<PCPColumn[]>(initialPcpColumns);
   const [selectedCard, setSelectedCard] = useState<PCPCardType | null>(null);
   const [selectedCardMeta, setSelectedCardMeta] = useState<{ columnTitle: string; subSectionLabel: string }>({ columnTitle: "", subSectionLabel: "" });
   const [addingCardAt, setAddingCardAt] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeView, setActiveView] = useState<"quadro" | "lista">("quadro");
 
-  // Sync holdprint data into columns
+  // Sync data into columns based on source
   useEffect(() => {
-    if (holdprintData?.columns) {
+    if (dataSource === "holdprint" && holdprintData?.columns) {
       setColumns(holdprintData.columns);
     }
-  }, [holdprintData]);
+  }, [holdprintData, dataSource]);
+
+  useEffect(() => {
+    if (dataSource === "trello" && trelloData) {
+      setColumns(trelloBoardToColumns(trelloData.lists, trelloData.cards));
+    }
+  }, [trelloData, dataSource]);
+
+  const isLoading = dataSource === "holdprint" ? hpLoading : trLoading;
+  const isError = dataSource === "holdprint" ? hpError : trError;
+  const isFetching = dataSource === "holdprint" ? hpFetching : trFetching;
+  const refetch = dataSource === "holdprint" ? hpRefetch : trRefetch;
 
   const onDragEnd = useCallback((result: DropResult) => {
     const { source, destination } = result;
@@ -195,7 +255,6 @@ const PCPKanbanBoard: React.FC = () => {
   const getLastSubId = (col: PCPColumn) => col.subSections[col.subSections.length - 1]?.id;
 
   const totalCards = columns.reduce((s, c) => s + c.subSections.reduce((ss, sub) => ss + sub.cards.length, 0), 0);
-  const holdprintCards = columns.reduce((s, c) => s + c.subSections.reduce((ss, sub) => ss + sub.cards.filter(cd => cd.id.startsWith("hp-")).length, 0), 0);
 
   // Filter cards by search
   const filteredColumns = searchQuery.trim()
@@ -211,12 +270,40 @@ const PCPKanbanBoard: React.FC = () => {
   return (
     <div className="flex flex-col h-full">
       {/* Board header */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-[#026AA7] rounded-t-xl">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-[#026AA7] rounded-t-xl flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <ClipboardList className="h-5 w-5 text-white/80" />
           <h1 className="text-white font-bold text-lg tracking-tight">PCP — Industria Visual</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Source toggle */}
+          <div className="flex items-center bg-white/10 rounded-md overflow-hidden">
+            <button
+              onClick={() => setDataSource("holdprint")}
+              className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                dataSource === "holdprint" ? "bg-white/20 text-white" : "text-white/50 hover:text-white/70"
+              }`}
+            >
+              <Wifi className="h-3 w-3" /> Holdprint
+            </button>
+            <button
+              onClick={() => setDataSource("trello")}
+              className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                dataSource === "trello" ? "bg-white/20 text-white" : "text-white/50 hover:text-white/70"
+              }`}
+            >
+              <LayoutGrid className="h-3 w-3" /> Trello
+            </button>
+          </div>
+
+          {/* Trello board selector */}
+          {dataSource === "trello" && (
+            <TrelloBoardSelector
+              selectedBoardId={selectedBoardId}
+              onSelectBoard={setSelectedBoardId}
+            />
+          )}
+
           {/* Search */}
           <div className="relative hidden sm:block">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/50" />
@@ -227,14 +314,11 @@ const PCPKanbanBoard: React.FC = () => {
               className="h-7 w-40 pl-7 text-xs bg-white/15 border-white/20 text-white placeholder:text-white/40 focus:bg-white/25"
             />
           </div>
-          {holdprintData?.fetchedAt && (
-            <span className="text-white/50 text-[10px] hidden sm:inline">
-              {new Date(holdprintData.fetchedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-            </span>
-          )}
+
           <Badge className={`border-0 text-[10px] h-5 ${isError ? "bg-red-500/30 text-red-200" : "bg-white/20 text-white"}`}>
-            {isError ? <><WifiOff className="h-3 w-3 mr-1" />Offline</> : <><Wifi className="h-3 w-3 mr-1" />{holdprintCards} jobs</>}
+            {isError ? <><WifiOff className="h-3 w-3 mr-1" />Offline</> : <>{totalCards} cards</>}
           </Badge>
+
           <Button
             size="sm"
             variant="ghost"
@@ -252,6 +336,14 @@ const PCPKanbanBoard: React.FC = () => {
         <div className="flex-1 overflow-x-auto bg-[#0079BF] p-3">
           {isLoading ? (
             <KanbanSkeleton />
+          ) : dataSource === "trello" && !selectedBoardId ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-white/70 space-y-2">
+                <LayoutGrid className="h-12 w-12 mx-auto opacity-50" />
+                <p className="text-lg font-medium">Selecione um board do Trello</p>
+                <p className="text-sm text-white/50">Use o seletor acima para escolher o board que deseja visualizar</p>
+              </div>
+            </div>
           ) : (
             <div className="flex gap-3 h-full min-h-[calc(100vh-280px)]">
               {filteredColumns.map((col) => {
@@ -271,15 +363,6 @@ const PCPKanbanBoard: React.FC = () => {
                         <DropdownMenuContent align="end" className="w-48">
                           <DropdownMenuItem onClick={() => setAddingCardAt(getLastSubId(col))}>
                             <Plus className="h-4 w-4 mr-2" /> Adicionar cartão
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => {
-                            setColumns(prev => prev.map(c =>
-                              c.id === col.id
-                                ? { ...c, subSections: c.subSections.map(s => ({ ...s, cards: s.cards.filter(card => !card.id.startsWith("manual-")) })) }
-                                : c
-                            ));
-                          }}>
-                            <X className="h-4 w-4 mr-2" /> Limpar manuais
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -355,25 +438,16 @@ const PCPKanbanBoard: React.FC = () => {
       {/* Bottom nav */}
       <div className="flex items-center justify-between py-2 px-4 bg-[#EBECF0] rounded-b-xl border-t">
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => setActiveView("quadro")}
-            className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded transition-colors ${
-              activeView === "quadro" ? "font-semibold text-blue-600 bg-blue-50" : "text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-            }`}
-          >
-            <ClipboardList className="h-4 w-4" /> Quadro
-          </button>
-          <button
-            onClick={() => setActiveView("lista")}
-            className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded transition-colors ${
-              activeView === "lista" ? "font-semibold text-blue-600 bg-blue-50" : "text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-            }`}
-          >
-            <AlignLeft className="h-4 w-4" /> Lista
-          </button>
+          <span className="text-sm font-medium text-gray-600 flex items-center gap-1.5">
+            {dataSource === "holdprint" ? (
+              <><Wifi className="h-4 w-4 text-blue-500" /> Holdprint</>
+            ) : (
+              <><LayoutGrid className="h-4 w-4 text-blue-500" /> Trello</>
+            )}
+          </span>
         </div>
         <div className="text-[11px] text-gray-400">
-          {totalCards} cartões · {holdprintCards} da Holdprint
+          {totalCards} cartões
         </div>
       </div>
 
@@ -385,6 +459,7 @@ const PCPKanbanBoard: React.FC = () => {
         onUpdate={handleUpdateCard}
         columnTitle={selectedCardMeta.columnTitle}
         subSectionLabel={selectedCardMeta.subSectionLabel}
+        boardId={dataSource === "trello" ? selectedBoardId : null}
       />
     </div>
   );

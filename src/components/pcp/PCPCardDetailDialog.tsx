@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import LabelManager from "./LabelManager";
 import {
   MessageSquare, Paperclip, Eye, AlignLeft, Calendar, Tag, User, FileText, Wifi,
 } from "lucide-react";
@@ -15,9 +16,10 @@ interface Props {
   onUpdate: (card: PCPCardType) => void;
   columnTitle?: string;
   subSectionLabel?: string;
+  boardId?: string | null;
 }
 
-const PCPCardDetailDialog: React.FC<Props> = ({ card, open, onOpenChange, onUpdate, columnTitle, subSectionLabel }) => {
+const PCPCardDetailDialog: React.FC<Props> = ({ card, open, onOpenChange, onUpdate, columnTitle, subSectionLabel, boardId }) => {
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
@@ -33,6 +35,9 @@ const PCPCardDetailDialog: React.FC<Props> = ({ card, open, onOpenChange, onUpda
   if (!card) return null;
 
   const isHoldprint = card.id.startsWith("hp-");
+  const isTrello = card.id.startsWith("trello-");
+  const trelloCardId = isTrello ? card.id.replace("trello-", "") : null;
+  const trelloLabelIds = (card as any)?._trelloLabelIds || [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -67,8 +72,8 @@ const PCPCardDetailDialog: React.FC<Props> = ({ card, open, onOpenChange, onUpda
                 </DialogTitle>
               )}
               <p className="text-xs text-gray-500 mt-1">
-                na lista <span className="font-semibold">{subSectionLabel || "—"}</span>
-                {columnTitle && <> · {columnTitle}</>}
+                na lista <span className="font-semibold">{subSectionLabel || columnTitle || "—"}</span>
+                {columnTitle && subSectionLabel && <> · {columnTitle}</>}
               </p>
               {isHoldprint && (
                 <Badge className="mt-1 bg-blue-100 text-blue-700 text-[10px]">
@@ -80,17 +85,29 @@ const PCPCardDetailDialog: React.FC<Props> = ({ card, open, onOpenChange, onUpda
         </DialogHeader>
 
         <div className="space-y-3 mt-2">
-          {/* Tags */}
+          {/* Tags / Labels */}
           <div>
-            <p className="text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
-              <Tag className="h-3.5 w-3.5" /> Etiquetas
-            </p>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+                <Tag className="h-3.5 w-3.5" /> Etiquetas
+              </p>
+              {isTrello && boardId && (
+                <LabelManager
+                  boardId={boardId}
+                  cardId={trelloCardId}
+                  cardLabelIds={trelloLabelIds}
+                />
+              )}
+            </div>
             <div className="flex gap-1.5 flex-wrap">
               {card.tags.map((tag, i) => (
                 <Badge key={i} className={`${tag.color} text-white text-[11px] px-2`}>
                   {tag.label || "Tag"}
                 </Badge>
               ))}
+              {card.tags.length === 0 && (
+                <span className="text-xs text-gray-400">Sem etiquetas</span>
+              )}
             </div>
           </div>
 
@@ -125,7 +142,7 @@ const PCPCardDetailDialog: React.FC<Props> = ({ card, open, onOpenChange, onUpda
           </div>
 
           {/* Activity */}
-          {!isHoldprint && (
+          {!isHoldprint && !isTrello && (
             <div>
               <p className="text-xs font-semibold text-gray-600 mb-1 flex items-center gap-1.5">
                 <MessageSquare className="h-3.5 w-3.5" /> Atividade
