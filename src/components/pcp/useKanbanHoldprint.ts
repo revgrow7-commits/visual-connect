@@ -210,11 +210,13 @@ export function useKanbanHoldprintJobs() {
   return useQuery({
     queryKey: ["kanban-holdprint-jobs"],
     queryFn: async () => {
+      const today = new Date().toISOString().split("T")[0];
       const { data, error } = await supabase.functions.invoke("cs-holdprint-data", {
         body: {
           endpoints: ["jobs"],
-          startDate: "2025-01-01",
-          maxPages: 10,
+          startDate: today,
+          endDate: today,
+          maxPages: 5,
         },
       });
 
