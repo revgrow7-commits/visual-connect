@@ -1,4 +1,9 @@
-import PlaceholderPage from "@/components/PlaceholderPage";
-import { Kanban } from "lucide-react";
-const KanbanPage = () => <PlaceholderPage title="Kanban" description="Gestão de tarefas com colunas drag-and-drop, prioridades e prazos." icon={Kanban} />;
+import PCPKanbanBoard from "@/components/pcp/PCPKanbanBoard";
+
+const KanbanPage = () => (
+  <div className="p-4">
+    <PCPKanbanBoard />
+  </div>
+);
+
 export default KanbanPage;
