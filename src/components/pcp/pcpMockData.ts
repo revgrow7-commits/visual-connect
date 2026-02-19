@@ -1,10 +1,12 @@
 export interface PCPTag {
-  color: string; // tailwind bg class
+  color: string;
+  label?: string;
 }
 
 export interface PCPCard {
   id: string;
   title: string;
+  description?: string;
   tags: PCPTag[];
   date?: string;
   comments?: number;
@@ -12,13 +14,17 @@ export interface PCPCard {
   hasWatcher?: boolean;
   hasLock?: boolean;
   hasList?: boolean;
-  done?: boolean; // green checkmark
-  overdue?: boolean; // red clock
+  done?: boolean;
+  overdue?: boolean;
+  responsible?: string;
+  subSectionId?: string;
+  columnId?: string;
 }
 
 export interface PCPSubSection {
+  id: string;
   label: string;
-  color: string; // tailwind bg class for the header
+  color: string;
   textColor?: string;
   cards: PCPCard[];
 }
@@ -29,12 +35,13 @@ export interface PCPColumn {
   subSections: PCPSubSection[];
 }
 
-export const pcpColumns: PCPColumn[] = [
+export const initialPcpColumns: PCPColumn[] = [
   {
     id: "aguardando",
     title: "AGUARDANDO/APROVADO",
     subSections: [
       {
+        id: "ag-afazer",
         label: "A FAZER",
         color: "bg-red-400",
         cards: [],
@@ -46,13 +53,15 @@ export const pcpColumns: PCPColumn[] = [
     title: "OCORRÊNCIAS",
     subSections: [
       {
+        id: "oc-cards",
         label: "",
         color: "",
         cards: [
           {
             id: "oc1",
             title: "1774-Sicredi",
-            tags: [{ color: "bg-red-500" }, { color: "bg-orange-400" }],
+            description: "Job de sinalização para agência Sicredi",
+            tags: [{ color: "bg-red-500", label: "Urgente" }, { color: "bg-orange-400", label: "Revisão" }],
             hasList: true,
             hasWatcher: true,
             hasLock: true,
@@ -60,7 +69,8 @@ export const pcpColumns: PCPColumn[] = [
           {
             id: "oc2",
             title: "1690 Dufrio MPDV Hulter",
-            tags: [{ color: "bg-red-500" }, { color: "bg-red-400" }, { color: "bg-green-400" }],
+            description: "Material PDV para Dufrio Hulter",
+            tags: [{ color: "bg-red-500", label: "Urgente" }, { color: "bg-red-400", label: "Prioridade" }, { color: "bg-green-400", label: "Aprovado" }],
             comments: 2,
             attachments: 1,
             hasWatcher: true,
@@ -69,14 +79,16 @@ export const pcpColumns: PCPColumn[] = [
           {
             id: "oc3",
             title: "JOB 1713 COPA GÁS",
-            tags: [{ color: "bg-red-500" }, { color: "bg-orange-400" }],
+            description: "Produção de materiais Copa Gás",
+            tags: [{ color: "bg-red-500", label: "Urgente" }, { color: "bg-orange-400", label: "Revisão" }],
             hasWatcher: true,
             hasLock: true,
           },
           {
             id: "oc4",
             title: "1823 Eletromídia",
-            tags: [{ color: "bg-red-500" }, { color: "bg-red-400" }, { color: "bg-green-400" }],
+            description: "Painéis digitais Eletromídia",
+            tags: [{ color: "bg-red-500", label: "Urgente" }, { color: "bg-red-400", label: "Prioridade" }, { color: "bg-green-400", label: "Aprovado" }],
             comments: 2,
             attachments: 1,
             hasWatcher: true,
@@ -85,12 +97,14 @@ export const pcpColumns: PCPColumn[] = [
         ],
       },
       {
+        id: "oc-fazendo",
         label: "FAZENDO",
         color: "bg-yellow-300",
         textColor: "text-yellow-900",
         cards: [],
       },
       {
+        id: "oc-concluido",
         label: "CONCLUIDO",
         color: "bg-green-400",
         textColor: "text-green-900",
@@ -103,18 +117,21 @@ export const pcpColumns: PCPColumn[] = [
     title: "TIME FECHAMENTO - ARTE FINAL",
     subSections: [
       {
+        id: "af-verificacao",
         label: "VERIFICAÇÃO",
         color: "bg-red-400",
         cards: [],
       },
       {
+        id: "af-afazer",
         label: "A FAZER",
         color: "bg-red-400",
         cards: [
           {
             id: "af1",
             title: "1954 Asun loja Gravatai",
-            tags: [{ color: "bg-blue-500" }, { color: "bg-green-400" }],
+            description: "Arte final para loja Asun Gravatai",
+            tags: [{ color: "bg-blue-500", label: "Design" }, { color: "bg-green-400", label: "Aprovado" }],
             date: "26 de fev.",
             attachments: 1,
             hasWatcher: true,
@@ -123,7 +140,8 @@ export const pcpColumns: PCPColumn[] = [
           {
             id: "af2",
             title: "1955 - CESTTO 20.02",
-            tags: [{ color: "bg-blue-400" }, { color: "bg-green-400" }],
+            description: "Fechamento de arte CESTTO",
+            tags: [{ color: "bg-blue-400", label: "Arte" }, { color: "bg-green-400", label: "Aprovado" }],
             attachments: 1,
             hasWatcher: true,
             hasLock: true,
@@ -131,6 +149,7 @@ export const pcpColumns: PCPColumn[] = [
         ],
       },
       {
+        id: "af-aprovacao",
         label: "AGUARDA APROVAÇÃO DE AMOSTRA (VIRTUAL/FÍSICA)",
         color: "bg-gray-300",
         textColor: "text-gray-800",
@@ -138,7 +157,8 @@ export const pcpColumns: PCPColumn[] = [
           {
             id: "af3",
             title: "1941 - SESC ANCHIETA - PEÇAS",
-            tags: [{ color: "bg-red-500" }, { color: "bg-pink-400" }],
+            description: "Peças para SESC Anchieta, aguardando aprovação de amostra",
+            tags: [{ color: "bg-red-500", label: "Urgente" }, { color: "bg-pink-400", label: "Cliente" }],
             date: "26 de fev.",
             comments: 7,
             attachments: 1,
@@ -154,13 +174,15 @@ export const pcpColumns: PCPColumn[] = [
     title: "TIME GERENCIAMENTO DE MATERIAIS",
     subSections: [
       {
+        id: "gm-afazer",
         label: "A FAZER",
         color: "bg-red-400",
         cards: [
           {
             id: "gm1",
             title: "1955 - CESTTO 20.02",
-            tags: [{ color: "bg-blue-400" }, { color: "bg-blue-500" }],
+            description: "Gerenciamento de materiais CESTTO",
+            tags: [{ color: "bg-blue-400", label: "Arte" }, { color: "bg-blue-500", label: "Design" }],
             attachments: 1,
             hasWatcher: true,
             hasLock: true,
@@ -168,6 +190,7 @@ export const pcpColumns: PCPColumn[] = [
         ],
       },
       {
+        id: "gm-estoque",
         label: "VALIDANDO ESTOQUE",
         color: "bg-orange-400",
         textColor: "text-orange-900",
@@ -175,7 +198,8 @@ export const pcpColumns: PCPColumn[] = [
           {
             id: "gm2",
             title: "CBF RIO BRANCO ACRE",
-            tags: [{ color: "bg-blue-400" }, { color: "bg-red-400" }, { color: "bg-green-400" }],
+            description: "Validação de estoque para CBF Rio Branco",
+            tags: [{ color: "bg-blue-400", label: "Arte" }, { color: "bg-red-400", label: "Prioridade" }, { color: "bg-green-400", label: "Aprovado" }],
             hasList: true,
             hasWatcher: true,
             hasLock: true,
@@ -183,6 +207,7 @@ export const pcpColumns: PCPColumn[] = [
         ],
       },
       {
+        id: "gm-aguardando",
         label: "AGUARDANDO MATERIAL",
         color: "bg-cyan-300",
         textColor: "text-cyan-900",
@@ -190,7 +215,8 @@ export const pcpColumns: PCPColumn[] = [
           {
             id: "gm3",
             title: "1812 - RAIZLER ( FITAS )",
-            tags: [{ color: "bg-blue-400" }, { color: "bg-red-400" }],
+            description: "Aguardando material - fitas para Raizler",
+            tags: [{ color: "bg-blue-400", label: "Arte" }, { color: "bg-red-400", label: "Prioridade" }],
             date: "9 de fev.",
             overdue: true,
             attachments: 1,
@@ -206,13 +232,15 @@ export const pcpColumns: PCPColumn[] = [
     title: "TIME IMPRESSÃO - NINA CUT",
     subSections: [
       {
+        id: "im-afazer",
         label: "A FAZER",
         color: "bg-red-400",
         cards: [
           {
             id: "im1",
             title: "1952 - SP POA",
-            tags: [{ color: "bg-orange-400" }, { color: "bg-green-400" }],
+            description: "Impressão SP POA",
+            tags: [{ color: "bg-orange-400", label: "Revisão" }, { color: "bg-green-400", label: "Aprovado" }],
             done: true,
             date: "20 de fev.",
             comments: 1,
@@ -223,7 +251,8 @@ export const pcpColumns: PCPColumn[] = [
           {
             id: "im2",
             title: "1951 Art 7",
-            tags: [{ color: "bg-orange-400" }, { color: "bg-orange-300" }],
+            description: "Impressão Art 7",
+            tags: [{ color: "bg-orange-400", label: "Revisão" }, { color: "bg-orange-300", label: "Pendente" }],
             date: "23 de fev.",
             overdue: true,
             hasWatcher: true,
@@ -232,7 +261,8 @@ export const pcpColumns: PCPColumn[] = [
           {
             id: "im3",
             title: "1949 Marcelo",
-            tags: [{ color: "bg-orange-400" }, { color: "bg-orange-300" }],
+            description: "Job Marcelo impressão",
+            tags: [{ color: "bg-orange-400", label: "Revisão" }, { color: "bg-orange-300", label: "Pendente" }],
             done: true,
             date: "19 de fev.",
             comments: 1,
@@ -243,6 +273,7 @@ export const pcpColumns: PCPColumn[] = [
         ],
       },
       {
+        id: "im-fazendo",
         label: "FAZENDO",
         color: "bg-yellow-300",
         textColor: "text-yellow-900",
@@ -250,7 +281,8 @@ export const pcpColumns: PCPColumn[] = [
           {
             id: "im4",
             title: "1947 - ASR COMUNICAÇÃO",
-            tags: [{ color: "bg-red-500" }, { color: "bg-red-400" }],
+            description: "Impressão ASR Comunicação",
+            tags: [{ color: "bg-red-500", label: "Urgente" }, { color: "bg-red-400", label: "Prioridade" }],
             done: true,
             date: "19 de fev.",
             comments: 1,
@@ -267,13 +299,15 @@ export const pcpColumns: PCPColumn[] = [
     title: "TIME DE PROJETOS",
     subSections: [
       {
+        id: "pj-afazer",
         label: "A FAZER",
         color: "bg-red-400",
         cards: [
           {
             id: "pj1",
             title: "1954 Asun loja Gravatai",
-            tags: [{ color: "bg-blue-400" }, { color: "bg-blue-500" }, { color: "bg-green-400" }],
+            description: "Projeto para loja Asun Gravatai",
+            tags: [{ color: "bg-blue-400", label: "Arte" }, { color: "bg-blue-500", label: "Design" }, { color: "bg-green-400", label: "Aprovado" }],
             date: "26 de fev.",
             attachments: 1,
             hasWatcher: true,
@@ -282,7 +316,8 @@ export const pcpColumns: PCPColumn[] = [
           {
             id: "pj2",
             title: "1948 Colegio Maria Auxiliadora",
-            tags: [{ color: "bg-blue-400" }, { color: "bg-blue-500" }, { color: "bg-green-400" }],
+            description: "Projeto Colégio Maria Auxiliadora",
+            tags: [{ color: "bg-blue-400", label: "Arte" }, { color: "bg-blue-500", label: "Design" }, { color: "bg-green-400", label: "Aprovado" }],
             date: "27 de fev.",
             attachments: 1,
             hasWatcher: true,
@@ -291,7 +326,8 @@ export const pcpColumns: PCPColumn[] = [
           {
             id: "pj3",
             title: "1945 - SESC EXPOSITOR CHUI",
-            tags: [{ color: "bg-blue-400" }, { color: "bg-red-400" }],
+            description: "Expositor SESC Chuí",
+            tags: [{ color: "bg-blue-400", label: "Arte" }, { color: "bg-red-400", label: "Prioridade" }],
             date: "24 de fev.",
             attachments: 1,
             hasWatcher: true,
@@ -300,7 +336,8 @@ export const pcpColumns: PCPColumn[] = [
           {
             id: "pj4",
             title: "1923 - MUZZA - LETRA CAIXA",
-            tags: [{ color: "bg-blue-400" }, { color: "bg-red-400" }],
+            description: "Letra caixa para Muzza",
+            tags: [{ color: "bg-blue-400", label: "Arte" }, { color: "bg-red-400", label: "Prioridade" }],
             date: "4 de mar.",
             attachments: 1,
             hasWatcher: true,
