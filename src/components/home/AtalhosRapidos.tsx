@@ -6,8 +6,6 @@ import {
 import { useNavigate } from "react-router-dom";
 
 const atalhos = [
-  { label: "Notícias", icon: Newspaper, path: "/noticias" },
-  { label: "Benefícios", icon: Heart, path: "/beneficios" },
   { label: "Processos", icon: BookOpen, path: "/processos" },
   { label: "Faixa Preta", icon: Award, path: "/faixa-preta" },
   { label: "Documentos", icon: FolderOpen, path: "/perfil" },
