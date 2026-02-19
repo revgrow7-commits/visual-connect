@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.cs-holdprint-data]
 verify_jwt = false
+
+[functions.trello-api]
+verify_jwt = false
