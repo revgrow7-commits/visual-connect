@@ -44,6 +44,14 @@ const JuridicoPage = lazy(() => import("./pages/gestao/JuridicoPage"));
 const OrquestradorPage = lazy(() => import("./pages/OrquestradorPage"));
 const GatewayLogin = lazy(() => import("./pages/GatewayLogin"));
 
+// Holdprint ERP pages
+const HoldprintProcessos = lazy(() => import("./pages/holdprint/ProcessosPage"));
+const HoldprintClientes = lazy(() => import("./pages/holdprint/ClientesPage"));
+const HoldprintOportunidades = lazy(() => import("./pages/holdprint/OportunidadesPage"));
+const HoldprintRelatorios = lazy(() => import("./pages/holdprint/RelatoriosPage"));
+const HoldprintRelatorioDetalhe = lazy(() => import("./pages/holdprint/RelatorioDetalhePage"));
+const HoldprintConfiguracoes = lazy(() => import("./pages/holdprint/ConfiguracoesPage"));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -103,6 +111,13 @@ const App = () => (
               <Route path="/gestao/cs" element={<CsPage />} />
               <Route path="/gestao/juridico" element={<JuridicoPage />} />
               <Route path="/orquestrador" element={<OrquestradorPage />} />
+              {/* Holdprint ERP */}
+              <Route path="/holdprint/processos" element={<HoldprintProcessos />} />
+              <Route path="/holdprint/clientes" element={<HoldprintClientes />} />
+              <Route path="/holdprint/oportunidades" element={<HoldprintOportunidades />} />
+              <Route path="/holdprint/relatorios" element={<HoldprintRelatorios />} />
+              <Route path="/holdprint/relatorios/:slug" element={<HoldprintRelatorioDetalhe />} />
+              <Route path="/holdprint/configuracoes" element={<HoldprintConfiguracoes />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
