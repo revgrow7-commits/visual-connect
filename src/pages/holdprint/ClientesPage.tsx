@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { customersService } from "@/services/holdprint";
 import type { HoldprintCustomer } from "@/services/holdprint/types";
-import { getHoldprintSettings } from "@/services/holdprint/api";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,13 +16,11 @@ import {
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
-import { Search, ChevronLeft, ChevronRight, AlertCircle, Settings, Users } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Search, ChevronLeft, ChevronRight, AlertCircle, Users } from "lucide-react";
 
 const PAGE_SIZE = 20;
 
 export default function HoldprintClientesPage() {
-  const settings = getHoldprintSettings();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [page, setPage] = useState(0);
@@ -35,29 +32,23 @@ export default function HoldprintClientesPage() {
       customersService.list({
         skip: page * PAGE_SIZE,
         take: PAGE_SIZE,
-        order: { createdAt: "DESC" },
-        filter: {
-          ...(search ? { fullName: { $regex: search, $options: "i" } } : {}),
-          ...(statusFilter === "active" ? { isActive: true } : statusFilter === "inactive" ? { isActive: false } : {}),
-        },
       }),
-    enabled: !!settings?.token,
   });
 
-  if (!settings?.token) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 py-20">
-        <AlertCircle className="h-12 w-12 text-yellow-500" />
-        <p className="text-lg font-medium">Configure seu token Holdprint</p>
-        <Button asChild>
-          <Link to="/holdprint/configuracoes"><Settings className="mr-2 h-4 w-4" /> Configurações</Link>
-        </Button>
-      </div>
-    );
-  }
+  // Client-side filtering
+  const filtered = (data?.data || []).filter((c) => {
+    const matchSearch = !search || (c.name || c.fullName || "").toLowerCase().includes(search.toLowerCase());
+    const matchStatus = statusFilter === "all" || (statusFilter === "active" ? c.active !== false : c.active === false);
+    return matchSearch && matchStatus;
+  });
 
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
   const initials = (name?: string) => (name || "??").split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+
+  const addr = (c: HoldprintCustomer) => {
+    const a = c.addresses?.[0];
+    return a ? [a.city, a.state].filter(Boolean).join("/") : "—";
+  };
 
   return (
     <div className="space-y-6">
@@ -73,7 +64,7 @@ export default function HoldprintClientesPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nome ou CNPJ..."
+            placeholder="Buscar por nome..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(0); }}
             className="pl-9"
@@ -100,7 +91,7 @@ export default function HoldprintClientesPage() {
           <AlertCircle className="h-8 w-8 text-destructive" />
           <p className="text-sm text-destructive">Erro ao carregar clientes.</p>
         </div>
-      ) : data && data.data.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
           <Users className="h-8 w-8" />
           <p className="text-sm">Nenhum registro encontrado</p>
@@ -112,7 +103,6 @@ export default function HoldprintClientesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Cliente</TableHead>
-                  <TableHead>CNPJ/CPF</TableHead>
                   <TableHead className="hidden md:table-cell">Email</TableHead>
                   <TableHead className="hidden lg:table-cell">Telefone</TableHead>
                   <TableHead className="hidden lg:table-cell">Cidade/UF</TableHead>
@@ -120,27 +110,24 @@ export default function HoldprintClientesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data?.data.map((c: HoldprintCustomer) => (
-                  <TableRow key={c._id} className="cursor-pointer" onClick={() => setSelected(c)}>
+                {filtered.map((c: HoldprintCustomer) => (
+                  <TableRow key={c.id} className="cursor-pointer" onClick={() => setSelected(c)}>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Avatar className="h-8 w-8">
                           <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                            {initials(c.fullName || c.tradeName)}
+                            {initials(c.name || c.fullName)}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="font-medium">{c.fullName || c.tradeName || "—"}</span>
+                        <span className="font-medium">{c.name || c.fullName || "—"}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{c.cnpj || c.cpf || "—"}</TableCell>
-                    <TableCell className="hidden md:table-cell text-sm">{c.email || "—"}</TableCell>
-                    <TableCell className="hidden lg:table-cell text-sm">{c.phone || "—"}</TableCell>
-                    <TableCell className="hidden lg:table-cell text-sm">
-                      {[c.city, c.state].filter(Boolean).join("/") || "—"}
-                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-sm">{c.mainEmail || "—"}</TableCell>
+                    <TableCell className="hidden lg:table-cell text-sm">{c.mainPhoneNumber || "—"}</TableCell>
+                    <TableCell className="hidden lg:table-cell text-sm">{addr(c)}</TableCell>
                     <TableCell>
-                      <Badge variant={c.isActive !== false ? "default" : "secondary"}>
-                        {c.isActive !== false ? "Ativo" : "Inativo"}
+                      <Badge variant={c.active !== false ? "default" : "secondary"}>
+                        {c.active !== false ? "Ativo" : "Inativo"}
                       </Badge>
                     </TableCell>
                   </TableRow>
@@ -171,33 +158,42 @@ export default function HoldprintClientesPage() {
             <SheetTitle className="flex items-center gap-2">
               <Avatar className="h-10 w-10">
                 <AvatarFallback className="bg-primary/10 text-primary">
-                  {initials(selected?.fullName || selected?.tradeName)}
+                  {initials(selected?.name || selected?.fullName)}
                 </AvatarFallback>
               </Avatar>
-              {selected?.fullName || selected?.tradeName}
+              {selected?.name || selected?.fullName}
             </SheetTitle>
           </SheetHeader>
           {selected && (
             <div className="mt-6 space-y-4">
               {[
+                ["Nome", selected.name],
                 ["Razão Social", selected.fullName],
-                ["Nome Fantasia", selected.tradeName],
-                ["CNPJ", selected.cnpj],
-                ["CPF", selected.cpf],
-                ["Email", selected.email],
-                ["Telefone", selected.phone],
-                ["Cidade", selected.city],
-                ["UF", selected.state],
-                ["Segmento", selected.segment],
-                ["Status", selected.isActive !== false ? "Ativo" : "Inativo"],
+                ["Email", selected.mainEmail],
+                ["Telefone", selected.mainPhoneNumber],
+                ["Site", selected.site],
+                ["Cidade/UF", addr(selected)],
+                ["Status", selected.active !== false ? "Ativo" : "Inativo"],
               ]
-                .filter(([, v]) => v)
+                .filter(([, v]) => v && v !== "—")
                 .map(([label, value]) => (
                   <div key={label as string}>
                     <p className="text-xs font-medium text-muted-foreground">{label}</p>
                     <p className="text-sm">{value as string}</p>
                   </div>
                 ))}
+              {selected.contacts && selected.contacts.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Contatos</p>
+                  {selected.contacts.map((ct, i) => (
+                    <div key={i} className="text-sm border-l-2 pl-3 mb-2">
+                      {ct.name && <p className="font-medium">{ct.name}</p>}
+                      {ct.email && <p className="text-muted-foreground">{ct.email}</p>}
+                      {ct.phoneNumber && <p className="text-muted-foreground">{ct.phoneNumber}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </SheetContent>

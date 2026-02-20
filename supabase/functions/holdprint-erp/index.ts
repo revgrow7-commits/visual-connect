@@ -1,11 +1,11 @@
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-holdprint-token, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const HOLDPRINT_BASE =
-  "https://holdprint-web-api-prod.ashywater-71a7e517.eastus2.azurecontainerapps.io/api";
+// Use the same API base that works for sync (api-key based)
+const HOLDPRINT_BASE = "https://api.holdworks.ai";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -14,11 +14,11 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { endpoint, method = "POST", payload, token } = body as {
+    const { endpoint, method = "GET", payload, unidade = "poa" } = body as {
       endpoint: string;
       method?: string;
       payload?: unknown;
-      token?: string;
+      unidade?: "poa" | "sp";
     };
 
     if (!endpoint) {
@@ -28,25 +28,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    const bearerToken = token || Deno.env.get("HOLDPRINT_API_KEY") || "";
-    if (!bearerToken) {
+    const tokenKey = unidade === "sp" ? "HOLDPRINT_TOKEN_SP" : "HOLDPRINT_TOKEN_POA";
+    const apiKey = Deno.env.get(tokenKey) || "";
+
+    if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: "No Holdprint token configured" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        JSON.stringify({ error: `No Holdprint token configured for ${unidade}` }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const url = `${HOLDPRINT_BASE}${endpoint}`;
-    console.log(`[holdprint-erp] ${method} ${url}`);
+    console.log(`[holdprint-erp] ${method} ${url} (${unidade})`);
 
     const fetchOptions: RequestInit = {
       method,
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${bearerToken}`,
+        "x-api-key": apiKey,
       },
     };
 
@@ -61,10 +60,7 @@ Deno.serve(async (req) => {
       console.error(`[holdprint-erp] ${res.status}: ${text.slice(0, 500)}`);
       return new Response(
         JSON.stringify({ error: `Holdprint API error: ${res.status}`, details: text.slice(0, 500) }),
-        {
-          status: res.status,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

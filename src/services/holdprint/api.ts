@@ -1,33 +1,29 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { PaginationParams, PaginatedResult } from "./types";
 
-export function getHoldprintSettings() {
-  try {
-    const raw = localStorage.getItem("holdprint_erp_settings");
-    if (!raw) return null;
-    return JSON.parse(raw) as { token: string; accountId: string; userId: string };
-  } catch {
-    return null;
-  }
+export type HoldprintUnidade = "poa" | "sp";
+
+let currentUnidade: HoldprintUnidade = "poa";
+
+export function getHoldprintUnidade(): HoldprintUnidade {
+  return currentUnidade;
 }
 
-export function saveHoldprintSettings(settings: { token: string; accountId: string; userId: string }) {
-  localStorage.setItem("holdprint_erp_settings", JSON.stringify(settings));
+export function setHoldprintUnidade(u: HoldprintUnidade) {
+  currentUnidade = u;
 }
 
 /**
  * Generic proxy call through the holdprint-erp edge function.
+ * Uses api.holdworks.ai with x-api-key auth (server-side).
  */
 export async function holdprintFetch<T>(
   endpoint: string,
-  method: string = "POST",
+  method: string = "GET",
   payload?: unknown
 ): Promise<T> {
-  const settings = getHoldprintSettings();
-  const token = settings?.token || "";
-
   const { data, error } = await supabase.functions.invoke("holdprint-erp", {
-    body: { endpoint, method, payload, token },
+    body: { endpoint, method, payload, unidade: currentUnidade },
   });
 
   if (error) throw new Error(error.message || "Edge function error");
@@ -36,21 +32,34 @@ export async function holdprintFetch<T>(
 }
 
 /**
- * List + count pattern used by most Holdprint endpoints.
+ * Paginated list using the api-key endpoints (GET with query params).
+ * Endpoints follow pattern: /api-key/{resource}/data?page=X&limit=Y
  */
 export async function holdprintList<T>(
-  endpoint: string,
+  resource: string,
   params: PaginationParams
 ): Promise<PaginatedResult<T>> {
-  const [items, total] = await Promise.all([
-    holdprintFetch<T[]>(`${endpoint}/graphql`, "POST", { variables: params }),
-    holdprintFetch<number>(`${endpoint}/graphql-count`, "POST", {
-      variables: { filter: params.filter || {} },
-    }),
-  ]);
+  const page = Math.floor((params.skip || 0) / (params.take || 20)) + 1;
+  const limit = params.take || 20;
+  
+  const queryParams = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+    language: "pt-BR",
+  });
 
+  const data = await holdprintFetch<{ data?: T[]; totalCount?: number } | T[]>(
+    `/api-key/${resource}/data?${queryParams.toString()}`,
+    "GET"
+  );
+
+  // API can return { data: [...], totalCount: N } or plain array
+  if (Array.isArray(data)) {
+    return { data, total: data.length };
+  }
+  
   return {
-    data: Array.isArray(items) ? items : [],
-    total: typeof total === "number" ? total : 0,
+    data: Array.isArray(data?.data) ? data.data : [],
+    total: data?.totalCount || (data?.data?.length ?? 0),
   };
 }
