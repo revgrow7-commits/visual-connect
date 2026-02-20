@@ -20,6 +20,8 @@ const ENDPOINTS: Record<string, EndpointConfig> = {
   budgets:   { path: "/api-key/budgets/data",   pageParam: "page", limitParam: "pageSize", dateFilters: true },
   jobs:      { path: "/api-key/jobs/data",       pageParam: "page", limitParam: "pageSize", dateFilters: true },
   incomes:   { path: "/api-key/incomes/data",    pageParam: "page", limitParam: "limit", dateFilters: true },
+  expenses:  { path: "/api-key/expenses/data",   pageParam: "page", limitParam: "limit", dateFilters: true },
+  suppliers: { path: "/api-key/suppliers/data",   pageParam: "page", limitParam: "limit" },
 };
 
 const UNITS = [
@@ -81,7 +83,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    let requestedEndpoints = ["customers", "jobs", "budgets", "incomes"];
+    let requestedEndpoints = ["customers", "jobs", "budgets", "incomes", "expenses", "suppliers"];
     let startDate: string | undefined;
     let endDate: string | undefined;
     let unit: string | undefined;
