@@ -150,7 +150,7 @@ function VendasPeriodo({ data }: { data: NonNullable<ReturnType<typeof useCSHold
   }, [budgets]);
 
   const totalVendas = budgets.reduce((s, b) => s + (b.totalPrice || 0), 0);
-  const aprovados = budgets.filter(b => (b.budgetState || b.state || "").toLowerCase().includes("approv"));
+  const aprovados = budgets.filter(b => String(b.budgetState || b.state || "").toLowerCase().includes("approv"));
 
   return (
     <>
@@ -186,7 +186,7 @@ function VendasAnalise({ data }: { data: NonNullable<ReturnType<typeof useCSHold
   const statusMap = useMemo(() => {
     const map = new Map<string, { count: number; value: number }>();
     budgets.forEach(b => {
-      const status = b.budgetState || b.state || "Indefinido";
+      const status = String(b.budgetState || b.state || "Indefinido");
       const entry = map.get(status) || { count: 0, value: 0 };
       entry.count++;
       entry.value += b.totalPrice || 0;
