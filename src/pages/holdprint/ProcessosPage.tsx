@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { processesService } from "@/services/holdprint";
 import type { HoldprintProcess, ProcessFamily } from "@/services/holdprint/types";
-import { getHoldprintSettings } from "@/services/holdprint/api";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,66 +12,38 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, ChevronLeft, ChevronRight, AlertCircle, Settings, Database } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Search, ChevronLeft, ChevronRight, AlertCircle, Database } from "lucide-react";
 
 const PAGE_SIZE = 20;
 
+const fmt = (v: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+
 export default function HoldprintProcessosPage() {
-  const settings = getHoldprintSettings();
   const [search, setSearch] = useState("");
   const [familyFilter, setFamilyFilter] = useState<string>("all");
   const [page, setPage] = useState(0);
-  const [sortField, setSortField] = useState<string>("name");
-  const [sortDir, setSortDir] = useState<"ASC" | "DESC">("ASC");
 
   const { data: families } = useQuery({
     queryKey: ["holdprint-process-families"],
     queryFn: () => processesService.families(),
-    enabled: !!settings?.token,
   });
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["holdprint-processes", page, search, familyFilter, sortField, sortDir],
+    queryKey: ["holdprint-processes", page, search, familyFilter],
     queryFn: () =>
       processesService.list({
         skip: page * PAGE_SIZE,
         take: PAGE_SIZE,
-        order: { [sortField]: sortDir },
-        filter: {
-          ...(search ? { name: { $regex: search, $options: "i" } } : {}),
-          ...(familyFilter !== "all" ? { "family._id": familyFilter } : {}),
-        },
       }),
-    enabled: !!settings?.token,
   });
 
-  const toggleSort = (field: string) => {
-    if (sortField === field) {
-      setSortDir((d) => (d === "ASC" ? "DESC" : "ASC"));
-    } else {
-      setSortField(field);
-      setSortDir("ASC");
-    }
-  };
-
-  const SortIcon = ({ field }: { field: string }) =>
-    sortField === field ? (
-      <span className="ml-1 text-xs">{sortDir === "ASC" ? "↑" : "↓"}</span>
-    ) : null;
-
-  if (!settings?.token) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 py-20">
-        <AlertCircle className="h-12 w-12 text-yellow-500" />
-        <p className="text-lg font-medium">Configure seu token Holdprint</p>
-        <p className="text-muted-foreground text-sm">Acesse as configurações para conectar ao Holdprint ERP</p>
-        <Button asChild>
-          <Link to="/holdprint/configuracoes"><Settings className="mr-2 h-4 w-4" /> Configurações</Link>
-        </Button>
-      </div>
-    );
-  }
+  // Client-side filtering since api-key API doesn't support server-side filter
+  const filtered = (data?.data || []).filter((p) => {
+    const matchSearch = !search || (p.title || p.customerName || "").toLowerCase().includes(search.toLowerCase());
+    const matchFamily = familyFilter === "all" || (p.currentProductionStepName || "") === familyFilter;
+    return matchSearch && matchFamily;
+  });
 
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
 
@@ -81,8 +52,8 @@ export default function HoldprintProcessosPage() {
       <div className="flex items-center gap-3">
         <Database className="h-6 w-6 text-primary" />
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Processos</h1>
-          <p className="text-muted-foreground text-sm">Processos produtivos do Holdprint ERP</p>
+          <h1 className="text-2xl font-bold tracking-tight">Jobs / Produção</h1>
+          <p className="text-muted-foreground text-sm">Jobs produtivos do Holdprint ERP</p>
         </div>
       </div>
 
@@ -90,7 +61,7 @@ export default function HoldprintProcessosPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nome..."
+            placeholder="Buscar por título ou cliente..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(0); }}
             className="pl-9"
@@ -98,10 +69,10 @@ export default function HoldprintProcessosPage() {
         </div>
         <Select value={familyFilter} onValueChange={(v) => { setFamilyFilter(v); setPage(0); }}>
           <SelectTrigger className="w-full sm:w-52">
-            <SelectValue placeholder="Família" />
+            <SelectValue placeholder="Etapa" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todas as Famílias</SelectItem>
+            <SelectItem value="all">Todas as Etapas</SelectItem>
             {families?.map((f) => (
               <SelectItem key={f._id} value={f._id}>{f.name}</SelectItem>
             ))}
@@ -118,9 +89,9 @@ export default function HoldprintProcessosPage() {
       ) : isError ? (
         <div className="flex flex-col items-center gap-2 py-10">
           <AlertCircle className="h-8 w-8 text-destructive" />
-          <p className="text-sm text-destructive">Erro ao carregar processos. Verifique seu token.</p>
+          <p className="text-sm text-destructive">Erro ao carregar jobs. Verifique a conexão.</p>
         </div>
-      ) : data && data.data.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
           <Database className="h-8 w-8" />
           <p className="text-sm">Nenhum registro encontrado</p>
@@ -131,33 +102,29 @@ export default function HoldprintProcessosPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("name")}>
-                    Nome <SortIcon field="name" />
-                  </TableHead>
-                  <TableHead>Família</TableHead>
-                  <TableHead className="cursor-pointer select-none text-right" onClick={() => toggleSort("cost")}>
-                    Custo <SortIcon field="cost" />
-                  </TableHead>
-                  <TableHead className="cursor-pointer select-none text-right" onClick={() => toggleSort("estimatedTime")}>
-                    Tempo Est. <SortIcon field="estimatedTime" />
-                  </TableHead>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Título</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead className="hidden md:table-cell">Etapa Atual</TableHead>
+                  <TableHead className="text-right hidden lg:table-cell">Valor Orçado</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data?.data.map((p: HoldprintProcess) => (
-                  <TableRow key={p._id}>
-                    <TableCell className="font-medium">{p.name}</TableCell>
-                    <TableCell>{p.family?.name || "—"}</TableCell>
-                    <TableCell className="text-right">
-                      {p.cost != null ? `R$ ${Number(p.cost).toFixed(2)}` : "—"}
+                {filtered.map((p: HoldprintProcess) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-mono text-xs">#{p.code}</TableCell>
+                    <TableCell className="font-medium">{p.title || "—"}</TableCell>
+                    <TableCell>{p.customerName || "—"}</TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      <Badge variant="outline">{p.currentProductionStepName || "—"}</Badge>
                     </TableCell>
-                    <TableCell className="text-right">
-                      {p.estimatedTime != null ? `${p.estimatedTime} min` : "—"}
+                    <TableCell className="text-right hidden lg:table-cell">
+                      {p.costs?.budgetedTotalPrice != null ? fmt(p.costs.budgetedTotalPrice) : "—"}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={p.isActive !== false ? "default" : "secondary"}>
-                        {p.isActive !== false ? "Ativo" : "Inativo"}
+                      <Badge variant={p.isFinalized ? "secondary" : "default"}>
+                        {p.isFinalized ? "Finalizado" : "Em produção"}
                       </Badge>
                     </TableCell>
                   </TableRow>

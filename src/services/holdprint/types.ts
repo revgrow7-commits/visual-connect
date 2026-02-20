@@ -1,9 +1,8 @@
-// ─── Pagination ───
 export interface PaginationParams {
   skip: number;
   take: number;
   order?: Record<string, "ASC" | "DESC">;
-  filter?: Record<string, unknown>;
+  filter?: Record<string, any>;
   search?: string;
 }
 
@@ -12,17 +11,31 @@ export interface PaginatedResult<T> {
   total: number;
 }
 
-// ─── Processes ───
+// From /api-key/jobs/data
 export interface HoldprintProcess {
-  _id: string;
-  name: string;
-  family?: { _id: string; name: string } | null;
-  cost?: number;
-  estimatedTime?: number;
-  isActive?: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-  [key: string]: unknown;
+  id: string;
+  code: number;
+  title?: string;
+  customerName?: string;
+  currentProductionStepName?: string;
+  productionStatus?: string;
+  status?: string;
+  isFinalized?: boolean;
+  creationTime?: string;
+  deliveryNeeded?: string;
+  deliveryExpected?: string;
+  finalizedTime?: string;
+  progressPercentage?: number;
+  paymentOption?: string;
+  jobChargeStatus?: string;
+  jobInvoiceStatus?: string;
+  costs?: {
+    budgetedTotalPrice?: number | null;
+    budgetedProductionCost?: number | null;
+    budgetedProfit?: number | null;
+    realizedTotalPrice?: number | null;
+    realizedProductionCost?: number | null;
+  };
 }
 
 export interface ProcessFamily {
@@ -30,75 +43,65 @@ export interface ProcessFamily {
   name: string;
 }
 
-// ─── Customers ───
+// From /api-key/customers/data
 export interface HoldprintCustomer {
-  _id: string;
+  id: string;
+  name: string;
   fullName?: string;
-  tradeName?: string;
-  cnpj?: string;
-  cpf?: string;
-  email?: string;
-  phone?: string;
-  city?: string;
-  state?: string;
-  segment?: string;
-  isActive?: boolean;
-  createdAt?: string;
-  [key: string]: unknown;
+  active?: boolean;
+  entityType?: number;
+  mainEmail?: string;
+  mainPhoneNumber?: string;
+  site?: string;
+  creationTime?: string;
+  lastUpdateTime?: string;
+  addresses?: Array<{
+    street?: string;
+    number?: string;
+    neighborhood?: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+    country?: string;
+    complement?: string;
+  }>;
+  contacts?: Array<{
+    name?: string;
+    email?: string;
+    phoneNumber?: string;
+    position?: string;
+  }>;
+  salesCreditLimit?: number;
 }
 
-// ─── Opportunities / CRM ───
-export interface HoldprintFunnel {
-  _id: string;
-  name: string;
-  steps?: FunnelStep[];
-  [key: string]: unknown;
-}
-
-export interface FunnelStep {
-  _id: string;
-  name: string;
-  order?: number;
-  color?: string;
-}
-
-export interface HoldprintLead {
-  _id: string;
-  name?: string;
-  customer?: { _id: string; fullName?: string } | null;
-  value?: number;
-  step?: string;
-  stepName?: string;
-  createdAt?: string;
-  daysInStep?: number;
-  [key: string]: unknown;
-}
-
+// From /api-key/budgets/data
 export interface HoldprintBudget {
-  _id: string;
-  code?: number;
-  customer?: { _id: string; fullName?: string } | null;
+  code: number;
+  title?: string;
   customerName?: string;
-  totalPrice?: number;
-  approvedTotalPrice?: number;
-  budgetedTotalPrice?: number;
-  step?: string;
-  stepName?: string;
-  status?: string;
-  createdAt?: string;
-  [key: string]: unknown;
+  budgetState?: number;
+  creationDate?: string;
+  wonDate?: string;
+  lostDate?: string;
+  deliveryNeed?: string;
+  proposes?: Array<{
+    totalPrice?: number;
+    productionCost?: number;
+    sellingCost?: number;
+    totalProfitPercentual?: number;
+    paymentOption?: string;
+    proposeItems?: Array<{
+      itemName?: string;
+      totalPrice?: number;
+      quantity?: number;
+      unitPrice?: number;
+    }>;
+  }>;
 }
 
 export interface BudgetStepOrder {
-  _id: string;
-  name: string;
-  order: number;
-  color?: string;
-}
-
-// ─── Settings ───
-export interface HoldprintSettings {
-  token: string;
-  accountId: string;
-  userId: string;
+  _id?: string;
+  id?: string;
+  name?: string;
+  order?: number;
 }

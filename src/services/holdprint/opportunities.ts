@@ -1,32 +1,32 @@
 import { holdprintFetch, holdprintList } from "./api";
-import type {
-  HoldprintFunnel,
-  HoldprintLead,
-  HoldprintBudget,
-  BudgetStepOrder,
-  PaginationParams,
-  PaginatedResult,
-} from "./types";
+import type { PaginationParams, PaginatedResult, HoldprintBudget, BudgetStepOrder } from "./types";
 
 export const opportunitiesService = {
-  async funnels(): Promise<HoldprintFunnel[]> {
-    const data = await holdprintFetch<HoldprintFunnel[]>("/funnels", "GET");
-    return Array.isArray(data) ? data : [];
-  },
-
-  leads(params: PaginationParams): Promise<PaginatedResult<HoldprintLead>> {
-    return holdprintList<HoldprintLead>("/leads", params);
-  },
-
-  async budgetsSearch(params: PaginationParams): Promise<PaginatedResult<HoldprintBudget>> {
-    const data = await holdprintFetch<HoldprintBudget[]>("/budgets/graphql-search", "POST", {
-      variables: params,
+  budgetsSearch: async (params: PaginationParams): Promise<PaginatedResult<HoldprintBudget>> => {
+    const page = Math.floor((params.skip || 0) / (params.take || 20)) + 1;
+    const limit = params.take || 20;
+    const qs = new URLSearchParams({
+      page: String(page),
+      pageSize: String(limit),
+      language: "pt-BR",
+      startDate: "2023-01-01",
+      endDate: new Date().toISOString().split("T")[0],
     });
-    return { data: Array.isArray(data) ? data : [], total: Array.isArray(data) ? data.length : 0 };
+    const data = await holdprintFetch<{ data?: HoldprintBudget[] } | HoldprintBudget[]>(
+      `/api-key/budgets/data?${qs.toString()}`,
+      "GET"
+    );
+    if (Array.isArray(data)) return { data, total: data.length };
+    return { data: data?.data || [], total: data?.data?.length || 0 };
   },
 
-  async stepOrders(): Promise<BudgetStepOrder[]> {
-    const data = await holdprintFetch<BudgetStepOrder[]>("/budget-step-orders", "GET");
-    return Array.isArray(data) ? data : [];
+  stepOrders: async (): Promise<BudgetStepOrder[]> => {
+    // This endpoint may not exist in api-key API, return empty
+    try {
+      const data = await holdprintFetch<BudgetStepOrder[]>("/api-key/budget-steps/data?page=1&limit=100&language=pt-BR", "GET");
+      return Array.isArray(data) ? data : (data as any)?.data || [];
+    } catch {
+      return [];
+    }
   },
 };
