@@ -7,6 +7,7 @@ import {
   X, ChevronDown,
   Factory, TrendingUp, ShoppingCart, Wallet, Receipt,
   Calculator, Landmark, HeadphonesIcon, Scale, Brain,
+  Building2, Database, Users as UsersIcon, Target, BarChart3, Settings as SettingsIcon,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -68,6 +69,17 @@ const groups: NavGroup[] = [
       { label: "Banco de Horas", icon: Clock, path: "/rh/banco-horas" },
       { label: "Contratos", icon: FileText, path: "/rh/contratos" },
       { label: "Gerar Link", icon: Link2, path: "/rh/gerar-link" },
+    ],
+    collapsible: true,
+  },
+  {
+    label: "Holdprint ERP",
+    items: [
+      { label: "Processos", icon: Database, path: "/holdprint/processos", highlight: true, badge: "ERP" },
+      { label: "Clientes", icon: UsersIcon, path: "/holdprint/clientes", highlight: true, badge: "ERP" },
+      { label: "Oportunidades", icon: Target, path: "/holdprint/oportunidades", highlight: true, badge: "ERP" },
+      { label: "Relatórios", icon: BarChart3, path: "/holdprint/relatorios" },
+      { label: "Configurações", icon: SettingsIcon, path: "/holdprint/configuracoes" },
     ],
     collapsible: true,
   },

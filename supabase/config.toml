@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.trello-api]
 verify_jwt = false
+
+[functions.holdprint-erp]
+verify_jwt = false
