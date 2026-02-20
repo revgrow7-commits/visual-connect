@@ -83,13 +83,12 @@ const CsPage = () => {
         </div>
       );
       case "insider": return (
-        <div className="h-full w-full -m-4 md:-m-6">
-          <iframe
-            src="https://app.holdprint.net/holdprint/insider-ai"
-            className="w-full h-[calc(100vh-var(--topbar-height)-6rem)] border-0 rounded-lg"
-            title="Holdprint Insider AI"
-            allow="clipboard-read; clipboard-write"
-          />
+        <div className="flex flex-col items-center justify-center gap-4 py-20">
+          <h2 className="text-xl font-semibold">Holdprint Insider AI</h2>
+          <p className="text-muted-foreground text-center max-w-md">Acesse a plataforma Insider AI da Holdprint em uma nova aba. É necessário estar logado na plataforma Holdprint.</p>
+          <Button onClick={() => window.open("https://app.holdprint.net/holdprint/insider-ai", "_blank")} className="gap-2">
+            Abrir Insider AI <span aria-hidden>↗</span>
+          </Button>
         </div>
       );
       case "agente": return <AgentChat sector="cs" sectorLabel="Customer Success" />;
