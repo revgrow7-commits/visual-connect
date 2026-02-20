@@ -28,6 +28,7 @@ const sections: Array<{ id: CSSectionId; label: string; icon: React.ElementType;
   { id: "playbooks", label: "Playbooks", icon: ClipboardList },
   { id: "relatorios", label: "Relatórios", icon: LineChart },
   { id: "pcp", label: "PCP (Kanban)", icon: Kanban },
+  { id: "insider", label: "Insider AI", icon: Lightbulb },
   { id: "agente", label: "Agente IA", icon: Bot },
 ];
 

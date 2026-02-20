@@ -34,6 +34,7 @@ const sectionTitles: Record<CSSectionId, string> = {
   playbooks: "Playbooks",
   relatorios: "Relatórios",
   pcp: "PCP (Kanban)",
+  insider: "Insider AI (Holdprint)",
   agente: "Agente IA",
 };
 
@@ -77,6 +78,16 @@ const CsPage = () => {
             src="https://empflow-22.emergent.host/kanban"
             className="w-full h-[calc(100vh-var(--topbar-height)-6rem)] border-0 rounded-lg"
             title="PCP Kanban"
+            allow="clipboard-read; clipboard-write"
+          />
+        </div>
+      );
+      case "insider": return (
+        <div className="h-full w-full -m-4 md:-m-6">
+          <iframe
+            src="https://app.holdprint.net/holdprint/insider-ai"
+            className="w-full h-[calc(100vh-var(--topbar-height)-6rem)] border-0 rounded-lg"
+            title="Holdprint Insider AI"
             allow="clipboard-read; clipboard-write"
           />
         </div>
