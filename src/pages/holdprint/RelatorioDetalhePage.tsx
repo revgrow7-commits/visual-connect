@@ -466,12 +466,26 @@ function GenericPlaceholder({ title }: { title: string }) {
   );
 }
 
+// ============ ENDPOINT MAP PER REPORT ============
+
+const endpointsBySlug: Record<string, string[]> = {
+  "fluxo-caixa": ["incomes", "expenses"],
+  "vendas-periodo": ["budgets"],
+  "vendas-analise": ["budgets"],
+  "pagos-recebidos": ["incomes", "expenses"],
+  dre: ["incomes", "expenses", "jobs"],
+  checkup: ["jobs", "customers", "budgets", "suppliers"],
+  lucratividade: ["jobs"],
+  "ponto-equilibrio": ["incomes", "expenses"],
+};
+
 // ============ MAIN COMPONENT ============
 
 export default function HoldprintRelatorioDetalhe() {
   const { slug } = useParams();
   const title = titles[slug || ""] || "Relatório";
-  const { data, isLoading, error } = useCSHoldprintData();
+  const endpoints = endpointsBySlug[slug || ""] || ["customers", "jobs"];
+  const { data, isLoading, error } = useCSHoldprintData(endpoints);
 
   const renderReport = () => {
     if (!data) return null;
