@@ -12,7 +12,7 @@ export default function HoldprintConfiguracoesPage() {
     setTesting(true);
     try {
       const result = await holdprintFetch<{ name?: string; email?: string }>(
-        "/holdprint-users/user-logged",
+        "/api-key/holdprint-users/user-logged",
         "GET"
       );
       toast({
