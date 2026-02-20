@@ -11,13 +11,14 @@ export default function HoldprintConfiguracoesPage() {
   const handleTest = async () => {
     setTesting(true);
     try {
-      const result = await holdprintFetch<{ name?: string; email?: string }>(
-        "/api-key/holdprint-users/user-logged",
+      const result = await holdprintFetch<{ data?: Array<{ name?: string }> }>(
+        "/api-key/customers/data?page=1&limit=1&language=pt-BR",
         "GET"
       );
+      const firstCustomer = Array.isArray(result) ? result[0]?.name : result?.data?.[0]?.name;
       toast({
         title: "✅ Conectado ao Holdprint",
-        description: `Logado como ${result?.name || result?.email || "usuário"}`,
+        description: `API respondeu com sucesso${firstCustomer ? ` — cliente: ${firstCustomer}` : ""}`,
       });
     } catch (err: any) {
       toast({
