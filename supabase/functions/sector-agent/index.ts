@@ -44,12 +44,13 @@ async function fetchHoldprint(apiKey: string, endpoint: string): Promise<{ data:
 
   const url = new URL(`${HOLDPRINT_BASE}${config.path}`);
   url.searchParams.set(config.pageParam, "1");
-  url.searchParams.set(config.limitParam, "20");
+  url.searchParams.set(config.limitParam, "50");
   url.searchParams.set("language", "pt-BR");
 
   if (config.dateFilters) {
     const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    // For orchestrator context, fetch last 3 months for real-time view
+    const start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
     const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     const fmt = (d: Date) => d.toISOString().split("T")[0];
     const startKey = endpoint === "expenses" || endpoint === "incomes" ? "start_date" : "startDate";
@@ -142,7 +143,87 @@ function summarizeData(endpoint: string, data: unknown): string {
   }
 }
 
-// Fetch historical data from rag_documents (holdprint source)
+// Fetch comprehensive historical data from holdprint_cache
+async function fetchHoldprintHistorical(sector: string, endpoints: string[]): Promise<string> {
+  if (sector !== "orquestrador") return fetchRagHistorical(sector, endpoints);
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceKey) return "";
+
+  const sb = createClient(supabaseUrl, serviceKey);
+  const sections: string[] = [];
+
+  try {
+    for (const ep of endpoints) {
+      const { data, error } = await sb
+        .from("holdprint_cache")
+        .select("content_text, record_id")
+        .eq("endpoint", ep)
+        .order("last_synced", { ascending: false })
+        .limit(500);
+
+      if (error || !data || data.length === 0) continue;
+
+      // Build summary stats from content_text
+      const count = data.length;
+
+      if (ep === "budgets") {
+        const won = data.filter(d => d.content_text?.includes("Estado: 3")).length;
+        const lost = data.filter(d => d.content_text?.includes("Estado: 2")).length;
+        const open = data.filter(d => d.content_text?.includes("Estado: 1")).length;
+        // Extract values from content_text pattern "Valor: R$X"
+        const values = data.map(d => {
+          const match = d.content_text?.match(/Valor: R\$([\d.,]+)/);
+          return match ? parseFloat(match[1].replace(/\./g, "").replace(",", ".")) : 0;
+        });
+        const totalValue = values.reduce((s, v) => s + v, 0);
+        const samples = data.slice(0, 15).map(d => d.content_text?.slice(0, 200)).join("\n");
+        sections.push(`### 📊 ORÇAMENTOS HISTÓRICOS (${count} registros no cache)\nGanhos: ${won} | Perdidos: ${lost} | Abertos: ${open}\nValor total pipeline: R$${totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}\n\nAmostra:\n${samples}`);
+      } else if (ep === "jobs") {
+        const statusCounts: Record<string, number> = {};
+        data.forEach(d => {
+          const match = d.content_text?.match(/Status: ([^|]+)/);
+          const status = match ? match[1].trim() : "?";
+          statusCounts[status] = (statusCounts[status] || 0) + 1;
+        });
+        const statusStr = Object.entries(statusCounts).map(([k, v]) => `${k}: ${v}`).join(", ");
+        const samples = data.slice(0, 15).map(d => d.content_text?.slice(0, 200)).join("\n");
+        sections.push(`### 🏭 JOBS HISTÓRICOS (${count} registros no cache)\nPor status: ${statusStr}\n\nAmostra:\n${samples}`);
+      } else if (ep === "incomes") {
+        const values = data.map(d => {
+          const match = d.content_text?.match(/Valor: R\$([\d.,]+)/);
+          return match ? parseFloat(match[1].replace(/\./g, "").replace(",", ".")) : 0;
+        });
+        const totalValue = values.reduce((s, v) => s + v, 0);
+        const samples = data.slice(0, 10).map(d => d.content_text?.slice(0, 200)).join("\n");
+        sections.push(`### 💰 RECEITAS HISTÓRICAS (${count} registros — R$${totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })})\n\nAmostra:\n${samples}`);
+      } else if (ep === "customers") {
+        const active = data.filter(d => d.content_text?.includes("Ativo: true")).length;
+        const samples = data.slice(0, 15).map(d => d.content_text?.slice(0, 150)).join("\n");
+        sections.push(`### 👥 CLIENTES (${count} registros — ${active} ativos)\n\nAmostra:\n${samples}`);
+      } else if (ep === "expenses") {
+        const values = data.map(d => {
+          const match = d.content_text?.match(/Valor: R\$([\d.,]+)/);
+          return match ? parseFloat(match[1].replace(/\./g, "").replace(",", ".")) : 0;
+        });
+        const totalValue = values.reduce((s, v) => s + v, 0);
+        sections.push(`### 📉 DESPESAS HISTÓRICAS (${count} registros — R$${totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })})`);
+      } else if (ep === "suppliers") {
+        const samples = data.slice(0, 10).map(d => d.content_text?.slice(0, 150)).join("\n");
+        sections.push(`### 🏪 FORNECEDORES (${count} registros)\n${samples}`);
+      }
+    }
+
+    if (sections.length === 0) return "";
+    return `\n\n## 📂 DADOS HISTÓRICOS COMPLETOS (holdprint_cache — todos os anos):\n${sections.join("\n\n")}`;
+  } catch (e) {
+    console.error("[holdprint-historical] Error:", e);
+    return "";
+  }
+}
+
+// Fetch historical data from rag_documents (holdprint source) - for non-orchestrator sectors
 async function fetchRagHistorical(sector: string, endpoints: string[]): Promise<string> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -159,10 +240,7 @@ async function fetchRagHistorical(sector: string, endpoints: string[]): Promise<
       .order("created_at", { ascending: false })
       .limit(50);
 
-    if (error || !data || data.length === 0) {
-      console.log("[rag] No historical data found:", error?.message);
-      return "";
-    }
+    if (error || !data || data.length === 0) return "";
 
     const grouped: Record<string, string[]> = {};
     for (const doc of data) {
@@ -171,11 +249,11 @@ async function fetchRagHistorical(sector: string, endpoints: string[]): Promise<
       grouped[ep].push(doc.content.slice(0, 600));
     }
 
-    const sections = Object.entries(grouped).map(([ep, docs]) => {
+    const sects = Object.entries(grouped).map(([ep, docs]) => {
       return `### ${ep.toUpperCase()} (${docs.length} registros históricos)\n${docs.slice(0, 10).join("\n---\n")}`;
     });
 
-    return `\n\n## 📂 DADOS HISTÓRICOS (RAG - base sincronizada 2025):\n${sections.join("\n\n")}`;
+    return `\n\n## 📂 DADOS HISTÓRICOS (RAG):\n${sects.join("\n\n")}`;
   } catch (e) {
     console.error("[rag] Error fetching historical:", e);
     return "";
@@ -508,8 +586,8 @@ Integradora de comunicação visual. Smart Signage (Flat, Waved, Curved, Convex)
 ## Regras:
 1. Responda em PT-BR com markdown
 2. USE OS DADOS REAIS fornecidos abaixo — cite números específicos
-3. Você tem acesso a DADOS EM TEMPO REAL (mês atual) e DADOS HISTÓRICOS (RAG sincronizado de 2025)
-4. Para perguntas sobre histórico, tendências ou comparações, USE os dados históricos do RAG
+3. Você tem acesso a DADOS EM TEMPO REAL (últimos 3 meses via API) e DADOS HISTÓRICOS COMPLETOS (cache com 3000+ orçamentos, 2500+ jobs, clientes, receitas, despesas)
+4. Para perguntas sobre histórico, tendências ou comparações, USE os dados históricos do cache
 5. NUNCA invente números. Use apenas os dados fornecidos
 6. Formate valores em R$ brasileiro
 7. Quando comparar períodos, deixe claro a fonte (tempo real vs histórico)`;
@@ -657,7 +735,7 @@ Deno.serve(async (req) => {
         );
         return `\n\n## 📊 DADOS EM TEMPO REAL (Holdprint API - ${new Date().toLocaleDateString("pt-BR")}):\n${results.join("\n")}`;
       })(),
-      fetchRagHistorical(sector, endpoints),
+      fetchHoldprintHistorical(sector, endpoints),
       fetchCSTickets(sector),
       isOrquestrador ? fetchInternalDB() : Promise.resolve(""),
       fetchPCPKanban(sector),

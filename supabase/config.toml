@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.holdprint-erp]
 verify_jwt = false
+
+[functions.holdprint-import-chunk]
+verify_jwt = false
