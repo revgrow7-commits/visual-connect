@@ -76,11 +76,41 @@ export interface HoldprintIncome {
   [key: string]: unknown;
 }
 
+export interface HoldprintExpense {
+  id: number;
+  amount?: number;
+  value?: number;
+  description?: string;
+  category?: string;
+  status?: string;
+  dueDate?: string;
+  paidDate?: string;
+  supplier?: { id?: number; name?: string };
+  _unidade?: string;
+  _unit_key?: string;
+  [key: string]: unknown;
+}
+
+export interface HoldprintSupplier {
+  id: number;
+  name?: string;
+  fantasyName?: string;
+  document?: string;
+  email?: string;
+  phone?: string;
+  active?: boolean;
+  _unidade?: string;
+  _unit_key?: string;
+  [key: string]: unknown;
+}
+
 export interface CSHoldprintData {
   customers: HoldprintCustomer[];
   jobs: HoldprintJob[];
   budgets: HoldprintBudget[];
   incomes: HoldprintIncome[];
+  expenses: HoldprintExpense[];
+  suppliers: HoldprintSupplier[];
   lastSync: string | null;
   fetchedAt: string;
 }
@@ -239,7 +269,7 @@ export function useCSHoldprintData(endpoints?: string[]) {
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("cs-holdprint-data", {
         body: {
-          endpoints: endpoints || ["customers", "jobs", "budgets", "incomes"],
+          endpoints: endpoints || ["customers", "jobs", "budgets", "incomes", "expenses", "suppliers"],
           startDate: "2023-01-01",
           maxPages: 30,
         },
@@ -253,11 +283,13 @@ export function useCSHoldprintData(endpoints?: string[]) {
         jobs: (data.data?.jobs || []) as HoldprintJob[],
         budgets: (data.data?.budgets || []) as HoldprintBudget[],
         incomes: (data.data?.incomes || []) as HoldprintIncome[],
+        expenses: (data.data?.expenses || []) as HoldprintExpense[],
+        suppliers: (data.data?.suppliers || []) as HoldprintSupplier[],
         lastSync: data.lastSync,
         fetchedAt: data.fetchedAt,
       };
     },
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 }
