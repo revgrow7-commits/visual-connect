@@ -7,12 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, Search, Filter, Download, Building2,
-  CheckCircle2, Table2, LayoutGrid,
+  CheckCircle2, Table2, LayoutGrid, UserPlus,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Colaborador, StatusColaborador } from "@/components/colaboradores/types";
 import ColaboradoresEditableTable from "@/components/colaboradores/ColaboradoresEditableTable";
+import NovoColaboradorDialog from "@/components/colaboradores/NovoColaboradorDialog";
 
 const COLAB_SELECT = `id, nome, email_pessoal, telefone_celular, cargo, setor, unidade, data_admissao, tipo_contratacao, status, compliance_aceito, cpf, created_at, matricula, rg, data_nascimento, sexo, estado_civil, salario_base, jornada, horario, escala, pis_pasep, ctps, cep, endereco, numero, bairro, cidade, estado, banco, agencia, conta, pix, escolaridade, sst, secoes_visiveis`;
 
@@ -23,6 +24,7 @@ const ColaboradoresPage = () => {
   const [filterSetor, setFilterSetor] = useState("todos");
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
   const [loading, setLoading] = useState(true);
+  const [novoOpen, setNovoOpen] = useState(false);
 
   const fetchColaboradores = useCallback(async () => {
     setLoading(true);
@@ -73,9 +75,14 @@ const ColaboradoresPage = () => {
             Gestão completa de colaboradores — edite inline e salve.
           </p>
         </div>
-        <Button className="gradient-bordo text-primary-foreground gap-2">
-          <Download className="h-4 w-4" /> Exportar
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setNovoOpen(true)} className="gradient-bordo text-primary-foreground gap-2">
+            <UserPlus className="h-4 w-4" /> Novo Colaborador
+          </Button>
+          <Button variant="outline" className="gap-2">
+            <Download className="h-4 w-4" /> Exportar
+          </Button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -167,6 +174,7 @@ const ColaboradoresPage = () => {
           />
         </CardContent>
       </Card>
+      <NovoColaboradorDialog open={novoOpen} onOpenChange={setNovoOpen} onSuccess={fetchColaboradores} />
     </div>
   );
 };
