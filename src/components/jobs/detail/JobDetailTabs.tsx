@@ -100,12 +100,16 @@ const TabItens: React.FC<Props> = ({ job }) => {
           <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setShowForm(!showForm)}>
             <Plus className="h-3.5 w-3.5" /> Adicionar Item
           </Button>
-          {importableItems.length > 0 && (
-            <Button size="sm" variant="default" className="gap-1.5 text-xs" onClick={handleImportAll} disabled={importing}>
-              {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-              Importar do ERP ({importableItems.length})
-            </Button>
-          )}
+          <Button
+            size="sm"
+            variant="default"
+            className="gap-1.5 text-xs"
+            onClick={handleImportAll}
+            disabled={importing || importableItems.length === 0}
+          >
+            {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            {apiLoading ? "Carregando ERP..." : importableItems.length > 0 ? `Importar do ERP (${importableItems.length})` : apiItems.length > 0 ? "Já importados" : "Importar Itens"}
+          </Button>
         </div>
         <span className="text-xs text-muted-foreground">
           Total: {allItems.length} itens | {formatBRL(totalValue)}
