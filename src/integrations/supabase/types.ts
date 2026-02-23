@@ -224,6 +224,7 @@ export type Database = {
           rg_uf: string | null
           salario_base: string | null
           saude: Json | null
+          secoes_visiveis: string[] | null
           serie_ctps: string | null
           setor: string | null
           sexo: string | null
@@ -297,6 +298,7 @@ export type Database = {
           rg_uf?: string | null
           salario_base?: string | null
           saude?: Json | null
+          secoes_visiveis?: string[] | null
           serie_ctps?: string | null
           setor?: string | null
           sexo?: string | null
@@ -370,6 +372,7 @@ export type Database = {
           rg_uf?: string | null
           salario_base?: string | null
           saude?: Json | null
+          secoes_visiveis?: string[] | null
           serie_ctps?: string | null
           setor?: string | null
           sexo?: string | null
