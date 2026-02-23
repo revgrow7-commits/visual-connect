@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { Job } from "../types";
+import { Popover as PopoverUI, PopoverContent as PopContentUI, PopoverTrigger as PopTriggerUI } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { formatBRL, formatDateBR, isOverdue } from "../types";
 import { DEFAULT_STAGES } from "../types";
 import { useJobDetail, type ProductionTask } from "@/hooks/useJobDetail";
@@ -414,11 +416,21 @@ const TabProducao: React.FC<Props & { onStageChange?: (jobId: string, newStage: 
   const [showTimeForm, setShowTimeForm] = useState(false);
   const [timeForm, setTimeForm] = useState({ user_name: "", description: "", minutes: "", entry_date: new Date().toISOString().split("T")[0] });
 
+  // ── Colaboradores for autocomplete ──
+  const [colabNames, setColabNames] = useState<string[]>([]);
+  useEffect(() => {
+    supabase.from("colaboradores").select("nome").eq("status", "ativo").order("nome").then(({ data }) => {
+      if (data) setColabNames(data.map(c => c.nome));
+    });
+  }, []);
+
   // ── Stopwatch state ──
   const [swRunning, setSwRunning] = useState(false);
   const [swElapsed, setSwElapsed] = useState(0); // seconds
   const [swUser, setSwUser] = useState("");
   const [swDesc, setSwDesc] = useState("");
+  const [swUserOpen, setSwUserOpen] = useState(false);
+  const [manualUserOpen, setManualUserOpen] = useState(false);
   const swIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -582,7 +594,28 @@ const TabProducao: React.FC<Props & { onStageChange?: (jobId: string, newStage: 
 
           {!swRunning && swElapsed === 0 && (
             <div className="grid grid-cols-2 gap-2">
-              <Input placeholder="Responsável *" value={swUser} onChange={e => setSwUser(e.target.value)} className="h-8 text-xs" />
+              <PopoverUI open={swUserOpen} onOpenChange={setSwUserOpen}>
+                <PopTriggerUI asChild>
+                  <Button variant="outline" className="h-8 text-xs justify-start font-normal truncate">
+                    {swUser || <span className="text-muted-foreground">Responsável *</span>}
+                  </Button>
+                </PopTriggerUI>
+                <PopContentUI className="p-0 w-[260px]" align="start">
+                  <Command>
+                    <CommandInput placeholder="Buscar colaborador..." className="h-8 text-xs" />
+                    <CommandList>
+                      <CommandEmpty className="text-xs p-2">Nenhum encontrado</CommandEmpty>
+                      <CommandGroup>
+                        {colabNames.map(name => (
+                          <CommandItem key={name} value={name} onSelect={() => { setSwUser(name); setSwUserOpen(false); }} className="text-xs">
+                            {name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopContentUI>
+              </PopoverUI>
               <Input placeholder="Descrição" value={swDesc} onChange={e => setSwDesc(e.target.value)} className="h-8 text-xs" />
             </div>
           )}
@@ -627,7 +660,28 @@ const TabProducao: React.FC<Props & { onStageChange?: (jobId: string, newStage: 
         </div>
         {showTimeForm && (
           <div className="grid grid-cols-2 gap-2 pt-2">
-            <Input placeholder="Responsável" value={timeForm.user_name} onChange={e => setTimeForm(f => ({ ...f, user_name: e.target.value }))} />
+            <PopoverUI open={manualUserOpen} onOpenChange={setManualUserOpen}>
+              <PopTriggerUI asChild>
+                <Button variant="outline" className="h-10 justify-start font-normal text-sm truncate">
+                  {timeForm.user_name || <span className="text-muted-foreground">Responsável</span>}
+                </Button>
+              </PopTriggerUI>
+              <PopContentUI className="p-0 w-[260px]" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar colaborador..." />
+                  <CommandList>
+                    <CommandEmpty className="text-xs p-2">Nenhum encontrado</CommandEmpty>
+                    <CommandGroup>
+                      {colabNames.map(name => (
+                        <CommandItem key={name} value={name} onSelect={() => { setTimeForm(f => ({ ...f, user_name: name })); setManualUserOpen(false); }} className="text-xs">
+                          {name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopContentUI>
+            </PopoverUI>
             <Input placeholder="Descrição" value={timeForm.description} onChange={e => setTimeForm(f => ({ ...f, description: e.target.value }))} />
             <Input type="number" placeholder="Minutos" value={timeForm.minutes} onChange={e => setTimeForm(f => ({ ...f, minutes: e.target.value }))} />
             <Input type="date" value={timeForm.entry_date} onChange={e => setTimeForm(f => ({ ...f, entry_date: e.target.value }))} />
