@@ -9,6 +9,7 @@ import {
   useJobTimeEntries, useAddTimeEntry,
   useJobMaterials, useAddJobMaterial, useDeleteJobMaterial,
   useJobHistory, useAddComment, logHistory,
+  useJobFiles, useUploadJobFile, useDeleteJobFile,
 } from "@/hooks/useJobLocalData";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Package, Plus, Trash2, CheckCircle, Clock, MessageSquare,
-  Loader2, ChevronDown, ChevronUp, Play, Send, X,
+  Loader2, ChevronDown, ChevronUp, Play, Send, X, Paperclip, FileText, Image, Download,
 } from "lucide-react";
 
 interface Props {
@@ -481,8 +482,12 @@ const TabMateriais: React.FC<Props> = ({ job }) => {
 const TabHistorico: React.FC<Props> = ({ job }) => {
   const { data: apiDetail } = useJobDetail(job);
   const { data: localHistory = [] } = useJobHistory(job.id, true);
+  const { data: files = [] } = useJobFiles(job.id);
   const addComment = useAddComment(job.id);
+  const uploadFile = useUploadJobFile(job.id);
+  const deleteFile = useDeleteJobFile(job.id);
   const [comment, setComment] = useState("");
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Merge API production events + local history
   const apiEvents = (apiDetail?.comments || []).map(c => ({
@@ -505,6 +510,24 @@ const TabHistorico: React.FC<Props> = ({ job }) => {
     setComment("");
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles) return;
+    Array.from(selectedFiles).forEach(file => uploadFile.mutate(file));
+    e.target.value = "";
+  };
+
+  const getFileIcon = (type: string) => {
+    if (type.startsWith("image/")) return <Image className="h-4 w-4 text-primary" />;
+    return <FileText className="h-4 w-4 text-primary" />;
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   const eventIcon = (type: string) => {
     switch (type) {
       case "comment": return "💬";
@@ -512,6 +535,7 @@ const TabHistorico: React.FC<Props> = ({ job }) => {
       case "job_edited": return "✏️";
       case "item_checked": return "✅";
       case "time_logged": return "⏱";
+      case "file_uploaded": return "📎";
       case "stage_finalized": return "✅";
       case "stage_event": return "📋";
       default: return "➕";
@@ -522,6 +546,38 @@ const TabHistorico: React.FC<Props> = ({ job }) => {
     <div className="p-5 space-y-4 flex flex-col h-full">
       <p className="text-xs text-muted-foreground font-medium">{allEvents.length} eventos</p>
 
+      {/* Files section */}
+      {files.length > 0 && (
+        <div className="border rounded-lg p-3 space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground">📎 Arquivos ({files.length})</p>
+          <div className="space-y-1.5">
+            {files.map(f => (
+              <div key={f.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/30 hover:bg-muted/50 group">
+                {getFileIcon(f.file_type)}
+                <div className="flex-1 min-w-0">
+                  <a href={f.file_url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium truncate block hover:underline text-foreground">
+                    {f.file_name}
+                  </a>
+                  <span className="text-[10px] text-muted-foreground">
+                    {formatFileSize(f.file_size)} · {f.uploaded_by} · {formatDateBR(f.created_at)}
+                  </span>
+                </div>
+                <a href={f.file_url} target="_blank" rel="noopener noreferrer" className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground">
+                  <Download className="h-3.5 w-3.5" />
+                </a>
+                <button
+                  onClick={() => deleteFile.mutate({ fileId: f.id, filePath: f.file_url })}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive/60 hover:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Events feed */}
       <div className="flex-1 space-y-3 overflow-y-auto">
         {allEvents.length > 0 ? allEvents.map(evt => (
           <div key={evt.id} className="flex gap-3">
@@ -538,12 +594,29 @@ const TabHistorico: React.FC<Props> = ({ job }) => {
             </div>
           </div>
         )) : (
-          <EmptyState icon={<MessageSquare />} message="Nenhum evento" sub="Adicione um comentário para iniciar o histórico" />
+          <EmptyState icon={<MessageSquare />} message="Nenhum evento" sub="Adicione um comentário ou envie um arquivo para iniciar o histórico" />
         )}
       </div>
 
-      {/* Comment input */}
+      {/* Comment + file upload input */}
       <div className="flex gap-2 border-t pt-3">
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={handleFileChange}
+        />
+        <Button
+          size="icon"
+          variant="outline"
+          className="h-10 w-10 flex-shrink-0"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploadFile.isPending}
+          title="Anexar arquivo"
+        >
+          {uploadFile.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+        </Button>
         <Input
           placeholder="Adicionar comentário..."
           value={comment}
