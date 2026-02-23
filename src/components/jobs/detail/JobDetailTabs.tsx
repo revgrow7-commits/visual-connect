@@ -409,10 +409,16 @@ const TabProducao: React.FC<Props & { onStageChange?: (jobId: string, newStage: 
   const deleteTask = useDeleteChecklist(job.id);
   const { data: timeEntries = [] } = useJobTimeEntries(job.id);
   const addTime = useAddTimeEntry(job.id);
+  const { data: files = [] } = useJobFiles(job.id);
+  const uploadFile = useUploadJobFile(job.id);
+  const deleteFile = useDeleteJobFile(job.id);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [moveTarget, setMoveTarget] = useState<string | null>(null);
   const [movingStage, setMovingStage] = useState(false);
   const [newTask, setNewTask] = useState("");
+  const [newTaskResponsavel, setNewTaskResponsavel] = useState("");
+  const [taskResponsavelOpen, setTaskResponsavelOpen] = useState(false);
   const [showTimeForm, setShowTimeForm] = useState(false);
   const [timeForm, setTimeForm] = useState({ user_name: "", description: "", minutes: "", entry_date: new Date().toISOString().split("T")[0] });
 
@@ -728,23 +734,113 @@ const TabProducao: React.FC<Props & { onStageChange?: (jobId: string, newStage: 
             <button onClick={() => deleteTask.mutate(task.id)} className="text-destructive/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-3 w-3" /></button>
           </div>
         ))}
-        <div className="pt-1">
-          <Input
-            placeholder="Adicionar nova tarefa..."
-            value={newTask}
-            onChange={e => setNewTask(e.target.value)}
-            className="h-9 text-sm border-destructive/30 bg-destructive/5 placeholder:text-muted-foreground/60 focus-visible:ring-destructive/30"
-            onKeyDown={e => {
-              if (e.key === "Enter" && newTask.trim()) {
-                addTask.mutate(newTask.trim());
-                setNewTask("");
-              }
-            }}
-          />
+        <div className="pt-1 space-y-2">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Nova tarefa..."
+              value={newTask}
+              onChange={e => setNewTask(e.target.value)}
+              className="h-9 text-sm flex-1"
+              onKeyDown={e => {
+                if (e.key === "Enter" && newTask.trim()) {
+                  addTask.mutate({ title: newTask.trim(), responsible_name: newTaskResponsavel || undefined });
+                  setNewTask("");
+                  setNewTaskResponsavel("");
+                }
+              }}
+            />
+            <PopoverUI open={taskResponsavelOpen} onOpenChange={setTaskResponsavelOpen}>
+              <PopTriggerUI asChild>
+                <Button variant="outline" className="h-9 text-xs min-w-[120px] justify-start truncate">
+                  {newTaskResponsavel || <span className="text-muted-foreground">Responsável</span>}
+                </Button>
+              </PopTriggerUI>
+              <PopContentUI className="p-0 w-[220px]" align="end">
+                <Command>
+                  <CommandInput placeholder="Buscar..." className="h-8 text-xs" />
+                  <CommandList>
+                    <CommandEmpty className="text-xs p-2">Nenhum</CommandEmpty>
+                    <CommandGroup>
+                      {colabNames.map(name => (
+                        <CommandItem key={name} value={name} onSelect={() => { setNewTaskResponsavel(name); setTaskResponsavelOpen(false); }} className="text-xs">
+                          {name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopContentUI>
+            </PopoverUI>
+            <Button
+              size="sm"
+              className="h-9 gap-1 bg-primary text-primary-foreground"
+              disabled={!newTask.trim() || addTask.isPending}
+              onClick={() => {
+                if (newTask.trim()) {
+                  addTask.mutate({ title: newTask.trim(), responsible_name: newTaskResponsavel || undefined });
+                  setNewTask("");
+                  setNewTaskResponsavel("");
+                }
+              }}
+            >
+              {addTask.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+              Adicionar
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Move stage dialog */}
+      {/* Arquivos */}
+      <div className="border rounded-lg p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-semibold flex items-center gap-1.5"><Paperclip className="h-4 w-4" /> Arquivos</h4>
+          <span className="text-xs text-muted-foreground">{files.length} arquivo{files.length !== 1 ? "s" : ""}</span>
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={async e => {
+            const selectedFiles = e.target.files;
+            if (!selectedFiles) return;
+            for (const file of Array.from(selectedFiles)) {
+              uploadFile.mutate(file);
+            }
+            e.target.value = "";
+          }}
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5 text-xs w-full border-dashed h-10"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploadFile.isPending}
+        >
+          {uploadFile.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+          Upload de Arquivos
+        </Button>
+        {files.length > 0 && (
+          <div className="space-y-1.5">
+            {files.map(f => {
+              const isImage = f.file_type?.startsWith("image/");
+              return (
+                <div key={f.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/30 hover:bg-muted/50 group">
+                  {isImage ? <Image className="h-4 w-4 text-blue-500 flex-shrink-0" /> : <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
+                  <a href={f.file_url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium flex-1 truncate hover:underline text-foreground">
+                    {f.file_name}
+                  </a>
+                  <span className="text-[10px] text-muted-foreground">{f.file_size ? `${(f.file_size / 1024).toFixed(0)}KB` : ""}</span>
+                  <span className="text-[10px] text-muted-foreground">{f.uploaded_by}</span>
+                  <button onClick={() => deleteFile.mutate({ fileId: f.id, filePath: f.file_url })} className="text-destructive/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
       <AlertDialog open={!!moveTarget} onOpenChange={(open) => { if (!open && !movingStage) setMoveTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
