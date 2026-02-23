@@ -71,12 +71,53 @@ const TabItens: React.FC<Props> = ({ job }) => {
     }
   };
 
-  const handleAssignToBoard = (board: Board) => {
+  const handleAssignToBoard = async (board: Board) => {
     setBoardPopoverOpen(false);
-    const itemNames = allItems.filter(i => selectedItems.has(`${i._source}-${i.id}`)).map(i => i.name);
+    const selected = allItems.filter(i => selectedItems.has(`${i._source}-${i.id}`));
+    const itemNames = selected.map(i => i.name);
+    const firstStage = board.stages[0];
+
+    // Persist board assignment in flexfields for local items
+    const localSelected = selected.filter(i => i._source === "local");
+    if (localSelected.length > 0) {
+      const ids = localSelected.map(i => i.id);
+      const { error } = await supabase
+        .from("job_items")
+        .update({
+          flexfields: {
+            board_id: board.id,
+            board_name: board.name,
+            board_stage: firstStage?.id || null,
+            board_stage_name: firstStage?.name || null,
+            assigned_at: new Date().toISOString(),
+          },
+        })
+        .in("id", ids);
+
+      if (error) {
+        console.error("[assign-board] Error:", error);
+        toast({ title: "Erro ao atribuir", description: error.message, variant: "destructive" });
+        return;
+      }
+    }
+
+    // Log to job history for notification/audit trail
+    await logHistory(
+      jobId,
+      "items_assigned_to_board",
+      `${itemNames.length} item(ns) atribuído(s) à board "${board.name}" → ${firstStage?.name || "primeira etapa"}`,
+      {
+        board_id: board.id,
+        board_name: board.name,
+        stage: firstStage?.id || "",
+        item_names: itemNames.join(", "),
+        item_count: String(itemNames.length),
+      }
+    );
+
     toast({
-      title: `Itens atribuídos: ${board.name}`,
-      description: `${itemNames.length} ite${itemNames.length === 1 ? "m" : "ns"} → ${board.stages[0]?.name || "primeira etapa"}`,
+      title: `✅ Itens atribuídos: ${board.name}`,
+      description: `${itemNames.length} ite${itemNames.length === 1 ? "m" : "ns"} → ${firstStage?.name || "primeira etapa"}`,
     });
     setSelectedItems(new Set());
   };
