@@ -97,7 +97,8 @@ export function useJobsData(filters?: JobsFilters, activeBoard?: Board | null) {
           endpoints: ["jobs"],
           startDate: filters?.dateFrom || "2024-01-01",
           endDate: filters?.dateTo || undefined,
-          maxPages: 10,
+          maxPages: 15,
+          fullDetail: true,
         },
       });
 
