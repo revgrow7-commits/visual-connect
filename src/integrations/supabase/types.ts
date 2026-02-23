@@ -172,8 +172,12 @@ export type Database = {
           banco: string | null
           beneficios: Json | null
           cargo: string | null
+          categoria_cnh: string | null
+          cbo: string | null
+          cbo_descricao: string | null
           cep: string | null
           cidade: string | null
+          cnh: string | null
           complemento: string | null
           compliance_aceito: boolean | null
           compliance_hash: string | null
@@ -183,8 +187,10 @@ export type Database = {
           compliance_versao: string | null
           conta: string | null
           conta_tipo: string | null
+          cor_raca: string | null
           cpf: string | null
           created_at: string
+          ctps: string | null
           data_admissao: string | null
           data_nascimento: string | null
           dependentes: Json | null
@@ -192,11 +198,13 @@ export type Database = {
           email_pessoal: string | null
           endereco: string | null
           escala: string | null
+          escolaridade: string | null
           estado: string | null
           estado_civil: string | null
           horario: string | null
           id: string
           jornada: string | null
+          matricula: string | null
           nacionalidade: string | null
           naturalidade_cidade: string | null
           naturalidade_uf: string | null
@@ -204,22 +212,31 @@ export type Database = {
           nome_mae: string | null
           nome_pai: string | null
           numero: string | null
+          passaporte: string | null
+          pcd: string | null
+          permissoes: Json | null
           pis_pasep: string | null
           pix: string | null
           recruitment_link_id: string | null
+          reservista: string | null
           rg: string | null
           rg_orgao: string | null
           rg_uf: string | null
           salario_base: string | null
           saude: Json | null
+          serie_ctps: string | null
           setor: string | null
           sexo: string | null
           sobrenome: string | null
+          sst: Json | null
           status: string
           telefone_celular: string | null
           tipo_contratacao: string | null
+          titulo_eleitor: string | null
+          uf_ctps: string | null
           unidade: string | null
           updated_at: string
+          vale_transporte: boolean | null
         }
         Insert: {
           adicionais?: string | null
@@ -228,8 +245,12 @@ export type Database = {
           banco?: string | null
           beneficios?: Json | null
           cargo?: string | null
+          categoria_cnh?: string | null
+          cbo?: string | null
+          cbo_descricao?: string | null
           cep?: string | null
           cidade?: string | null
+          cnh?: string | null
           complemento?: string | null
           compliance_aceito?: boolean | null
           compliance_hash?: string | null
@@ -239,8 +260,10 @@ export type Database = {
           compliance_versao?: string | null
           conta?: string | null
           conta_tipo?: string | null
+          cor_raca?: string | null
           cpf?: string | null
           created_at?: string
+          ctps?: string | null
           data_admissao?: string | null
           data_nascimento?: string | null
           dependentes?: Json | null
@@ -248,11 +271,13 @@ export type Database = {
           email_pessoal?: string | null
           endereco?: string | null
           escala?: string | null
+          escolaridade?: string | null
           estado?: string | null
           estado_civil?: string | null
           horario?: string | null
           id?: string
           jornada?: string | null
+          matricula?: string | null
           nacionalidade?: string | null
           naturalidade_cidade?: string | null
           naturalidade_uf?: string | null
@@ -260,22 +285,31 @@ export type Database = {
           nome_mae?: string | null
           nome_pai?: string | null
           numero?: string | null
+          passaporte?: string | null
+          pcd?: string | null
+          permissoes?: Json | null
           pis_pasep?: string | null
           pix?: string | null
           recruitment_link_id?: string | null
+          reservista?: string | null
           rg?: string | null
           rg_orgao?: string | null
           rg_uf?: string | null
           salario_base?: string | null
           saude?: Json | null
+          serie_ctps?: string | null
           setor?: string | null
           sexo?: string | null
           sobrenome?: string | null
+          sst?: Json | null
           status?: string
           telefone_celular?: string | null
           tipo_contratacao?: string | null
+          titulo_eleitor?: string | null
+          uf_ctps?: string | null
           unidade?: string | null
           updated_at?: string
+          vale_transporte?: boolean | null
         }
         Update: {
           adicionais?: string | null
@@ -284,8 +318,12 @@ export type Database = {
           banco?: string | null
           beneficios?: Json | null
           cargo?: string | null
+          categoria_cnh?: string | null
+          cbo?: string | null
+          cbo_descricao?: string | null
           cep?: string | null
           cidade?: string | null
+          cnh?: string | null
           complemento?: string | null
           compliance_aceito?: boolean | null
           compliance_hash?: string | null
@@ -295,8 +333,10 @@ export type Database = {
           compliance_versao?: string | null
           conta?: string | null
           conta_tipo?: string | null
+          cor_raca?: string | null
           cpf?: string | null
           created_at?: string
+          ctps?: string | null
           data_admissao?: string | null
           data_nascimento?: string | null
           dependentes?: Json | null
@@ -304,11 +344,13 @@ export type Database = {
           email_pessoal?: string | null
           endereco?: string | null
           escala?: string | null
+          escolaridade?: string | null
           estado?: string | null
           estado_civil?: string | null
           horario?: string | null
           id?: string
           jornada?: string | null
+          matricula?: string | null
           nacionalidade?: string | null
           naturalidade_cidade?: string | null
           naturalidade_uf?: string | null
@@ -316,22 +358,31 @@ export type Database = {
           nome_mae?: string | null
           nome_pai?: string | null
           numero?: string | null
+          passaporte?: string | null
+          pcd?: string | null
+          permissoes?: Json | null
           pis_pasep?: string | null
           pix?: string | null
           recruitment_link_id?: string | null
+          reservista?: string | null
           rg?: string | null
           rg_orgao?: string | null
           rg_uf?: string | null
           salario_base?: string | null
           saude?: Json | null
+          serie_ctps?: string | null
           setor?: string | null
           sexo?: string | null
           sobrenome?: string | null
+          sst?: Json | null
           status?: string
           telefone_celular?: string | null
           tipo_contratacao?: string | null
+          titulo_eleitor?: string | null
+          uf_ctps?: string | null
           unidade?: string | null
           updated_at?: string
+          vale_transporte?: boolean | null
         }
         Relationships: [
           {
