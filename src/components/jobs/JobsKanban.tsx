@@ -23,12 +23,44 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 import { useRecordMovement } from "@/hooks/useJobStageMovements";
+import { useQueryClient } from "@tanstack/react-query";
 
 const JobsKanban: React.FC = () => {
   const boards = useMemo(() => getActiveBoards(), []);
   const [activeBoardId, setActiveBoardId] = useState(boards[0]?.id || "");
   const activeBoard = useMemo(() => boards.find(b => b.id === activeBoardId) || boards[0] || null, [boards, activeBoardId]);
   const recordMovement = useRecordMovement();
+  const queryClient = useQueryClient();
+
+  /** Persist stage change to job_board_assignments */
+  const persistStageChange = useCallback(async (job: Job, boardId: string, boardName: string, stageId: string, stageName: string) => {
+    try {
+      // Deactivate old assignment for this job+board
+      await supabase
+        .from("job_board_assignments")
+        .update({ is_active: false })
+        .eq("job_id", job.id)
+        .eq("board_id", boardId);
+
+      // Insert new assignment
+      await supabase
+        .from("job_board_assignments")
+        .insert({
+          job_id: job.id,
+          job_code: job.code || null,
+          job_title: job.description || null,
+          customer_name: job.client_name || null,
+          board_id: boardId,
+          board_name: boardName,
+          stage_id: stageId,
+          stage_name: stageName,
+          assigned_by: "Sistema",
+          is_active: true,
+        });
+    } catch (err) {
+      console.error("Erro ao persistir movimentação:", err);
+    }
+  }, []);
 
   const visibleFlexfields = useMemo(
     () => activeBoard?.flexfields.filter(f => f.show_on_card) || [],
@@ -127,8 +159,13 @@ const JobsKanban: React.FC = () => {
       });
     }
 
+    // Persist to DB
+    if (activeBoard && movedJob) {
+      persistStageChange(movedJob, activeBoard.id, activeBoard.name, dstStage, dstStageName);
+    }
+
     toast({ title: "Job movido", description: `Job movido para ${dstStageName}` });
-  }, [data, byStage, activeBoard, recordMovement]);
+  }, [data, byStage, activeBoard, recordMovement, persistStageChange]);
 
   const stageConfigs = activeBoard?.stages || DEFAULT_STAGES;
 
@@ -360,6 +397,10 @@ const JobsKanban: React.FC = () => {
               to_stage_name: destStageObj?.name || newStage,
               movement_type: "stage_change",
             });
+            // Persist stage to DB
+            if (selectedJob) {
+              persistStageChange(selectedJob, activeBoard.id, activeBoard.name, newStage, destStageObj?.name || newStage);
+            }
           }
           toast({ title: "Etapa atualizada" });
         }}
