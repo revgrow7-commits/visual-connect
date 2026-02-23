@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import type { Job } from "../types";
 import { formatBRL, formatDateBR, isOverdue } from "../types";
 import { DEFAULT_STAGES } from "../types";
@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Package, Plus, Trash2, CheckCircle, Clock, MessageSquare,
-  Loader2, ChevronDown, ChevronUp, Play, Send, X, Paperclip, FileText, Image, Download,
+  Loader2, ChevronDown, ChevronUp, Play, Send, X, Paperclip, FileText, Image, Download, Pause, Square,
 } from "lucide-react";
 
 interface Props {
@@ -201,6 +201,46 @@ const TabProducao: React.FC<Props & { onStageChange?: (jobId: string, newStage: 
   const [showTimeForm, setShowTimeForm] = useState(false);
   const [timeForm, setTimeForm] = useState({ user_name: "", description: "", minutes: "", entry_date: new Date().toISOString().split("T")[0] });
 
+  // ── Stopwatch state ──
+  const [swRunning, setSwRunning] = useState(false);
+  const [swElapsed, setSwElapsed] = useState(0); // seconds
+  const [swUser, setSwUser] = useState("");
+  const [swDesc, setSwDesc] = useState("");
+  const swIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (swRunning) {
+      swIntervalRef.current = setInterval(() => setSwElapsed(p => p + 1), 1000);
+    } else if (swIntervalRef.current) {
+      clearInterval(swIntervalRef.current);
+      swIntervalRef.current = null;
+    }
+    return () => { if (swIntervalRef.current) clearInterval(swIntervalRef.current); };
+  }, [swRunning]);
+
+  const handleSwStop = useCallback(() => {
+    setSwRunning(false);
+    const mins = Math.max(1, Math.round(swElapsed / 60));
+    if (swUser.trim()) {
+      addTime.mutate({
+        user_name: swUser.trim(),
+        description: swDesc.trim() || "Cronômetro",
+        minutes: mins,
+        entry_date: new Date().toISOString().split("T")[0],
+      });
+    }
+    setSwElapsed(0);
+    setSwUser("");
+    setSwDesc("");
+  }, [swElapsed, swUser, swDesc, addTime]);
+
+  const formatStopwatch = (secs: number) => {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
   const stageCfg = DEFAULT_STAGES.find(s => s.id === job.stage);
   const tasks = detail?.productionTasks || [];
   const progress = detail?.productionProgress ?? job.progress_percent;
@@ -272,11 +312,61 @@ const TabProducao: React.FC<Props & { onStageChange?: (jobId: string, newStage: 
       <div className="border rounded-lg p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h4 className="text-sm font-semibold">Tempo Registrado</h4>
-          <span className="text-sm font-bold flex items-center gap-1"><Clock className="h-4 w-4" /> {formatMins(totalMinutes)}</span>
+          <span className="text-sm font-bold flex items-center gap-1"><Clock className="h-4 w-4" /> {formatMins(totalMinutes + (swRunning ? Math.round(swElapsed / 60) : 0))}</span>
         </div>
+
+        {/* Stopwatch */}
+        <div className={`rounded-lg p-3 space-y-2 ${swRunning ? "bg-primary/10 border border-primary/30" : "bg-muted/30 border border-border"}`}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">⏱ Cronômetro</span>
+            <span className={`font-mono text-lg font-bold tabular-nums ${swRunning ? "text-primary" : "text-foreground"}`}>
+              {formatStopwatch(swElapsed)}
+            </span>
+          </div>
+
+          {!swRunning && swElapsed === 0 && (
+            <div className="grid grid-cols-2 gap-2">
+              <Input placeholder="Responsável *" value={swUser} onChange={e => setSwUser(e.target.value)} className="h-8 text-xs" />
+              <Input placeholder="Descrição" value={swDesc} onChange={e => setSwDesc(e.target.value)} className="h-8 text-xs" />
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            {!swRunning && swElapsed === 0 && (
+              <Button size="sm" className="gap-1.5 text-xs bg-primary text-primary-foreground" onClick={() => { if (swUser.trim()) setSwRunning(true); }} disabled={!swUser.trim()}>
+                <Play className="h-3.5 w-3.5" /> Iniciar
+              </Button>
+            )}
+            {swRunning && (
+              <>
+                <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setSwRunning(false)}>
+                  <Pause className="h-3.5 w-3.5" /> Pausar
+                </Button>
+                <Button size="sm" variant="destructive" className="gap-1.5 text-xs" onClick={handleSwStop}>
+                  <Square className="h-3 w-3" /> Parar e Salvar
+                </Button>
+              </>
+            )}
+            {!swRunning && swElapsed > 0 && (
+              <>
+                <Button size="sm" className="gap-1.5 text-xs bg-primary text-primary-foreground" onClick={() => setSwRunning(true)}>
+                  <Play className="h-3.5 w-3.5" /> Retomar
+                </Button>
+                <Button size="sm" variant="destructive" className="gap-1.5 text-xs" onClick={handleSwStop}>
+                  <Square className="h-3 w-3" /> Parar e Salvar ({Math.max(1, Math.round(swElapsed / 60))}min)
+                </Button>
+                <Button size="sm" variant="ghost" className="text-xs" onClick={() => { setSwElapsed(0); setSwRunning(false); }}>
+                  <X className="h-3 w-3" /> Descartar
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Manual entry */}
         <div className="flex gap-2">
           <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => setShowTimeForm(!showTimeForm)}>
-            <Plus className="h-3 w-3" /> Lançar Tempo
+            <Plus className="h-3 w-3" /> Lançar Tempo Manual
           </Button>
         </div>
         {showTimeForm && (
