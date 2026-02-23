@@ -1,5 +1,6 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { useJobsData } from "./useJobsData";
+import { supabase } from "@/integrations/supabase/client";
 import type { Job, JobsFilters, JobsByStage } from "./types";
 import { formatBRL, DEFAULT_STAGES } from "./types";
 import { getActiveBoards, type Board } from "@/stores/boardsStore";
@@ -17,7 +18,7 @@ import {
 } from "@hello-pangea/dnd";
 import {
   Search, RefreshCw, Loader2, Plus, LayoutGrid, List,
-  Calendar, Settings2,
+  Calendar, Settings2, Users,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
@@ -38,7 +39,16 @@ const JobsKanban: React.FC = () => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("aberto");
   const [productionType, setProductionType] = useState("todos");
+  const [filterResponsavel, setFilterResponsavel] = useState("todos");
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+
+  // Fetch colaboradores for filter
+  const [colaboradores, setColaboradores] = useState<string[]>([]);
+  React.useEffect(() => {
+    supabase.from("colaboradores").select("nome").eq("status", "ativo").order("nome").then(({ data }) => {
+      if (data) setColaboradores(data.map(c => c.nome));
+    });
+  }, []);
 
   const now = new Date();
   const dateFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
@@ -47,7 +57,25 @@ const JobsKanban: React.FC = () => {
   const { data, isLoading, isFetching, refetch, isError } = useJobsData(filters, activeBoard);
 
   const [localByStage, setLocalByStage] = useState<JobsByStage[] | null>(null);
-  const byStage = localByStage || data?.byStage || [];
+
+  // Apply colaborador filter on top of data
+  const filteredData = useMemo(() => {
+    if (!data) return data;
+    if (filterResponsavel === "todos") return data;
+    const filterJobs = (jobs: Job[]) => jobs.filter(j =>
+      j.responsible.some(r => r.name === filterResponsavel)
+    );
+    return {
+      ...data,
+      jobs: filterJobs(data.jobs),
+      byStage: data.byStage.map(col => {
+        const filtered = filterJobs(col.jobs);
+        return { ...col, jobs: filtered, totalValue: filtered.reduce((s, j) => s + j.value, 0) };
+      }),
+    };
+  }, [data, filterResponsavel]);
+
+  const byStage = localByStage || filteredData?.byStage || [];
 
   React.useEffect(() => { if (data?.byStage) setLocalByStage(null); }, [data?.byStage]);
 
@@ -171,6 +199,14 @@ const JobsKanban: React.FC = () => {
           </SelectContent>
         </Select>
 
+        <Select value={filterResponsavel} onValueChange={setFilterResponsavel}>
+          <SelectTrigger className="w-[200px] h-9"><Users className="h-4 w-4 mr-1 text-[#6b7280]" /><SelectValue placeholder="Colaborador" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos colaboradores</SelectItem>
+            {colaboradores.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
         <div className="flex items-center gap-1.5 text-sm text-[#6b7280] border rounded-md px-3 h-9">
           <Calendar className="h-4 w-4" />
           <span>De {new Date(dateFrom).toLocaleDateString("pt-BR")} até {now.toLocaleDateString("pt-BR")}</span>
@@ -250,7 +286,7 @@ const JobsKanban: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {data?.jobs.map(job => {
+                {filteredData?.jobs.map(job => {
                   const stageCfg = byStage.find(s => s.stage.id === job.stage)?.stage;
                   const overdue = job.delivery_date && new Date(job.delivery_date) < new Date();
                   return (
@@ -268,7 +304,7 @@ const JobsKanban: React.FC = () => {
                 })}
               </tbody>
             </table>
-            {(!data?.jobs || data.jobs.length === 0) && (
+            {(!filteredData?.jobs || filteredData.jobs.length === 0) && (
               <div className="text-center py-12 text-[#6b7280]">Nenhum job encontrado</div>
             )}
           </div>
