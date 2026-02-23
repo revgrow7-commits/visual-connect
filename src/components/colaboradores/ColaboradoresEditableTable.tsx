@@ -42,64 +42,31 @@ const ColaboradoresEditableTable: React.FC<Props> = ({ colaboradores, loading, o
   const [saving, setSaving] = useState(false);
   const [expandedSst, setExpandedSst] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const stickyBarRef = useRef<HTMLDivElement>(null);
-  const [scrollWidth, setScrollWidth] = useState(0);
-  const [clientWidth, setClientWidth] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
-  const [showStickyBar, setShowStickyBar] = useState(false);
-  const syncing = useRef(false);
+  const [scrollPercent, setScrollPercent] = useState(0);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
-    const update = () => {
-      setScrollWidth(el.scrollWidth);
-      setClientWidth(el.clientWidth);
+    const ro = new ResizeObserver(() => {});
+
+    const onScroll = () => {
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      setScrollPercent(maxScroll > 0 ? (el.scrollLeft / maxScroll) * 100 : 0);
     };
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
+    el.addEventListener("scroll", onScroll);
 
-    // Check if the table's native scrollbar is off-screen
-    const checkVisibility = () => {
-      const rect = el.getBoundingClientRect();
-      const bottomOfTable = rect.bottom;
-      setShowStickyBar(bottomOfTable > window.innerHeight && el.scrollWidth > el.clientWidth);
-    };
-    checkVisibility();
-    window.addEventListener("scroll", checkVisibility, true);
-    window.addEventListener("resize", checkVisibility);
+    return () => { ro.disconnect(); el.removeEventListener("scroll", onScroll); };
+  }, [loading, colaboradores]);
 
-    const onTableScroll = () => {
-      if (syncing.current) return;
-      syncing.current = true;
-      setScrollLeft(el.scrollLeft);
-      requestAnimationFrame(() => { syncing.current = false; });
-    };
-    el.addEventListener("scroll", onTableScroll);
-
-    return () => {
-      ro.disconnect();
-      el.removeEventListener("scroll", onTableScroll);
-      window.removeEventListener("scroll", checkVisibility, true);
-      window.removeEventListener("resize", checkVisibility);
-    };
-  }, [loading]);
-
-  const handleStickyScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    if (syncing.current) return;
-    syncing.current = true;
-    if (scrollRef.current) scrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
-    requestAnimationFrame(() => { syncing.current = false; });
-  };
-
-  // Keep sticky bar in sync
-  useEffect(() => {
-    if (stickyBarRef.current && !syncing.current) {
-      stickyBarRef.current.scrollLeft = scrollLeft;
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = Number(e.target.value);
+    setScrollPercent(val);
+    const el = scrollRef.current;
+    if (el) {
+      el.scrollLeft = (val / 100) * (el.scrollWidth - el.clientWidth);
     }
-  }, [scrollLeft]);
+  };
 
   const startEdit = useCallback((c: Colaborador) => {
     setEditingId(c.id);
@@ -247,22 +214,24 @@ const ColaboradoresEditableTable: React.FC<Props> = ({ colaboradores, loading, o
   }
 
   return (
-    <div>
-      <style>{`
-        .scrollbar-thin::-webkit-scrollbar { height: 10px; width: 8px; }
-        .scrollbar-thin::-webkit-scrollbar-track { background: hsl(var(--muted)); border-radius: 5px; }
-        .scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(var(--primary)); border-radius: 5px; }
-        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.8); }
-        .scrollbar-thin { scrollbar-width: thin; scrollbar-color: hsl(var(--primary)) hsl(var(--muted)); }
-        .sticky-scrollbar::-webkit-scrollbar { height: 14px; }
-        .sticky-scrollbar::-webkit-scrollbar-track { background: hsl(var(--muted)); border-radius: 7px; }
-        .sticky-scrollbar::-webkit-scrollbar-thumb { background: hsl(var(--primary)); border-radius: 7px; }
-        .sticky-scrollbar::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.8); }
-        .sticky-scrollbar { scrollbar-width: auto; scrollbar-color: hsl(var(--primary)) hsl(var(--muted)); }
-      `}</style>
+    <div className="overflow-hidden">
+      {/* Horizontal scroll slider - always visible for wide table */}
+      <div className="flex items-center gap-3 px-3 py-2 border-b bg-muted/30">
+        <span className="text-[10px] text-muted-foreground whitespace-nowrap font-medium">◀ Rolagem Horizontal ▶</span>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={0.5}
+          value={scrollPercent}
+          onChange={handleSliderChange}
+          className="w-full h-2 cursor-pointer rounded-full"
+          style={{ accentColor: "hsl(var(--primary))" }}
+        />
+      </div>
 
-      <div ref={scrollRef} className="overflow-x-auto scrollbar-thin" style={{ maxHeight: "70vh", overflowY: "auto" }}>
-      <Table className="text-xs">
+      <div ref={scrollRef} className="overflow-x-auto" style={{ maxHeight: "70vh", overflowY: "auto" }}>
+      <Table className="text-xs" style={{ minWidth: "3200px" }}>
         <TableHeader>
           <TableRow>
             <TableHead className="sticky left-0 z-10 bg-background min-w-[40px]">Ações</TableHead>
@@ -448,22 +417,6 @@ const ColaboradoresEditableTable: React.FC<Props> = ({ colaboradores, loading, o
       </Table>
       </div>
 
-      {/* Sticky floating scrollbar fixed at bottom of viewport */}
-      {showStickyBar && scrollWidth > clientWidth && (
-        <div
-          className="fixed bottom-0 left-0 right-0 z-30 bg-background/90 backdrop-blur-sm border-t shadow-lg"
-          style={{ paddingLeft: scrollRef.current?.getBoundingClientRect().left || 0, paddingRight: `calc(100vw - ${(scrollRef.current?.getBoundingClientRect().right || 0)}px)` }}
-        >
-          <div
-            ref={stickyBarRef}
-            className="overflow-x-auto sticky-scrollbar"
-            style={{ overflowY: "hidden" }}
-            onScroll={handleStickyScroll}
-          >
-            <div style={{ width: scrollWidth, height: 1 }} />
-          </div>
-        </div>
-      )}
     </div>
   );
 };
