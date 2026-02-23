@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Save, Pencil, X } from "lucide-react";
+import { Save, Pencil, X, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import type { Colaborador } from "./types";
@@ -40,6 +41,7 @@ const ColaboradoresEditableTable: React.FC<Props> = ({ colaboradores, loading, o
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<EditingRow>({});
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollPercent, setScrollPercent] = useState(0);
 
@@ -286,9 +288,46 @@ const ColaboradoresEditableTable: React.FC<Props> = ({ colaboradores, loading, o
                         </Button>
                       </div>
                     ) : (
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEdit(c)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
+                      <div className="flex gap-0.5">
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEdit(c)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir colaborador</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tem certeza que deseja excluir <strong>{c.nome}</strong>? Esta ação não pode ser desfeita.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                disabled={deletingId === c.id}
+                                onClick={async () => {
+                                  setDeletingId(c.id);
+                                  const { error } = await supabase.from("colaboradores").delete().eq("id", c.id);
+                                  setDeletingId(null);
+                                  if (error) {
+                                    toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+                                  } else {
+                                    toast({ title: "Colaborador excluído" });
+                                    onRefresh();
+                                  }
+                                }}
+                              >
+                                Excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     )}
                   </TableCell>
                   <TableCell>{renderCell(c, "matricula", c.matricula)}</TableCell>
