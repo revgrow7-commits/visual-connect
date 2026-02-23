@@ -43,7 +43,7 @@ const JobsKanban: React.FC = () => {
         .eq("board_id", boardId);
 
       // Insert new assignment
-      await supabase
+      const { error: insertError } = await supabase
         .from("job_board_assignments")
         .insert({
           job_id: job.id,
@@ -57,6 +57,14 @@ const JobsKanban: React.FC = () => {
           assigned_by: "Sistema",
           is_active: true,
         });
+
+      if (insertError) {
+        console.error("Erro ao inserir assignment:", insertError);
+        return;
+      }
+
+      // Invalidate query cache so next refetch uses the saved position
+      queryClient.invalidateQueries({ queryKey: ["holdprint-jobs-kanban"] });
 
       // Send email notification to board members (fire-and-forget)
       supabase.functions.invoke("job-movement-notify", {
@@ -83,7 +91,7 @@ const JobsKanban: React.FC = () => {
     } catch (err) {
       console.error("Erro ao persistir movimentação:", err);
     }
-  }, []);
+  }, [queryClient]);
 
   const visibleFlexfields = useMemo(
     () => activeBoard?.flexfields.filter(f => f.show_on_card) || [],
