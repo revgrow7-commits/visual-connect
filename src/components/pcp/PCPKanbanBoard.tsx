@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { initialPcpColumns, PCPCard as PCPCardType, PCPColumn } from "./pcpMockData";
 import { useKanbanHoldprintJobs } from "./useKanbanHoldprint";
 import { useTrelloBoardData, trelloColorToTw, type TrelloCard, type TrelloList } from "./useTrelloData";
@@ -314,6 +315,12 @@ const PCPKanbanBoard: React.FC = () => {
               className="h-7 w-40 pl-7 text-xs bg-white/15 border-white/20 text-white placeholder:text-white/40 focus:bg-white/25"
             />
           </div>
+
+          <Button asChild size="sm" variant="ghost" className="text-white hover:bg-white/10 h-7 px-2.5 gap-1 text-[11px] font-medium">
+            <Link to="/jobs">
+              <LayoutGrid className="h-3.5 w-3.5" /> Jobs
+            </Link>
+          </Button>
 
           <Badge className={`border-0 text-[10px] h-5 ${isError ? "bg-red-500/30 text-red-200" : "bg-white/20 text-white"}`}>
             {isError ? <><WifiOff className="h-3 w-3 mr-1" />Offline</> : <>{totalCards} cards</>}
