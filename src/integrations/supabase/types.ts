@@ -1181,6 +1181,60 @@ export type Database = {
         }
         Relationships: []
       }
+      job_stage_movements: {
+        Row: {
+          board_id: string
+          board_name: string
+          created_at: string
+          customer_name: string | null
+          from_stage_id: string | null
+          from_stage_name: string | null
+          id: string
+          job_code: number | null
+          job_id: string
+          job_title: string | null
+          metadata: Json | null
+          moved_by: string | null
+          movement_type: string
+          to_stage_id: string
+          to_stage_name: string
+        }
+        Insert: {
+          board_id: string
+          board_name: string
+          created_at?: string
+          customer_name?: string | null
+          from_stage_id?: string | null
+          from_stage_name?: string | null
+          id?: string
+          job_code?: number | null
+          job_id: string
+          job_title?: string | null
+          metadata?: Json | null
+          moved_by?: string | null
+          movement_type?: string
+          to_stage_id: string
+          to_stage_name: string
+        }
+        Update: {
+          board_id?: string
+          board_name?: string
+          created_at?: string
+          customer_name?: string | null
+          from_stage_id?: string | null
+          from_stage_name?: string | null
+          id?: string
+          job_code?: number | null
+          job_id?: string
+          job_title?: string | null
+          metadata?: Json | null
+          moved_by?: string | null
+          movement_type?: string
+          to_stage_id?: string
+          to_stage_name?: string
+        }
+        Relationships: []
+      }
       job_time_entries: {
         Row: {
           created_at: string

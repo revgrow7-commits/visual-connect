@@ -21,11 +21,13 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
+import { useRecordMovement } from "@/hooks/useJobStageMovements";
 
 const JobsKanban: React.FC = () => {
   const boards = useMemo(() => getActiveBoards(), []);
   const [activeBoardId, setActiveBoardId] = useState(boards[0]?.id || "");
   const activeBoard = useMemo(() => boards.find(b => b.id === activeBoardId) || boards[0] || null, [boards, activeBoardId]);
+  const recordMovement = useRecordMovement();
 
   const visibleFlexfields = useMemo(
     () => activeBoard?.flexfields.filter(f => f.show_on_card) || [],
@@ -56,7 +58,11 @@ const JobsKanban: React.FC = () => {
 
     const srcStage = source.droppableId;
     const dstStage = destination.droppableId;
-    const dstStageName = byStage.find(c => c.stage.id === dstStage)?.stage.name || dstStage;
+    const srcStageObj = byStage.find(c => c.stage.id === srcStage)?.stage;
+    const dstStageObj = byStage.find(c => c.stage.id === dstStage)?.stage;
+    const dstStageName = dstStageObj?.name || dstStage;
+
+    let movedJob: Job | undefined;
 
     setLocalByStage(prev => {
       const current = prev || data.byStage;
@@ -66,6 +72,7 @@ const JobsKanban: React.FC = () => {
       if (!srcCol || !dstCol) return prev;
 
       const [moved] = srcCol.jobs.splice(source.index, 1);
+      movedJob = moved;
       moved.stage = dstStage as Job["stage"];
       dstCol.jobs.splice(destination.index, 0, moved);
       srcCol.totalValue = srcCol.jobs.reduce((s, j) => s + j.value, 0);
@@ -73,8 +80,27 @@ const JobsKanban: React.FC = () => {
       return next;
     });
 
+    // Record movement in database for KPI
+    if (activeBoard) {
+      const job = movedJob || byStage.find(c => c.stage.id === srcStage)?.jobs[source.index];
+      recordMovement.mutate({
+        job_id: job?.id || result.draggableId,
+        job_code: job?.code,
+        job_title: job?.description,
+        customer_name: job?.client_name,
+        board_id: activeBoard.id,
+        board_name: activeBoard.name,
+        from_stage_id: srcStage,
+        from_stage_name: srcStageObj?.name || srcStage,
+        to_stage_id: dstStage,
+        to_stage_name: dstStageName,
+        movement_type: "drag_drop",
+        metadata: { value: job?.value, progress: job?.progress_percent },
+      });
+    }
+
     toast({ title: "Job movido", description: `Job movido para ${dstStageName}` });
-  }, [data, byStage]);
+  }, [data, byStage, activeBoard, recordMovement]);
 
   const stageConfigs = activeBoard?.stages || DEFAULT_STAGES;
 
@@ -254,6 +280,8 @@ const JobsKanban: React.FC = () => {
         open={!!selectedJob}
         onOpenChange={o => { if (!o) setSelectedJob(null); }}
         onStageChange={(jobId, newStage) => {
+          let fromStageId = "";
+          let fromStageName = "";
           // Update local state to reflect stage change
           setLocalByStage(prev => {
             const current = prev || data?.byStage || [];
@@ -262,6 +290,8 @@ const JobsKanban: React.FC = () => {
             for (const col of next) {
               const idx = col.jobs.findIndex(j => j.id === jobId);
               if (idx >= 0) {
+                fromStageId = col.stage.id;
+                fromStageName = col.stage.name;
                 [movedJob] = col.jobs.splice(idx, 1);
                 col.totalValue = col.jobs.reduce((s, j) => s + j.value, 0);
                 break;
@@ -278,6 +308,23 @@ const JobsKanban: React.FC = () => {
             }
             return next;
           });
+          // Record in DB for KPI
+          const destStageObj = byStage.find(c => c.stage.id === newStage)?.stage;
+          if (activeBoard) {
+            recordMovement.mutate({
+              job_id: jobId,
+              job_code: selectedJob?.code,
+              job_title: selectedJob?.description,
+              customer_name: selectedJob?.client_name,
+              board_id: activeBoard.id,
+              board_name: activeBoard.name,
+              from_stage_id: fromStageId,
+              from_stage_name: fromStageName,
+              to_stage_id: newStage,
+              to_stage_name: destStageObj?.name || newStage,
+              movement_type: "stage_change",
+            });
+          }
           toast({ title: "Etapa atualizada" });
         }}
       />
