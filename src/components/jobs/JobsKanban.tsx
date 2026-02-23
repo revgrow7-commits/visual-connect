@@ -329,40 +329,24 @@ const JobsKanban: React.FC = () => {
         </div>
       ) : viewMode === "kanban" ? (
         <DragDropContext onDragEnd={onDragEnd}>
-          <div className="flex-1 relative">
-            {/* Left scroll arrow */}
+          <div className="flex-1 flex items-stretch relative">
+            {/* Left scroll button */}
             <button
               onClick={() => scrollKanban("left")}
-              disabled={!canScrollLeft}
-              className={`absolute left-0 top-1/2 -translate-y-1/2 z-20 transition-all duration-200 ${
-                canScrollLeft
-                  ? "opacity-100 cursor-pointer"
-                  : "opacity-0 pointer-events-none"
+              className={`flex-shrink-0 w-10 flex items-center justify-center z-20 transition-opacity duration-200 ${
+                canScrollLeft ? "opacity-100 cursor-pointer" : "opacity-30 pointer-events-none"
               }`}
               aria-label="Rolar para esquerda"
             >
-              <div className="bg-[#1a2332] hover:bg-[#243044] text-white shadow-xl rounded-full p-2.5 hover:scale-110 transition-transform">
+              <div className="bg-[#1a2332] hover:bg-[#243044] text-white shadow-xl rounded-full p-2 hover:scale-110 transition-transform">
                 <ChevronLeft className="h-5 w-5" />
               </div>
             </button>
-            {/* Right scroll arrow */}
-            <button
-              onClick={() => scrollKanban("right")}
-              disabled={!canScrollRight}
-              className={`absolute right-0 top-1/2 -translate-y-1/2 z-20 transition-all duration-200 ${
-                canScrollRight
-                  ? "opacity-100 cursor-pointer"
-                  : "opacity-0 pointer-events-none"
-              }`}
-              aria-label="Rolar para direita"
-            >
-              <div className="bg-[#1a2332] hover:bg-[#243044] text-white shadow-xl rounded-full p-2.5 hover:scale-110 transition-transform">
-                <ChevronRight className="h-5 w-5" />
-              </div>
-            </button>
+
+            {/* Scrollable kanban area */}
             <div
               ref={scrollRef}
-              className="overflow-x-auto px-10 pb-4 scroll-smooth scrollbar-thin"
+              className="overflow-x-auto flex-1 pb-4 scroll-smooth scrollbar-thin"
             >
               <div className="flex gap-3 min-h-[calc(100vh-300px)]">
                 {byStage.map(col => (
@@ -399,6 +383,19 @@ const JobsKanban: React.FC = () => {
                 ))}
               </div>
             </div>
+
+            {/* Right scroll button */}
+            <button
+              onClick={() => scrollKanban("right")}
+              className={`flex-shrink-0 w-10 flex items-center justify-center z-20 transition-opacity duration-200 ${
+                canScrollRight ? "opacity-100 cursor-pointer" : "opacity-30 pointer-events-none"
+              }`}
+              aria-label="Rolar para direita"
+            >
+              <div className="bg-[#1a2332] hover:bg-[#243044] text-white shadow-xl rounded-full p-2 hover:scale-110 transition-transform">
+                <ChevronRight className="h-5 w-5" />
+              </div>
+            </button>
           </div>
         </DragDropContext>
       ) : (
