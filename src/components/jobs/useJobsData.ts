@@ -92,6 +92,7 @@ export function useJobsData(filters?: JobsFilters, activeBoard?: Board | null) {
   return useQuery({
     queryKey: ["holdprint-jobs-kanban", filters, activeBoard?.id],
     queryFn: async () => {
+      // Fetch jobs from ERP
       const { data, error } = await supabase.functions.invoke("cs-holdprint-data", {
         body: {
           endpoints: ["jobs"],
@@ -107,6 +108,24 @@ export function useJobsData(filters?: JobsFilters, activeBoard?: Board | null) {
 
       const rawJobs = (data.data?.jobs || []) as HoldprintJob[];
       let jobs = rawJobs.map(transformJob);
+
+      // Fetch saved board assignments to override ERP stages
+      if (activeBoard) {
+        const { data: assignments } = await supabase
+          .from("job_board_assignments")
+          .select("job_id, stage_id")
+          .eq("board_id", activeBoard.id)
+          .eq("is_active", true);
+
+        if (assignments && assignments.length > 0) {
+          const stageMap = new Map(assignments.map(a => [a.job_id, a.stage_id]));
+          jobs = jobs.map(j => {
+            const savedStage = stageMap.get(j.id);
+            if (savedStage) return { ...j, stage: savedStage as Stage };
+            return j;
+          });
+        }
+      }
 
       // Apply filters
       if (filters) {
