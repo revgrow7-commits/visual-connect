@@ -45,17 +45,38 @@ const TabItens: React.FC<Props> = ({ job }) => {
   const [showForm, setShowForm] = useState(false);
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", quantity: "1", unit: "un", format: "", unit_value: "", observation: "" });
+  const [importing, setImporting] = useState(false);
 
   // Merge: API items (read-only) + local items (CRUD)
   const apiItems = apiDetail?.items || [];
-  type MergedItem = { id: string; name: string; quantity: number; unit: string; subtotal: number; checked: boolean; description: string; format?: string; materials: any[]; _source: "api" | "local" };
+  type MergedItem = { id: string; name: string; quantity: number; unit: string; subtotal: number; checked: boolean; description: string; format?: string; unitPrice?: number; materials: any[]; _source: "api" | "local" };
   const allItems: MergedItem[] = [
-    ...apiItems.map(ai => ({ id: ai.id, _source: "api" as const, checked: false, name: ai.name, quantity: ai.quantity || 1, unit: ai.unit || "un", subtotal: ai.subtotal || 0, description: ai.description || "", materials: ai.materials || [] })),
+    ...apiItems.map(ai => ({ id: ai.id, _source: "api" as const, checked: false, name: ai.name, quantity: ai.quantity || 1, unit: ai.unit || "un", subtotal: ai.subtotal || 0, unitPrice: ai.unitPrice || 0, description: ai.description || "", materials: ai.materials || [] })),
     ...localItems.map(li => ({ id: li.id, _source: "local" as const, name: li.name, quantity: li.quantity, unit: li.unit, subtotal: li.total_value, checked: li.checked, description: li.observation || "", format: li.format || undefined, materials: [] })),
   ];
 
   const checkedCount = allItems.filter(i => i.checked).length;
   const totalValue = allItems.reduce((s, i) => s + (i.subtotal || 0), 0);
+
+  // Check which API items are already imported (by name match)
+  const localNames = new Set(localItems.map(li => li.name.toLowerCase().trim()));
+  const importableItems = apiItems.filter(ai => !localNames.has(ai.name.toLowerCase().trim()));
+
+  const handleImportAll = async () => {
+    if (importableItems.length === 0) return;
+    setImporting(true);
+    for (const ai of importableItems) {
+      const uv = ai.unitPrice || 0;
+      const qty = ai.quantity || 1;
+      await new Promise<void>((resolve, reject) => {
+        addItem.mutate(
+          { name: ai.name, quantity: qty, unit: ai.unit || "un", format: null, unit_value: uv, total_value: ai.subtotal || uv * qty, checked: false, observation: ai.description || null },
+          { onSuccess: () => resolve(), onError: () => resolve() }
+        );
+      });
+    }
+    setImporting(false);
+  };
 
   const handleAdd = () => {
     const uv = parseFloat(form.unit_value) || 0;
@@ -72,10 +93,18 @@ const TabItens: React.FC<Props> = ({ job }) => {
 
   return (
     <div className="p-5 space-y-3">
-      <div className="flex items-center justify-between">
-        <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setShowForm(!showForm)}>
-          <Plus className="h-3.5 w-3.5" /> Adicionar Item
-        </Button>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setShowForm(!showForm)}>
+            <Plus className="h-3.5 w-3.5" /> Adicionar Item
+          </Button>
+          {importableItems.length > 0 && (
+            <Button size="sm" variant="default" className="gap-1.5 text-xs" onClick={handleImportAll} disabled={importing}>
+              {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+              Importar do ERP ({importableItems.length})
+            </Button>
+          )}
+        </div>
         <span className="text-xs text-muted-foreground">
           Total: {allItems.length} itens | {formatBRL(totalValue)}
         </span>
