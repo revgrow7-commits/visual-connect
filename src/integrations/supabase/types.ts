@@ -1268,6 +1268,45 @@ export type Database = {
         }
         Relationships: []
       }
+      kanban_boards: {
+        Row: {
+          active: boolean
+          color: string
+          created_at: string
+          created_by: string | null
+          flexfields: Json
+          id: string
+          members: Json
+          name: string
+          stages: Json
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          flexfields?: Json
+          id: string
+          members?: Json
+          name: string
+          stages?: Json
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          flexfields?: Json
+          id?: string
+          members?: Json
+          name?: string
+          stages?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       onboarding_conversas: {
         Row: {
           cargo: string | null

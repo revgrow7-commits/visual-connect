@@ -1,5 +1,7 @@
-// Shared boards configuration store (localStorage-backed)
-// Used by both /admin/boards and /jobs Kanban
+// Shared boards configuration store
+// Uses Supabase as primary storage with localStorage as fallback/cache
+
+import { supabase } from "@/integrations/supabase/client";
 
 export interface FlexField {
   key: string;
@@ -96,10 +98,15 @@ export const DEFAULT_BOARDS: Board[] = [
   },
 ];
 
+// ─── localStorage helpers (fallback / cache) ───
+
 export function loadBoards(): Board[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as Board[];
+    if (raw) {
+      const parsed = JSON.parse(raw) as Board[];
+      return parsed.map(b => ({ ...b, members: b.members || [] }));
+    }
   } catch { /* ignore */ }
   return DEFAULT_BOARDS;
 }
@@ -114,4 +121,86 @@ export function getActiveBoards(): Board[] {
 
 export function getBoardById(id: string): Board | undefined {
   return loadBoards().find((b) => b.id === id);
+}
+
+// ─── Supabase persistence ───
+
+function rowToBoard(row: Record<string, unknown>): Board {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    color: row.color as string,
+    active: row.active as boolean,
+    stages: (row.stages || []) as BoardStage[],
+    flexfields: (row.flexfields || []) as FlexField[],
+    members: (row.members || []) as BoardMember[],
+  };
+}
+
+export async function loadBoardsFromDB(): Promise<Board[]> {
+  const { data, error } = await supabase
+    .from("kanban_boards")
+    .select("*")
+    .order("created_at");
+
+  if (error) {
+    console.error("Error loading boards from DB:", error);
+    return loadBoards();
+  }
+
+  if (!data || data.length === 0) {
+    // Seed DB with localStorage/default boards
+    const localBoards = loadBoards();
+    for (const board of localBoards) {
+      try { await saveBoardToDB(board); } catch { /* ignore */ }
+    }
+    return localBoards;
+  }
+
+  const boards = data.map(rowToBoard);
+  saveBoards(boards);
+  return boards;
+}
+
+export async function saveBoardToDB(board: Board): Promise<void> {
+  const payload = {
+    id: board.id,
+    name: board.name,
+    color: board.color,
+    active: board.active,
+    stages: JSON.parse(JSON.stringify(board.stages)),
+    flexfields: JSON.parse(JSON.stringify(board.flexfields)),
+    members: JSON.parse(JSON.stringify(board.members)),
+  };
+
+  // Try update first, then insert
+  const { data: existing } = await supabase
+    .from("kanban_boards")
+    .select("id")
+    .eq("id", board.id)
+    .maybeSingle();
+
+  let error;
+  if (existing) {
+    ({ error } = await supabase.from("kanban_boards").update(payload).eq("id", board.id));
+  } else {
+    ({ error } = await supabase.from("kanban_boards").insert(payload));
+  }
+
+  if (error) {
+    console.error("Error saving board to DB:", error);
+    throw error;
+  }
+}
+
+export async function deleteBoardFromDB(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("kanban_boards")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    console.error("Error deleting board from DB:", error);
+    throw error;
+  }
 }

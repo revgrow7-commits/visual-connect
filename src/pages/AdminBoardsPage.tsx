@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
-import { loadBoards, saveBoards, type Board, type BoardStage, type FlexField, type BoardMember } from "@/stores/boardsStore";
+import { loadBoards, saveBoards, loadBoardsFromDB, saveBoardToDB, deleteBoardFromDB, type Board, type BoardStage, type FlexField, type BoardMember } from "@/stores/boardsStore";
 import { supabase } from "@/integrations/supabase/client";
 
 const DEFAULT_COLORS = [
@@ -201,18 +201,46 @@ export default function AdminBoardsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // Load from DB on mount
+  useEffect(() => {
+    loadBoardsFromDB().then((dbBoards) => {
+      setBoards(dbBoards);
+      saveBoards(dbBoards);
+    });
+  }, []);
+
   const persist = (next: Board[]) => { setBoards(next); saveBoards(next); };
 
   const handleNew = () => { setEditingBoard(null); setDialogOpen(true); };
   const handleEdit = (board: Board) => { setEditingBoard(board); setDialogOpen(true); };
-  const handleSave = (board: Board) => {
+  const handleSave = async (board: Board) => {
     const exists = boards.find((b) => b.id === board.id);
-    persist(exists ? boards.map((b) => (b.id === board.id ? board : b)) : [...boards, board]);
+    const next = exists ? boards.map((b) => (b.id === board.id ? board : b)) : [...boards, board];
+    persist(next);
     setDialogOpen(false);
-    toast.success(editingBoard ? "Board atualizado com sucesso" : "Board criado com sucesso");
+    try {
+      await saveBoardToDB(board);
+      toast.success(editingBoard ? "Board atualizado com sucesso" : "Board criado com sucesso");
+    } catch {
+      toast.error("Erro ao salvar board no banco de dados");
+    }
   };
-  const handleDelete = (id: string) => { persist(boards.filter((b) => b.id !== id)); toast.success("Board removido"); };
-  const toggleActive = (id: string) => { persist(boards.map((b) => (b.id === id ? { ...b, active: !b.active } : b))); };
+  const handleDelete = async (id: string) => {
+    persist(boards.filter((b) => b.id !== id));
+    try {
+      await deleteBoardFromDB(id);
+      toast.success("Board removido");
+    } catch {
+      toast.error("Erro ao remover board do banco");
+    }
+  };
+  const toggleActive = async (id: string) => {
+    const board = boards.find((b) => b.id === id);
+    if (!board) return;
+    const updated = { ...board, active: !board.active };
+    persist(boards.map((b) => (b.id === id ? updated : b)));
+    try { await saveBoardToDB(updated); } catch { /* silent */ }
+  };
 
   return (
     <div className="space-y-6">
