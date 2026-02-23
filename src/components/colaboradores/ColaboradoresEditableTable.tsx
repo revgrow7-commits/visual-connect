@@ -42,35 +42,64 @@ const ColaboradoresEditableTable: React.FC<Props> = ({ colaboradores, loading, o
   const [saving, setSaving] = useState(false);
   const [expandedSst, setExpandedSst] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const topScrollRef = useRef<HTMLDivElement>(null);
+  const stickyBarRef = useRef<HTMLDivElement>(null);
   const [scrollWidth, setScrollWidth] = useState(0);
+  const [clientWidth, setClientWidth] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const [showStickyBar, setShowStickyBar] = useState(false);
+  const syncing = useRef(false);
 
-  // Sync top scrollbar ↔ table scroll
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
-    const updateWidth = () => setScrollWidth(el.scrollWidth);
-    updateWidth();
-    const ro = new ResizeObserver(updateWidth);
+    const update = () => {
+      setScrollWidth(el.scrollWidth);
+      setClientWidth(el.clientWidth);
+    };
+    update();
+    const ro = new ResizeObserver(update);
     ro.observe(el);
 
-    const syncFromTable = () => {
-      if (topScrollRef.current) topScrollRef.current.scrollLeft = el.scrollLeft;
+    // Check if the table's native scrollbar is off-screen
+    const checkVisibility = () => {
+      const rect = el.getBoundingClientRect();
+      const bottomOfTable = rect.bottom;
+      setShowStickyBar(bottomOfTable > window.innerHeight && el.scrollWidth > el.clientWidth);
     };
-    const syncFromTop = () => {
-      if (scrollRef.current) scrollRef.current.scrollLeft = topScrollRef.current!.scrollLeft;
-    };
+    checkVisibility();
+    window.addEventListener("scroll", checkVisibility, true);
+    window.addEventListener("resize", checkVisibility);
 
-    el.addEventListener("scroll", syncFromTable);
-    topScrollRef.current?.addEventListener("scroll", syncFromTop);
+    const onTableScroll = () => {
+      if (syncing.current) return;
+      syncing.current = true;
+      setScrollLeft(el.scrollLeft);
+      requestAnimationFrame(() => { syncing.current = false; });
+    };
+    el.addEventListener("scroll", onTableScroll);
 
     return () => {
-      el.removeEventListener("scroll", syncFromTable);
-      topScrollRef.current?.removeEventListener("scroll", syncFromTop);
       ro.disconnect();
+      el.removeEventListener("scroll", onTableScroll);
+      window.removeEventListener("scroll", checkVisibility, true);
+      window.removeEventListener("resize", checkVisibility);
     };
   }, [loading]);
+
+  const handleStickyScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (syncing.current) return;
+    syncing.current = true;
+    if (scrollRef.current) scrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+    requestAnimationFrame(() => { syncing.current = false; });
+  };
+
+  // Keep sticky bar in sync
+  useEffect(() => {
+    if (stickyBarRef.current && !syncing.current) {
+      stickyBarRef.current.scrollLeft = scrollLeft;
+    }
+  }, [scrollLeft]);
 
   const startEdit = useCallback((c: Colaborador) => {
     setEditingId(c.id);
@@ -219,25 +248,17 @@ const ColaboradoresEditableTable: React.FC<Props> = ({ colaboradores, loading, o
 
   return (
     <div>
-      {/* External top horizontal scrollbar */}
-      <div
-        ref={topScrollRef}
-        className="overflow-x-auto scrollbar-external"
-        style={{ overflowY: "hidden" }}
-      >
-        <div style={{ width: scrollWidth, height: 1 }} />
-      </div>
       <style>{`
-        .scrollbar-external::-webkit-scrollbar { height: 12px; }
-        .scrollbar-external::-webkit-scrollbar-track { background: hsl(var(--muted)); border-radius: 6px; }
-        .scrollbar-external::-webkit-scrollbar-thumb { background: hsl(var(--primary)); border-radius: 6px; min-width: 60px; }
-        .scrollbar-external::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.8); }
-        .scrollbar-external { scrollbar-width: auto; scrollbar-color: hsl(var(--primary)) hsl(var(--muted)); }
         .scrollbar-thin::-webkit-scrollbar { height: 10px; width: 8px; }
         .scrollbar-thin::-webkit-scrollbar-track { background: hsl(var(--muted)); border-radius: 5px; }
         .scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(var(--primary)); border-radius: 5px; }
         .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.8); }
         .scrollbar-thin { scrollbar-width: thin; scrollbar-color: hsl(var(--primary)) hsl(var(--muted)); }
+        .sticky-scrollbar::-webkit-scrollbar { height: 14px; }
+        .sticky-scrollbar::-webkit-scrollbar-track { background: hsl(var(--muted)); border-radius: 7px; }
+        .sticky-scrollbar::-webkit-scrollbar-thumb { background: hsl(var(--primary)); border-radius: 7px; }
+        .sticky-scrollbar::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.8); }
+        .sticky-scrollbar { scrollbar-width: auto; scrollbar-color: hsl(var(--primary)) hsl(var(--muted)); }
       `}</style>
 
       <div ref={scrollRef} className="overflow-x-auto scrollbar-thin" style={{ maxHeight: "70vh", overflowY: "auto" }}>
@@ -426,6 +447,23 @@ const ColaboradoresEditableTable: React.FC<Props> = ({ colaboradores, loading, o
         </TableBody>
       </Table>
       </div>
+
+      {/* Sticky floating scrollbar fixed at bottom of viewport */}
+      {showStickyBar && scrollWidth > clientWidth && (
+        <div
+          className="fixed bottom-0 left-0 right-0 z-30 bg-background/90 backdrop-blur-sm border-t shadow-lg"
+          style={{ paddingLeft: scrollRef.current?.getBoundingClientRect().left || 0, paddingRight: `calc(100vw - ${(scrollRef.current?.getBoundingClientRect().right || 0)}px)` }}
+        >
+          <div
+            ref={stickyBarRef}
+            className="overflow-x-auto sticky-scrollbar"
+            style={{ overflowY: "hidden" }}
+            onScroll={handleStickyScroll}
+          >
+            <div style={{ width: scrollWidth, height: 1 }} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
