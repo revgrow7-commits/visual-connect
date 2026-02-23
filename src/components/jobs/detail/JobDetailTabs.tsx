@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 import type { Job } from "../types";
 import { formatBRL, formatDateBR, isOverdue } from "../types";
 import { DEFAULT_STAGES } from "../types";
@@ -226,6 +228,7 @@ const TabProducao: React.FC<Props & { onStageChange?: (jobId: string, newStage: 
   const addTime = useAddTimeEntry(job.id);
 
   const [moveTarget, setMoveTarget] = useState<string | null>(null);
+  const [movingStage, setMovingStage] = useState(false);
   const [newTask, setNewTask] = useState("");
   const [showTimeForm, setShowTimeForm] = useState(false);
   const [timeForm, setTimeForm] = useState({ user_name: "", description: "", minutes: "", entry_date: new Date().toISOString().split("T")[0] });
@@ -275,15 +278,57 @@ const TabProducao: React.FC<Props & { onStageChange?: (jobId: string, newStage: 
   const progress = detail?.productionProgress ?? job.progress_percent;
   const totalMinutes = timeEntries.reduce((s, t) => s + t.minutes, 0);
 
-  const handleMoveStage = () => {
-    if (moveTarget && onStageChange) {
-      onStageChange(job.id, moveTarget);
-      logHistory(job.id, "stage_changed", `Etapa alterada`, {
+  const handleMoveStage = async () => {
+    if (!moveTarget) return;
+    setMovingStage(true);
+    try {
+      // Persist via Holdprint API
+      const unitKey = job._unit_key || "poa";
+      const { data: apiResult, error: apiError } = await supabase.functions.invoke("holdprint-erp", {
+        body: {
+          endpoint: `/api-key/jobs/${job.id}/production-step`,
+          method: "PUT",
+          payload: { stepName: moveTarget, status: "Started" },
+          unidade: unitKey,
+        },
+      });
+
+      if (apiError) {
+        console.warn("[stage-change] API error, falling back to local:", apiError.message);
+      }
+
+      // Update local UI via callback
+      if (onStageChange) {
+        onStageChange(job.id, moveTarget);
+      }
+
+      // Log to history
+      await logHistory(job.id, "stage_changed", `Etapa alterada para ${DEFAULT_STAGES.find(s => s.id === moveTarget)?.name || moveTarget}`, {
         from_stage: job.stage,
         to_stage: moveTarget,
+        api_synced: apiError ? "false" : "true",
       });
+
+      toast({
+        title: "Etapa atualizada",
+        description: apiError
+          ? "Salvo localmente (erro ao sincronizar com ERP)"
+          : `Job movido para ${DEFAULT_STAGES.find(s => s.id === moveTarget)?.name || moveTarget}`,
+      });
+    } catch (err: any) {
+      console.error("[stage-change] Error:", err);
+      // Still update locally even if API fails
+      if (onStageChange) onStageChange(job.id, moveTarget);
+      await logHistory(job.id, "stage_changed", `Etapa alterada (offline)`, {
+        from_stage: job.stage,
+        to_stage: moveTarget,
+        api_synced: "false",
+      });
+      toast({ title: "Etapa atualizada localmente", description: "Não foi possível sincronizar com o ERP" });
+    } finally {
+      setMovingStage(false);
+      setMoveTarget(null);
     }
-    setMoveTarget(null);
   };
 
   if (isLoading) return <LoadingSkeleton />;
@@ -319,8 +364,9 @@ const TabProducao: React.FC<Props & { onStageChange?: (jobId: string, newStage: 
               <div key={i} className="flex items-center gap-1">
                 <button
                   onClick={() => {
-                    if (!isFinalized && !isCurrent && !isTask) setMoveTarget(stageId);
+                    if (!isFinalized && !isCurrent) setMoveTarget(stageId);
                   }}
+                  disabled={isFinalized || isCurrent || movingStage}
                   className={`px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-all ${
                     isCurrent ? "text-white shadow-md" : isFinalized ? "bg-muted text-muted-foreground" : "bg-muted/50 text-muted-foreground/60 hover:bg-muted"
                   }`}
@@ -450,17 +496,21 @@ const TabProducao: React.FC<Props & { onStageChange?: (jobId: string, newStage: 
       </div>
 
       {/* Move stage dialog */}
-      <AlertDialog open={!!moveTarget} onOpenChange={() => setMoveTarget(null)}>
+      <AlertDialog open={!!moveTarget} onOpenChange={(open) => { if (!open && !movingStage) setMoveTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Mover para próxima etapa?</AlertDialogTitle>
+            <AlertDialogTitle>Alterar etapa de produção?</AlertDialogTitle>
             <AlertDialogDescription>
-              {stageCfg?.name} → {DEFAULT_STAGES.find(s => s.id === moveTarget)?.name || moveTarget}
+              <span className="font-medium">{stageCfg?.name || job.stage}</span> → <span className="font-medium">{DEFAULT_STAGES.find(s => s.id === moveTarget)?.name || moveTarget}</span>
+              <br />
+              <span className="text-xs mt-1 block">A mudança será sincronizada com o ERP Holdprint.</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleMoveStage}>Confirmar →</AlertDialogAction>
+            <AlertDialogCancel disabled={movingStage}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleMoveStage} disabled={movingStage}>
+              {movingStage ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" /> Salvando...</> : "Confirmar →"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
