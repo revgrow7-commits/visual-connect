@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ArrowLeft, Plus, Pencil, Trash2, GripVertical, LayoutGrid, Settings2, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowLeft, Plus, Pencil, Trash2, GripVertical, LayoutGrid, Settings2, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, X, Users, Check } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,8 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
-import { loadBoards, saveBoards, type Board, type BoardStage, type FlexField } from "@/stores/boardsStore";
+import { loadBoards, saveBoards, type Board, type BoardStage, type FlexField, type BoardMember } from "@/stores/boardsStore";
+import { supabase } from "@/integrations/supabase/client";
 
 const DEFAULT_COLORS = [
   "#1DB899", "#6366F1", "#F59E0B", "#3B82F6", "#8B5CF6",
@@ -75,8 +77,17 @@ function StageRow({ stage, onUpdate, onDelete }: { stage: BoardStage; onUpdate: 
 
 // ─── Board Editor Dialog ───
 function BoardEditorDialog({ board, open, onClose, onSave }: { board: Board | null; open: boolean; onClose: () => void; onSave: (b: Board) => void }) {
-  const [editBoard, setEditBoard] = useState<Board>(board || { id: `board-${Date.now()}`, name: "", color: "#1DB899", active: true, stages: [{ id: "etapa_1", name: "Etapa 1", color: "#6366F1" }, { id: "etapa_2", name: "Etapa 2", color: "#22C55E" }], flexfields: [] });
-  const [activeSection, setActiveSection] = useState<"info" | "stages" | "fields">("info");
+  const [editBoard, setEditBoard] = useState<Board>(board || { id: `board-${Date.now()}`, name: "", color: "#1DB899", active: true, stages: [{ id: "etapa_1", name: "Etapa 1", color: "#6366F1" }, { id: "etapa_2", name: "Etapa 2", color: "#22C55E" }], flexfields: [], members: [] });
+  const [activeSection, setActiveSection] = useState<"info" | "stages" | "fields" | "members">("info");
+  const [colaboradores, setColaboradores] = useState<{ id: string; nome: string; cargo: string | null; setor: string | null }[]>([]);
+  const [memberSearch, setMemberSearch] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    supabase.from("colaboradores").select("id, nome, cargo, setor").eq("status", "ativo").order("nome").then(({ data }) => {
+      if (data) setColaboradores(data);
+    });
+  }, [open]);
 
   // Sync when board prop changes
   useState(() => { if (board) setEditBoard(board); });
@@ -87,6 +98,15 @@ function BoardEditorDialog({ board, open, onClose, onSave }: { board: Board | nu
   const updateField = (idx: number, f: FlexField) => { const ff = [...editBoard.flexfields]; ff[idx] = f; setEditBoard({ ...editBoard, flexfields: ff }); };
   const deleteField = (idx: number) => setEditBoard({ ...editBoard, flexfields: editBoard.flexfields.filter((_, i) => i !== idx) });
   const addField = () => setEditBoard({ ...editBoard, flexfields: [...editBoard.flexfields, { key: `campo_${editBoard.flexfields.length + 1}`, label: "Novo Campo", type: "text", required: false, show_on_card: false }] });
+  const toggleMember = (col: { id: string; nome: string; cargo: string | null; setor: string | null }) => {
+    const exists = editBoard.members.find((m) => m.id === col.id);
+    if (exists) {
+      setEditBoard({ ...editBoard, members: editBoard.members.filter((m) => m.id !== col.id) });
+    } else {
+      setEditBoard({ ...editBoard, members: [...editBoard.members, { id: col.id, nome: col.nome, cargo: col.cargo, setor: col.setor }] });
+    }
+  };
+  const removeMember = (id: string) => setEditBoard({ ...editBoard, members: editBoard.members.filter((m) => m.id !== id) });
 
   const handleSave = () => {
     if (!editBoard.name.trim()) { toast.error("Nome do board é obrigatório"); return; }
@@ -99,9 +119,9 @@ function BoardEditorDialog({ board, open, onClose, onSave }: { board: Board | nu
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader><DialogTitle className="flex items-center gap-2"><LayoutGrid className="h-5 w-5" style={{ color: editBoard.color }} />{board ? "Editar Board" : "Novo Board"}</DialogTitle></DialogHeader>
         <div className="flex gap-1 border-b border-border pb-2">
-          {(["info", "stages", "fields"] as const).map((s) => (
+          {(["info", "stages", "fields", "members"] as const).map((s) => (
             <Button key={s} variant={activeSection === s ? "default" : "ghost"} size="sm" onClick={() => setActiveSection(s)} className="text-xs">
-              {s === "info" ? "Informações" : s === "stages" ? `Etapas (${editBoard.stages.length})` : `Campos (${editBoard.flexfields.length})`}
+              {s === "info" ? "Informações" : s === "stages" ? `Etapas (${editBoard.stages.length})` : s === "fields" ? `Campos (${editBoard.flexfields.length})` : `Membros (${editBoard.members.length})`}
             </Button>
           ))}
         </div>
@@ -124,6 +144,45 @@ function BoardEditorDialog({ board, open, onClose, onSave }: { board: Board | nu
             <p className="text-sm text-muted-foreground">Campos extras para jobs deste tipo de produção.</p>
             {editBoard.flexfields.map((field, idx) => <FlexfieldRow key={field.key + idx} field={field} onUpdate={(f) => updateField(idx, f)} onDelete={() => deleteField(idx)} />)}
             <Button variant="outline" size="sm" onClick={addField} className="w-full"><Plus className="h-4 w-4 mr-1" /> Adicionar Campo</Button>
+          </div>
+        )}
+        {activeSection === "members" && (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">Selecione os membros da equipe deste board a partir dos colaboradores ativos.</p>
+            {editBoard.members.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {editBoard.members.map((m) => (
+                  <Badge key={m.id} variant="secondary" className="flex items-center gap-1.5 py-1 px-2.5 text-sm">
+                    <Users className="h-3 w-3" />
+                    {m.nome}
+                    {m.cargo && <span className="text-muted-foreground text-xs">({m.cargo})</span>}
+                    <button onClick={() => removeMember(m.id)} className="ml-1 hover:text-destructive"><X className="h-3 w-3" /></button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+            <Command className="rounded-lg border border-border">
+              <CommandInput placeholder="Buscar colaborador..." value={memberSearch} onValueChange={setMemberSearch} />
+              <CommandList className="max-h-[200px]">
+                <CommandEmpty>Nenhum colaborador encontrado.</CommandEmpty>
+                <CommandGroup>
+                  {colaboradores.map((col) => {
+                    const selected = editBoard.members.some((m) => m.id === col.id);
+                    return (
+                      <CommandItem key={col.id} onSelect={() => toggleMember(col)} className="flex items-center justify-between cursor-pointer">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                          <span>{col.nome}</span>
+                          {col.cargo && <span className="text-xs text-muted-foreground">· {col.cargo}</span>}
+                          {col.setor && <span className="text-xs text-muted-foreground">· {col.setor}</span>}
+                        </div>
+                        {selected && <Check className="h-4 w-4 text-primary" />}
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              </CommandList>
+            </Command>
           </div>
         )}
         <DialogFooter>
@@ -178,7 +237,7 @@ export default function AdminBoardsPage() {
                   <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: board.color + "22" }}><LayoutGrid className="h-5 w-5" style={{ color: board.color }} /></div>
                   <div>
                     <CardTitle className="text-lg flex items-center gap-2">{board.name}{!board.active && <Badge variant="secondary" className="text-xs">Inativo</Badge>}</CardTitle>
-                    <p className="text-xs text-muted-foreground">{board.stages.length} etapas · {board.flexfields.length} campos extras</p>
+                    <p className="text-xs text-muted-foreground">{board.stages.length} etapas · {board.flexfields.length} campos extras · {(board.members || []).length} membros</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">

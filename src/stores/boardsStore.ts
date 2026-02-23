@@ -16,12 +16,20 @@ export interface BoardStage {
   color: string;
 }
 
+export interface BoardMember {
+  id: string;
+  nome: string;
+  cargo: string | null;
+  setor: string | null;
+}
+
 export interface Board {
   id: string;
   name: string;
   color: string;
   stages: BoardStage[];
   flexfields: FlexField[];
+  members: BoardMember[];
   active: boolean;
 }
 
@@ -33,6 +41,7 @@ export const DEFAULT_BOARDS: Board[] = [
     name: "Produção Completa",
     color: "#1DB899",
     active: true,
+    members: [],
     stages: [
       { id: "revisao_comercial", name: "Revisão Comercial", color: "#6366F1" },
       { id: "aprovacao_financeira", name: "Aprovação Financeira", color: "#F59E0B" },
@@ -56,6 +65,7 @@ export const DEFAULT_BOARDS: Board[] = [
     name: "Impressão Digital",
     color: "#3B82F6",
     active: true,
+    members: [],
     stages: [
       { id: "arte_final", name: "Arte Final", color: "#8B5CF6" },
       { id: "impressao", name: "Impressão", color: "#EC4899" },
@@ -73,6 +83,7 @@ export const DEFAULT_BOARDS: Board[] = [
     name: "Arte Final",
     color: "#8B5CF6",
     active: true,
+    members: [],
     stages: [
       { id: "revisao_comercial", name: "Revisão Comercial", color: "#6366F1" },
       { id: "arte_final", name: "Arte Final", color: "#8B5CF6" },
