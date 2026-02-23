@@ -32,8 +32,8 @@ const JobsKanban: React.FC = () => {
   const recordMovement = useRecordMovement();
   const queryClient = useQueryClient();
 
-  /** Persist stage change to job_board_assignments */
-  const persistStageChange = useCallback(async (job: Job, boardId: string, boardName: string, stageId: string, stageName: string) => {
+  /** Persist stage change to job_board_assignments and notify */
+  const persistStageChange = useCallback(async (job: Job, boardId: string, boardName: string, stageId: string, stageName: string, fromStageName?: string) => {
     try {
       // Deactivate old assignment for this job+board
       await supabase
@@ -57,6 +57,29 @@ const JobsKanban: React.FC = () => {
           assigned_by: "Sistema",
           is_active: true,
         });
+
+      // Send email notification to board members (fire-and-forget)
+      supabase.functions.invoke("job-movement-notify", {
+        body: {
+          job_id: job.id,
+          job_code: job.code,
+          job_title: job.description,
+          customer_name: job.client_name,
+          board_id: boardId,
+          board_name: boardName,
+          from_stage_name: fromStageName || "—",
+          to_stage_name: stageName,
+          moved_by: "Sistema",
+        },
+      }).then(({ data }) => {
+        if (data?.notified > 0) {
+          toast({
+            title: "📧 Notificação enviada",
+            description: `${data.notified} membro(s) do board "${boardName}" notificado(s)`,
+          });
+        }
+      }).catch(err => console.warn("Erro ao notificar:", err));
+
     } catch (err) {
       console.error("Erro ao persistir movimentação:", err);
     }
@@ -161,7 +184,7 @@ const JobsKanban: React.FC = () => {
 
     // Persist to DB
     if (activeBoard && movedJob) {
-      persistStageChange(movedJob, activeBoard.id, activeBoard.name, dstStage, dstStageName);
+      persistStageChange(movedJob, activeBoard.id, activeBoard.name, dstStage, dstStageName, srcStageObj?.name);
     }
 
     toast({ title: "Job movido", description: `Job movido para ${dstStageName}` });
@@ -399,7 +422,7 @@ const JobsKanban: React.FC = () => {
             });
             // Persist stage to DB
             if (selectedJob) {
-              persistStageChange(selectedJob, activeBoard.id, activeBoard.name, newStage, destStageObj?.name || newStage);
+              persistStageChange(selectedJob, activeBoard.id, activeBoard.name, newStage, destStageObj?.name || newStage, fromStageName);
             }
           }
           toast({ title: "Etapa atualizada" });

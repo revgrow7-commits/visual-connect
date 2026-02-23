@@ -707,26 +707,40 @@ const TabProducao: React.FC<Props & { onStageChange?: (jobId: string, newStage: 
         )}
       </div>
 
-      {/* Checklist */}
+      {/* Checklist de Produção */}
       <div className="border rounded-lg p-4 space-y-2">
         <div className="flex items-center justify-between">
           <h4 className="text-sm font-semibold">Checklist de Produção</h4>
           <span className="text-xs text-muted-foreground">{checklist.filter(c => c.checked).length}/{checklist.length}</span>
         </div>
+        {checklist.length > 0 && (
+          <Progress value={checklist.length > 0 ? (checklist.filter(c => c.checked).length / checklist.length) * 100 : 0} className="h-1.5" />
+        )}
         {checklist.map(task => (
-          <div key={task.id} className="flex items-center gap-2 py-1">
-            <Checkbox checked={task.checked} onCheckedChange={c => toggleTask.mutate({ taskId: task.id, checked: !!c })} />
+          <div key={task.id} className="flex items-center gap-2 py-1.5 group">
+            <Checkbox
+              checked={task.checked}
+              onCheckedChange={c => toggleTask.mutate({ taskId: task.id, checked: !!c })}
+              className={task.checked ? "data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600" : ""}
+            />
             <span className={`text-sm flex-1 ${task.checked ? "line-through text-muted-foreground" : ""}`}>{task.title}</span>
-            {task.responsible_name && <span className="text-xs text-muted-foreground">{task.responsible_name}</span>}
-            <button onClick={() => deleteTask.mutate(task.id)} className="text-destructive/60 hover:text-destructive"><Trash2 className="h-3 w-3" /></button>
+            {task.responsible_name && <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{task.responsible_name}</span>}
+            <button onClick={() => deleteTask.mutate(task.id)} className="text-destructive/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-3 w-3" /></button>
           </div>
         ))}
-        <div className="flex gap-2 pt-1">
-          <Input placeholder="Nova tarefa..." value={newTask} onChange={e => setNewTask(e.target.value)} className="h-8 text-sm"
-            onKeyDown={e => { if (e.key === "Enter" && newTask.trim()) { addTask.mutate(newTask.trim()); setNewTask(""); } }} />
-          <Button size="sm" variant="outline" className="h-8" onClick={() => { if (newTask.trim()) { addTask.mutate(newTask.trim()); setNewTask(""); } }}>
-            <Plus className="h-3 w-3" />
-          </Button>
+        <div className="pt-1">
+          <Input
+            placeholder="Adicionar nova tarefa..."
+            value={newTask}
+            onChange={e => setNewTask(e.target.value)}
+            className="h-9 text-sm border-destructive/30 bg-destructive/5 placeholder:text-muted-foreground/60 focus-visible:ring-destructive/30"
+            onKeyDown={e => {
+              if (e.key === "Enter" && newTask.trim()) {
+                addTask.mutate(newTask.trim());
+                setNewTask("");
+              }
+            }}
+          />
         </div>
       </div>
 
