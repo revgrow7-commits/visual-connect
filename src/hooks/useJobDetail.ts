@@ -122,12 +122,18 @@ export function useJobDetail(job: Job | null) {
       }
 
       // Fallback: Fetch full detail via cs-holdprint-data (bulk)
+      // Use job's creation date to narrow the search window
+      const jobDate = job?.created_at ? new Date(job.created_at) : null;
+      const startDate = jobDate
+        ? new Date(jobDate.getFullYear(), jobDate.getMonth() - 1, 1).toISOString().split("T")[0]
+        : "2024-01-01";
+
       const { data, error } = await supabase.functions.invoke("cs-holdprint-data", {
         body: {
           endpoints: ["jobs"],
-          startDate: "2024-01-01",
+          startDate,
           unit: unitKey,
-          maxPages: 15,
+          maxPages: 5,
           fullDetail: true,
         },
       });
