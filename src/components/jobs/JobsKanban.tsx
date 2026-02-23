@@ -249,7 +249,38 @@ const JobsKanban: React.FC = () => {
         </div>
       )}
 
-      <JobDetailDrawer job={selectedJob} open={!!selectedJob} onOpenChange={o => { if (!o) setSelectedJob(null); }} />
+      <JobDetailDrawer
+        job={selectedJob}
+        open={!!selectedJob}
+        onOpenChange={o => { if (!o) setSelectedJob(null); }}
+        onStageChange={(jobId, newStage) => {
+          // Update local state to reflect stage change
+          setLocalByStage(prev => {
+            const current = prev || data?.byStage || [];
+            const next = current.map(col => ({ ...col, jobs: [...col.jobs] }));
+            let movedJob: Job | undefined;
+            for (const col of next) {
+              const idx = col.jobs.findIndex(j => j.id === jobId);
+              if (idx >= 0) {
+                [movedJob] = col.jobs.splice(idx, 1);
+                col.totalValue = col.jobs.reduce((s, j) => s + j.value, 0);
+                break;
+              }
+            }
+            if (movedJob) {
+              movedJob.stage = newStage as Job["stage"];
+              const destCol = next.find(c => c.stage.id === newStage);
+              if (destCol) {
+                destCol.jobs.push(movedJob);
+                destCol.totalValue = destCol.jobs.reduce((s, j) => s + j.value, 0);
+              }
+              setSelectedJob({ ...movedJob });
+            }
+            return next;
+          });
+          toast({ title: "Etapa atualizada" });
+        }}
+      />
     </div>
   );
 };
