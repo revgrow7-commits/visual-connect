@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Save, Pencil, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Save, Pencil, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import type { Colaborador } from "./types";
@@ -41,6 +41,30 @@ const ColaboradoresEditableTable: React.FC<Props> = ({ colaboradores, loading, o
   const [editData, setEditData] = useState<EditingRow>({});
   const [saving, setSaving] = useState(false);
   const [expandedSst, setExpandedSst] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 5);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 5);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    checkScroll();
+    el.addEventListener("scroll", checkScroll);
+    const ro = new ResizeObserver(checkScroll);
+    ro.observe(el);
+    return () => { el.removeEventListener("scroll", checkScroll); ro.disconnect(); };
+  }, [checkScroll, loading]);
+
+  const scroll = (dir: "left" | "right") => {
+    scrollRef.current?.scrollBy({ left: dir === "left" ? -400 : 400, behavior: "smooth" });
+  };
 
   const startEdit = useCallback((c: Colaborador) => {
     setEditingId(c.id);
@@ -188,14 +212,33 @@ const ColaboradoresEditableTable: React.FC<Props> = ({ colaboradores, loading, o
   }
 
   return (
-    <div className="overflow-x-auto scrollbar-thin" style={{ maxHeight: "70vh", overflowY: "auto" }}>
-      <style>{`
-        .scrollbar-thin::-webkit-scrollbar { height: 10px; width: 8px; }
-        .scrollbar-thin::-webkit-scrollbar-track { background: hsl(var(--muted)); border-radius: 5px; }
-        .scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(var(--primary)); border-radius: 5px; }
-        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.8)); }
-        .scrollbar-thin { scrollbar-width: thin; scrollbar-color: hsl(var(--primary)) hsl(var(--muted)); }
-      `}</style>
+    <div className="relative">
+      {/* Scroll buttons */}
+      <button
+        onClick={() => scroll("left")}
+        className={`absolute left-2 top-1/2 -translate-y-1/2 z-20 transition-all duration-300 ${canScrollLeft ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+      >
+        <div className="bg-red-600 hover:bg-red-700 text-white shadow-lg rounded-full p-2 hover:scale-110 transition-transform animate-pulse">
+          <ChevronLeft className="h-5 w-5" />
+        </div>
+      </button>
+      <button
+        onClick={() => scroll("right")}
+        className={`absolute right-2 top-1/2 -translate-y-1/2 z-20 transition-all duration-300 ${canScrollRight ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+      >
+        <div className="bg-red-600 hover:bg-red-700 text-white shadow-lg rounded-full p-2 hover:scale-110 transition-transform animate-pulse">
+          <ChevronRight className="h-5 w-5" />
+        </div>
+      </button>
+
+      <div ref={scrollRef} className="overflow-x-auto scrollbar-thin" style={{ maxHeight: "70vh", overflowY: "auto" }}>
+        <style>{`
+          .scrollbar-thin::-webkit-scrollbar { height: 10px; width: 8px; }
+          .scrollbar-thin::-webkit-scrollbar-track { background: hsl(var(--muted)); border-radius: 5px; }
+          .scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(var(--primary)); border-radius: 5px; }
+          .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.8); }
+          .scrollbar-thin { scrollbar-width: thin; scrollbar-color: hsl(var(--primary)) hsl(var(--muted)); }
+        `}</style>
       <Table className="text-xs">
         <TableHeader>
           <TableRow>
@@ -380,6 +423,7 @@ const ColaboradoresEditableTable: React.FC<Props> = ({ colaboradores, loading, o
           )}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 };
