@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { getActiveBoards, type Board } from "@/stores/boardsStore";
+import { useAssignToBoard, useJobAssignments } from "@/hooks/useJobBoardAssignments";
 import {
   Package, Plus, Trash2, CheckCircle, Clock, MessageSquare,
   Loader2, ChevronDown, ChevronUp, Play, Send, X, Paperclip, FileText, Image, Download, Pause, Square, LayoutGrid, Check,
@@ -45,6 +46,8 @@ const TabItens: React.FC<Props> = ({ job }) => {
   const addItem = useAddJobItem(jobId);
   const toggleItem = useToggleJobItem(jobId);
   const deleteItem = useDeleteJobItem(jobId);
+  const assignToBoard = useAssignToBoard(jobId);
+  const { data: assignments = [] } = useJobAssignments(jobId);
 
   const [showForm, setShowForm] = useState(false);
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
@@ -105,10 +108,8 @@ const TabItens: React.FC<Props> = ({ job }) => {
       for (const ai of apiSelected) {
         const localMatch = localItems.find(li => li.name.toLowerCase().trim() === ai.name.toLowerCase().trim());
         if (localMatch) {
-          // Update existing local item's flexfields
           await supabase.from("job_items").update({ flexfields: boardFlexfields }).eq("id", localMatch.id);
         } else {
-          // Import as new local item with board flexfields
           await new Promise<void>((resolve) => {
             addItem.mutate(
               {
@@ -121,6 +122,25 @@ const TabItens: React.FC<Props> = ({ job }) => {
           });
         }
       }
+    }
+
+    // ── Persist to job_board_assignments table ──
+    try {
+      await assignToBoard.mutateAsync({
+        items: selected.map(i => ({
+          item_id: i._source === "local" ? i.id : undefined,
+          item_name: i.name,
+        })),
+        job_code: job.code,
+        job_title: job.description || job.client_name,
+        customer_name: job.client_name,
+        board_id: board.id,
+        board_name: board.name,
+        stage_id: firstStage?.id,
+        stage_name: firstStage?.name,
+      });
+    } catch (err: any) {
+      console.error("[assign-board] DB tracking error:", err);
     }
 
     // Log to job history for notification/audit trail
@@ -146,10 +166,25 @@ const TabItens: React.FC<Props> = ({ job }) => {
 
   // Merge: API items (read-only) + local items (CRUD)
   const apiItems = apiDetail?.items || [];
-  type MergedItem = { id: string; name: string; quantity: number; unit: string; subtotal: number; checked: boolean; description: string; format?: string; unitPrice?: number; materials: any[]; _source: "api" | "local"; flexfields?: Record<string, unknown> };
+  // Build assignment lookup by item name for badges
+  const assignmentsByName = React.useMemo(() => {
+    const map = new Map<string, { board_name: string; board_id: string; stage_name: string | null }>();
+    for (const a of assignments) {
+      if (a.is_active) map.set(a.item_name?.toLowerCase().trim() || "", { board_name: a.board_name, board_id: a.board_id, stage_name: a.stage_name });
+    }
+    return map;
+  }, [assignments]);
+
+  type MergedItem = { id: string; name: string; quantity: number; unit: string; subtotal: number; checked: boolean; description: string; format?: string; unitPrice?: number; materials: any[]; _source: "api" | "local"; flexfields?: Record<string, unknown>; assignment?: { board_name: string; board_id: string; stage_name: string | null } };
   const allItems: MergedItem[] = [
-    ...apiItems.map(ai => ({ id: ai.id, _source: "api" as const, checked: false, name: ai.name, quantity: ai.quantity || 1, unit: ai.unit || "un", subtotal: ai.subtotal || 0, unitPrice: ai.unitPrice || 0, description: ai.description || "", materials: ai.materials || [] })),
-    ...localItems.map(li => ({ id: li.id, _source: "local" as const, name: li.name, quantity: li.quantity, unit: li.unit, subtotal: li.total_value, checked: li.checked, description: li.observation || "", format: li.format || undefined, materials: [], flexfields: li.flexfields })),
+    ...apiItems.map(ai => {
+      const asgn = assignmentsByName.get(ai.name.toLowerCase().trim());
+      return { id: ai.id, _source: "api" as const, checked: false, name: ai.name, quantity: ai.quantity || 1, unit: ai.unit || "un", subtotal: ai.subtotal || 0, unitPrice: ai.unitPrice || 0, description: ai.description || "", materials: ai.materials || [], assignment: asgn };
+    }),
+    ...localItems.map(li => {
+      const asgn = assignmentsByName.get(li.name.toLowerCase().trim());
+      return { id: li.id, _source: "local" as const, name: li.name, quantity: li.quantity, unit: li.unit, subtotal: li.total_value, checked: li.checked, description: li.observation || "", format: li.format || undefined, materials: [], flexfields: li.flexfields as Record<string, unknown> | undefined, assignment: asgn };
+    }),
   ];
 
   const checkedCount = allItems.filter(i => i.checked).length;
@@ -311,9 +346,10 @@ const TabItens: React.FC<Props> = ({ job }) => {
                 {idx + 1}. {item.name}
               </span>
               {item._source === "api" && <Badge variant="outline" className="text-[9px] ml-1">API</Badge>}
-              {item.flexfields?.board_name && (
-                <Badge className="text-[9px] ml-1 text-white" style={{ backgroundColor: boards.find(b => b.id === item.flexfields?.board_id)?.color || "hsl(var(--primary))" }}>
-                  {String(item.flexfields.board_name)}
+              {item.assignment && (
+                <Badge className="text-[9px] ml-1 text-white" style={{ backgroundColor: boards.find(b => b.id === item.assignment.board_id)?.color || "hsl(var(--primary))" }}>
+                  {item.assignment.board_name}
+                  {item.assignment.stage_name && ` → ${item.assignment.stage_name}`}
                 </Badge>
               )}
             </div>
