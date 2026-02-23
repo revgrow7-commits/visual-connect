@@ -1091,6 +1091,53 @@ export type Database = {
         }
         Relationships: []
       }
+      job_item_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          collaborator_name: string
+          created_at: string
+          id: string
+          is_active: boolean
+          item_id: string | null
+          item_name: string
+          job_id: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          collaborator_name: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          item_id?: string | null
+          item_name: string
+          job_id: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          collaborator_name?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          item_id?: string | null
+          item_name?: string
+          job_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_item_assignments_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "job_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_items: {
         Row: {
           checked: boolean
