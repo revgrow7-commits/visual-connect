@@ -334,30 +334,30 @@ const JobsKanban: React.FC = () => {
             <button
               onClick={() => scrollKanban("left")}
               disabled={!canScrollLeft}
-              className={`absolute left-0 top-0 bottom-0 z-20 w-8 flex items-center justify-center transition-all ${
+              className={`absolute left-0 top-1/2 -translate-y-1/2 z-20 transition-all duration-200 ${
                 canScrollLeft
-                  ? "bg-gradient-to-r from-background via-background/80 to-transparent opacity-100 cursor-pointer hover:w-10"
+                  ? "opacity-100 cursor-pointer"
                   : "opacity-0 pointer-events-none"
               }`}
               aria-label="Rolar para esquerda"
             >
-              <div className="bg-white border border-border shadow-lg rounded-full p-2 hover:scale-110 transition-transform">
-                <ChevronLeft className="h-6 w-6 text-foreground" />
+              <div className="bg-[#1a2332] hover:bg-[#243044] text-white shadow-xl rounded-full p-2.5 hover:scale-110 transition-transform">
+                <ChevronLeft className="h-5 w-5" />
               </div>
             </button>
             {/* Right scroll arrow */}
             <button
               onClick={() => scrollKanban("right")}
               disabled={!canScrollRight}
-              className={`absolute right-0 top-0 bottom-0 z-20 w-8 flex items-center justify-center transition-all ${
+              className={`absolute right-0 top-1/2 -translate-y-1/2 z-20 transition-all duration-200 ${
                 canScrollRight
-                  ? "bg-gradient-to-l from-background via-background/80 to-transparent opacity-100 cursor-pointer hover:w-10"
+                  ? "opacity-100 cursor-pointer"
                   : "opacity-0 pointer-events-none"
               }`}
               aria-label="Rolar para direita"
             >
-              <div className="bg-white border border-border shadow-lg rounded-full p-2 hover:scale-110 transition-transform">
-                <ChevronRight className="h-6 w-6 text-foreground" />
+              <div className="bg-[#1a2332] hover:bg-[#243044] text-white shadow-xl rounded-full p-2.5 hover:scale-110 transition-transform">
+                <ChevronRight className="h-5 w-5" />
               </div>
             </button>
             <div
