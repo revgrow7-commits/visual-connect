@@ -1,7 +1,7 @@
 import {
   Heart, BookOpen, Award, Newspaper,
   FolderOpen, GraduationCap, Clock, Megaphone, ShieldAlert,
-  ClipboardList, MessageSquarePlus, Briefcase,
+  ClipboardList, MessageSquarePlus, Briefcase, Kanban,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -16,6 +16,7 @@ const atalhos = [
   { label: "Questionários", icon: ClipboardList, path: "/questionarios" },
   { label: "Vagas Internas", icon: Briefcase, path: "/rh/colaboradores" },
   { label: "Feedback PDI", icon: MessageSquarePlus, path: "https://empflow-22.emergent.host/create-feedback", external: true },
+  { label: "Jobs", icon: Kanban, path: "/jobs" },
 ];
 
 const AtalhosRapidos = () => {
