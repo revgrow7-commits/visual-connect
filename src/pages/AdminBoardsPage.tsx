@@ -77,20 +77,45 @@ function StageRow({ stage, onUpdate, onDelete }: { stage: BoardStage; onUpdate: 
 
 // ─── Board Editor Dialog ───
 function BoardEditorDialog({ board, open, onClose, onSave }: { board: Board | null; open: boolean; onClose: () => void; onSave: (b: Board) => void }) {
-  const [editBoard, setEditBoard] = useState<Board>(board || { id: `board-${Date.now()}`, name: "", color: "#1DB899", active: true, stages: [{ id: "etapa_1", name: "Etapa 1", color: "#6366F1" }, { id: "etapa_2", name: "Etapa 2", color: "#22C55E" }], flexfields: [], members: [] });
+  const emptyBoard = (): Board => ({
+    id: `board-${Date.now()}`,
+    name: "",
+    color: "#1DB899",
+    active: true,
+    stages: [
+      { id: "etapa_1", name: "Etapa 1", color: "#6366F1" },
+      { id: "etapa_2", name: "Etapa 2", color: "#22C55E" },
+    ],
+    flexfields: [],
+    members: [],
+  });
+
+  const [editBoard, setEditBoard] = useState<Board>(board || emptyBoard());
   const [activeSection, setActiveSection] = useState<"info" | "stages" | "fields" | "members">("info");
   const [colaboradores, setColaboradores] = useState<{ id: string; nome: string; cargo: string | null; setor: string | null }[]>([]);
   const [memberSearch, setMemberSearch] = useState("");
 
+  // Reset form state when dialog opens or board changes
+  useEffect(() => {
+    if (open) {
+      if (board) {
+        // Deep clone the board to avoid mutating the original
+        setEditBoard(JSON.parse(JSON.stringify(board)));
+      } else {
+        setEditBoard(emptyBoard());
+      }
+      setActiveSection("info");
+      setMemberSearch("");
+    }
+  }, [open, board]);
+
+  // Load colaboradores for member selection
   useEffect(() => {
     if (!open) return;
     supabase.from("colaboradores").select("id, nome, cargo, setor").eq("status", "ativo").order("nome").then(({ data }) => {
       if (data) setColaboradores(data);
     });
   }, [open]);
-
-  // Sync when board prop changes
-  useState(() => { if (board) setEditBoard(board); });
 
   const updateStage = (idx: number, s: BoardStage) => { const stages = [...editBoard.stages]; stages[idx] = s; setEditBoard({ ...editBoard, stages }); };
   const deleteStage = (idx: number) => setEditBoard({ ...editBoard, stages: editBoard.stages.filter((_, i) => i !== idx) });
