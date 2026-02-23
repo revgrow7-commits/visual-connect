@@ -56,6 +56,7 @@ const groups: NavGroup[] = [
       { label: "Jurídico", icon: Scale, path: "/gestao/juridico" },
       { label: "Processos", icon: BookOpen, path: "/processos" },
       { label: "Kanban", icon: Kanban, path: "/kanban" },
+      { label: "Jobs", icon: ClipboardList, path: "/jobs" },
       { label: "Questionários", icon: ClipboardList, path: "/questionarios" },
       { label: "Faixa Preta", icon: Award, path: "/faixa-preta" },
     ],
