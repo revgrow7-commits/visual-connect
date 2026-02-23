@@ -329,34 +329,40 @@ const JobsKanban: React.FC = () => {
         </div>
       ) : viewMode === "kanban" ? (
         <DragDropContext onDragEnd={onDragEnd}>
-          <div className="flex-1 relative group">
-            {/* Left scroll button */}
-            {canScrollLeft && (
-              <button
-                onClick={() => scrollKanban("left")}
-                className="absolute left-0 top-0 bottom-0 z-10 w-10 flex items-center justify-center bg-gradient-to-r from-background/90 to-transparent hover:from-background transition-all"
-                aria-label="Rolar para esquerda"
-              >
-                <div className="bg-white border border-border shadow-md rounded-full p-1.5">
-                  <ChevronLeft className="h-5 w-5 text-foreground" />
-                </div>
-              </button>
-            )}
-            {/* Right scroll button */}
-            {canScrollRight && (
-              <button
-                onClick={() => scrollKanban("right")}
-                className="absolute right-0 top-0 bottom-0 z-10 w-10 flex items-center justify-center bg-gradient-to-l from-background/90 to-transparent hover:from-background transition-all"
-                aria-label="Rolar para direita"
-              >
-                <div className="bg-white border border-border shadow-md rounded-full p-1.5">
-                  <ChevronRight className="h-5 w-5 text-foreground" />
-                </div>
-              </button>
-            )}
+          <div className="flex-1 relative">
+            {/* Left scroll arrow */}
+            <button
+              onClick={() => scrollKanban("left")}
+              disabled={!canScrollLeft}
+              className={`absolute left-0 top-0 bottom-0 z-20 w-8 flex items-center justify-center transition-all ${
+                canScrollLeft
+                  ? "bg-gradient-to-r from-background via-background/80 to-transparent opacity-100 cursor-pointer hover:w-10"
+                  : "opacity-0 pointer-events-none"
+              }`}
+              aria-label="Rolar para esquerda"
+            >
+              <div className="bg-white border border-border shadow-lg rounded-full p-2 hover:scale-110 transition-transform">
+                <ChevronLeft className="h-6 w-6 text-foreground" />
+              </div>
+            </button>
+            {/* Right scroll arrow */}
+            <button
+              onClick={() => scrollKanban("right")}
+              disabled={!canScrollRight}
+              className={`absolute right-0 top-0 bottom-0 z-20 w-8 flex items-center justify-center transition-all ${
+                canScrollRight
+                  ? "bg-gradient-to-l from-background via-background/80 to-transparent opacity-100 cursor-pointer hover:w-10"
+                  : "opacity-0 pointer-events-none"
+              }`}
+              aria-label="Rolar para direita"
+            >
+              <div className="bg-white border border-border shadow-lg rounded-full p-2 hover:scale-110 transition-transform">
+                <ChevronRight className="h-6 w-6 text-foreground" />
+              </div>
+            </button>
             <div
               ref={scrollRef}
-              className="overflow-x-auto px-6 pb-4 scroll-smooth scrollbar-thin"
+              className="overflow-x-auto px-10 pb-4 scroll-smooth scrollbar-thin"
             >
               <div className="flex gap-3 min-h-[calc(100vh-300px)]">
                 {byStage.map(col => (
