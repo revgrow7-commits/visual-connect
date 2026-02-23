@@ -107,12 +107,15 @@ const JobsKanban: React.FC = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [scrollPercent, setScrollPercent] = useState(0);
 
   const updateScrollButtons = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
     setCanScrollLeft(el.scrollLeft > 0);
     setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    setScrollPercent(maxScroll > 0 ? (el.scrollLeft / maxScroll) * 100 : 0);
   }, []);
 
   
@@ -329,6 +332,30 @@ const JobsKanban: React.FC = () => {
         </div>
       ) : viewMode === "kanban" ? (
         <DragDropContext onDragEnd={onDragEnd}>
+          {/* Horizontal scroll slider */}
+          <div className="px-6 pb-2">
+            <div className="flex items-center gap-3 px-3 py-1.5 rounded-md bg-muted/30 border">
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap font-medium">◀ Rolagem Horizontal ▶</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={0.5}
+                value={scrollPercent}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setScrollPercent(val);
+                  const el = scrollRef.current;
+                  if (el) {
+                    el.scrollLeft = (val / 100) * (el.scrollWidth - el.clientWidth);
+                  }
+                }}
+                className="w-full h-2 cursor-pointer rounded-full"
+                style={{ accentColor: "#1DB899" }}
+              />
+            </div>
+          </div>
+
           <div className="flex-1 flex items-stretch relative">
             {/* Left scroll button */}
             <button
