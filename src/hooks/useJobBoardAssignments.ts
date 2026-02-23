@@ -101,6 +101,25 @@ export function useAssignToBoard(jobId: string) {
         .insert(rows)
         .select();
       if (error) throw error;
+
+      // Record movement for KPI tracking
+      const movementRow = {
+        job_id: jobId,
+        job_code: payload.job_code || null,
+        job_title: payload.job_title || null,
+        customer_name: payload.customer_name || null,
+        board_id: payload.board_id,
+        board_name: payload.board_name,
+        from_stage_id: null,
+        from_stage_name: null,
+        to_stage_id: payload.stage_id || payload.board_id,
+        to_stage_name: payload.stage_name || payload.board_name,
+        moved_by: payload.assigned_by || "Sistema",
+        movement_type: "assignment",
+        metadata: { items: itemNames },
+      } as any;
+      await supabase.from("job_stage_movements").insert([movementRow]);
+
       return data;
     },
     onSuccess: () => {
