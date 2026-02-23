@@ -52,6 +52,7 @@ const HoldprintRelatorios = lazy(() => import("./pages/holdprint/RelatoriosPage"
 const HoldprintRelatorioDetalhe = lazy(() => import("./pages/holdprint/RelatorioDetalhePage"));
 const HoldprintConfiguracoes = lazy(() => import("./pages/holdprint/ConfiguracoesPage"));
 const JobsPage = lazy(() => import("./pages/JobsPage"));
+const AdminBoardsPage = lazy(() => import("./pages/AdminBoardsPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -95,6 +96,7 @@ const App = () => (
               <Route path="/endomarketing" element={<EndomarketingPage />} />
               <Route path="/perfil" element={<PerfilPage />} />
               <Route path="/admin" element={<AdminPage />} />
+              <Route path="/admin/boards" element={<AdminBoardsPage />} />
               <Route path="/rh/admissao" element={<RhAdmissaoPage />} />
               <Route path="/rh/colaboradores" element={<ColaboradoresPage />} />
               <Route path="/rh/banco-horas" element={<BancoHorasPage />} />
