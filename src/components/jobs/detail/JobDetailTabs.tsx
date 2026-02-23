@@ -98,24 +98,45 @@ const TabItens: React.FC<Props> = ({ job }) => {
     const selected = allItems.filter(i => selectedItems.has(`${i._source}-${i.id}`));
 
     try {
+      const collabNames = Array.from(selectedCollabs);
+      const itemNames = selected.map(i => i.name);
+
       await assignItemsToCollabs.mutateAsync({
         items: selected.map(i => ({
           item_id: i._source === "local" ? i.id : undefined,
           item_name: i.name,
         })),
-        collaborators: Array.from(selectedCollabs),
+        collaborators: collabNames,
       });
 
       await logHistory(
         jobId,
         "items_assigned_to_collaborator",
-        `${selected.length} item(ns) atribuído(s) a ${Array.from(selectedCollabs).join(", ")}`,
-        { collaborators: Array.from(selectedCollabs).join(", "), item_count: String(selected.length) }
+        `${selected.length} item(ns) atribuído(s) a ${collabNames.join(", ")}`,
+        { collaborators: collabNames.join(", "), item_count: String(selected.length) }
       );
+
+      // Fire notification email (fire-and-forget)
+      supabase.functions.invoke("job-movement-notify", {
+        body: {
+          action: "item_assignment",
+          job_id: jobId,
+          job_code: job.code,
+          job_title: job.description || job.client_name,
+          customer_name: job.client_name,
+          item_names: itemNames,
+          collaborators: collabNames,
+          assigned_by: "Sistema",
+        },
+      }).then(({ data }) => {
+        if (data?.notified > 0) {
+          toast({ title: "📧 Notificação enviada", description: `${data.notified} colaborador(es) notificado(s) por e-mail` });
+        }
+      }).catch(() => {});
 
       toast({
         title: "✅ Itens atribuídos",
-        description: `${selected.length} item(ns) → ${Array.from(selectedCollabs).join(", ")}`,
+        description: `${selected.length} item(ns) → ${collabNames.join(", ")}`,
       });
       setSelectedItems(new Set());
       setSelectedCollabs(new Set());
