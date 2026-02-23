@@ -332,7 +332,7 @@ const JobsKanban: React.FC = () => {
         </div>
       ) : viewMode === "kanban" ? (
         <DragDropContext onDragEnd={onDragEnd}>
-          {/* Horizontal scroll slider */}
+          {/* Top scroll slider */}
           <div className="px-6 pb-2">
             <div className="flex items-center gap-3 px-3 py-1.5 rounded-md bg-muted/30 border">
               <span className="text-[10px] text-muted-foreground whitespace-nowrap font-medium">◀ Rolagem Horizontal ▶</span>
@@ -423,6 +423,30 @@ const JobsKanban: React.FC = () => {
                 <ChevronRight className="h-6 w-6" />
               </div>
             </button>
+          </div>
+
+          {/* Bottom scroll slider */}
+          <div className="px-6 pt-2">
+            <div className="flex items-center gap-3 px-3 py-1.5 rounded-md bg-muted/30 border">
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap font-medium">◀ Rolagem Horizontal ▶</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={0.5}
+                value={scrollPercent}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setScrollPercent(val);
+                  const el = scrollRef.current;
+                  if (el) {
+                    el.scrollLeft = (val / 100) * (el.scrollWidth - el.clientWidth);
+                  }
+                }}
+                className="w-full h-2 cursor-pointer rounded-full"
+                style={{ accentColor: "#1DB899" }}
+              />
+            </div>
           </div>
         </DragDropContext>
       ) : (
