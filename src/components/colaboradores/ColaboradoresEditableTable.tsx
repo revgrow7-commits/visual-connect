@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Save, Pencil, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Save, Pencil, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import type { Colaborador } from "./types";
@@ -42,29 +42,35 @@ const ColaboradoresEditableTable: React.FC<Props> = ({ colaboradores, loading, o
   const [saving, setSaving] = useState(false);
   const [expandedSst, setExpandedSst] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const [scrollWidth, setScrollWidth] = useState(0);
 
-  const checkScroll = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 5);
-    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 5);
-  }, []);
-
+  // Sync top scrollbar ↔ table scroll
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    checkScroll();
-    el.addEventListener("scroll", checkScroll);
-    const ro = new ResizeObserver(checkScroll);
-    ro.observe(el);
-    return () => { el.removeEventListener("scroll", checkScroll); ro.disconnect(); };
-  }, [checkScroll, loading]);
 
-  const scroll = (dir: "left" | "right") => {
-    scrollRef.current?.scrollBy({ left: dir === "left" ? -400 : 400, behavior: "smooth" });
-  };
+    const updateWidth = () => setScrollWidth(el.scrollWidth);
+    updateWidth();
+    const ro = new ResizeObserver(updateWidth);
+    ro.observe(el);
+
+    const syncFromTable = () => {
+      if (topScrollRef.current) topScrollRef.current.scrollLeft = el.scrollLeft;
+    };
+    const syncFromTop = () => {
+      if (scrollRef.current) scrollRef.current.scrollLeft = topScrollRef.current!.scrollLeft;
+    };
+
+    el.addEventListener("scroll", syncFromTable);
+    topScrollRef.current?.addEventListener("scroll", syncFromTop);
+
+    return () => {
+      el.removeEventListener("scroll", syncFromTable);
+      topScrollRef.current?.removeEventListener("scroll", syncFromTop);
+      ro.disconnect();
+    };
+  }, [loading]);
 
   const startEdit = useCallback((c: Colaborador) => {
     setEditingId(c.id);
@@ -212,33 +218,29 @@ const ColaboradoresEditableTable: React.FC<Props> = ({ colaboradores, loading, o
   }
 
   return (
-    <div className="relative">
-      {/* Scroll buttons */}
-      <button
-        onClick={() => scroll("left")}
-        className={`absolute left-2 top-1/2 -translate-y-1/2 z-20 transition-all duration-300 ${canScrollLeft ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+    <div>
+      {/* External top horizontal scrollbar */}
+      <div
+        ref={topScrollRef}
+        className="overflow-x-auto scrollbar-external"
+        style={{ overflowY: "hidden" }}
       >
-        <div className="bg-red-600 hover:bg-red-700 text-white shadow-lg rounded-full p-2 hover:scale-110 transition-transform animate-pulse">
-          <ChevronLeft className="h-5 w-5" />
-        </div>
-      </button>
-      <button
-        onClick={() => scroll("right")}
-        className={`absolute right-2 top-1/2 -translate-y-1/2 z-20 transition-all duration-300 ${canScrollRight ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-      >
-        <div className="bg-red-600 hover:bg-red-700 text-white shadow-lg rounded-full p-2 hover:scale-110 transition-transform animate-pulse">
-          <ChevronRight className="h-5 w-5" />
-        </div>
-      </button>
+        <div style={{ width: scrollWidth, height: 1 }} />
+      </div>
+      <style>{`
+        .scrollbar-external::-webkit-scrollbar { height: 12px; }
+        .scrollbar-external::-webkit-scrollbar-track { background: hsl(var(--muted)); border-radius: 6px; }
+        .scrollbar-external::-webkit-scrollbar-thumb { background: hsl(var(--primary)); border-radius: 6px; min-width: 60px; }
+        .scrollbar-external::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.8); }
+        .scrollbar-external { scrollbar-width: auto; scrollbar-color: hsl(var(--primary)) hsl(var(--muted)); }
+        .scrollbar-thin::-webkit-scrollbar { height: 10px; width: 8px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: hsl(var(--muted)); border-radius: 5px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(var(--primary)); border-radius: 5px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.8); }
+        .scrollbar-thin { scrollbar-width: thin; scrollbar-color: hsl(var(--primary)) hsl(var(--muted)); }
+      `}</style>
 
       <div ref={scrollRef} className="overflow-x-auto scrollbar-thin" style={{ maxHeight: "70vh", overflowY: "auto" }}>
-        <style>{`
-          .scrollbar-thin::-webkit-scrollbar { height: 10px; width: 8px; }
-          .scrollbar-thin::-webkit-scrollbar-track { background: hsl(var(--muted)); border-radius: 5px; }
-          .scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(var(--primary)); border-radius: 5px; }
-          .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.8); }
-          .scrollbar-thin { scrollbar-width: thin; scrollbar-color: hsl(var(--primary)) hsl(var(--muted)); }
-        `}</style>
       <Table className="text-xs">
         <TableHeader>
           <TableRow>
