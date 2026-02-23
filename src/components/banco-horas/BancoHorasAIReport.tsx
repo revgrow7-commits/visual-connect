@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Brain, Loader2, TrendingUp, AlertTriangle, Users, DollarSign, Scale, ChevronDown, ChevronUp } from "lucide-react";
+import { Brain, Loader2, TrendingUp, AlertTriangle, Users, DollarSign, Scale, ChevronDown, ChevronUp, FileCheck, CheckCircle2, XCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,15 +12,17 @@ interface ColaboradorAnalise {
   nome: string;
   cargo: string;
   departamento: string;
-  nivel_alerta: string;
+  status: string;
   emoji: string;
   saldo: string;
   saldo_decimal: number;
-  horas_extras_50: string;
+  horas_extras_60: string;
+  horas_extras_80: string;
   horas_extras_100: string;
-  custo_projetado: number;
+  passivo_projetado: number;
   dias_para_vencer: number;
   data_vencimento: string;
+  carta_assinada: boolean;
   acoes_recomendadas: string[];
 }
 
@@ -29,23 +31,41 @@ interface AlertaCritico {
   motivo: string;
   acao_imediata: string;
   base_legal: string;
+  passivo_envolvido: number;
+}
+
+interface ChecklistConformidade {
+  cartas_assinadas: boolean;
+  vencimentos_por_quinzena: boolean;
+  adicionais_cct: boolean;
+  pagamento_2a_folha: boolean;
+  limite_dias_ponte: boolean;
+  feriados_atualizados: boolean;
+  encargos_incluidos: boolean;
+  reflexo_habituais: boolean;
 }
 
 interface AnaliseIA {
   resumo_executivo: {
     total_colaboradores: number;
     normais: number;
-    atencao: number;
-    criticos: number;
+    urgentes: number;
+    vencidos: number;
     saldo_total_horas: string;
-    custo_total_projetado: number;
-    custo_extras_50: number;
-    custo_extras_100: number;
+    total_he_registradas: number;
+    total_he_compensadas: number;
+    total_he_pendentes: number;
+    passivo_projetado: number;
+    passivo_extras_60: number;
+    passivo_extras_80: number;
+    passivo_extras_100: number;
     custo_inss: number;
     custo_fgts: number;
+    conformidade_percent: number;
   };
   colaboradores: ColaboradorAnalise[];
   alertas_criticos: AlertaCritico[];
+  checklist_conformidade: ChecklistConformidade;
   base_legal_aplicada: string[];
   recomendacoes_gerais: string[];
 }
@@ -58,14 +78,16 @@ interface BancoHorasAIReportProps {
 const formatCurrency = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
-const alertBadge = (nivel: string) => {
-  switch (nivel) {
-    case "critico":
-      return <Badge variant="destructive">🔴 Crítico</Badge>;
-    case "atencao":
-      return <Badge className="bg-amber-500 hover:bg-amber-600 text-white">⚠️ Atenção</Badge>;
+const statusBadge = (status: string) => {
+  switch (status) {
+    case "vencido":
+      return <Badge variant="destructive">🔴 Vencido</Badge>;
+    case "urgente":
+      return <Badge className="bg-amber-500 hover:bg-amber-600 text-white">🟡 Urgente</Badge>;
+    case "compensado":
+      return <Badge className="bg-muted text-muted-foreground">✅ Compensado</Badge>;
     default:
-      return <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white">✅ Normal</Badge>;
+      return <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white">🟢 No Prazo</Badge>;
   }
 };
 
@@ -74,6 +96,7 @@ const BancoHorasAIReport = ({ data, competencia }: BancoHorasAIReportProps) => {
   const [loading, setLoading] = useState(false);
   const [analise, setAnalise] = useState<AnaliseIA | null>(null);
   const [showLegal, setShowLegal] = useState(false);
+  const [showChecklist, setShowChecklist] = useState(false);
 
   const runAnalysis = async () => {
     if (data.length === 0) {
@@ -117,7 +140,7 @@ const BancoHorasAIReport = ({ data, competencia }: BancoHorasAIReportProps) => {
 
       const result = await res.json();
       setAnalise(result);
-      toast({ title: "Análise concluída", description: "Relatório gerado com base na CLT." });
+      toast({ title: "Análise concluída", description: "Relatório gerado com base na CCT EAA × SESCON-SP." });
     } catch (e: any) {
       toast({ title: "Erro na análise IA", description: e.message, variant: "destructive" });
     } finally {
@@ -130,13 +153,16 @@ const BancoHorasAIReport = ({ data, competencia }: BancoHorasAIReportProps) => {
       <Card className="border-dashed">
         <CardContent className="p-8 text-center">
           <Brain className="h-12 w-12 mx-auto mb-4 text-primary/60" />
-          <h3 className="font-semibold text-lg mb-2">Análise Inteligente CLT</h3>
-          <p className="text-muted-foreground text-sm mb-4 max-w-md mx-auto">
-            O agente de IA analisa o banco de horas com base na CLT, calcula custos projetados, identifica riscos e gera alertas automáticos.
+          <h3 className="font-semibold text-lg mb-2">Análise Inteligente — CCT + CLT</h3>
+          <p className="text-muted-foreground text-sm mb-1 max-w-md mx-auto">
+            O agente aplica as regras da CCT EAA × SESCON-SP 2025/2026 (Cl. 10, 41) sobre a base CLT.
+          </p>
+          <p className="text-muted-foreground text-xs mb-4 max-w-md mx-auto">
+            Adicionais 60%/80%/100% · Vencimento por quinzena (60 dias) · Checklist de conformidade
           </p>
           <Button onClick={runAnalysis} disabled={loading || data.length === 0} size="lg">
             {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Brain className="h-4 w-4 mr-2" />}
-            {loading ? "Analisando com IA..." : "Gerar Relatório com IA"}
+            {loading ? "Analisando com IA..." : "Gerar Relatório CCT + CLT"}
           </Button>
         </CardContent>
       </Card>
@@ -144,8 +170,6 @@ const BancoHorasAIReport = ({ data, competencia }: BancoHorasAIReportProps) => {
   }
 
   const r = analise.resumo_executivo;
-  const totalAlerts = r.atencao + r.criticos;
-  const safePercent = r.total_colaboradores > 0 ? Math.round((r.normais / r.total_colaboradores) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -153,86 +177,145 @@ const BancoHorasAIReport = ({ data, competencia }: BancoHorasAIReportProps) => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Brain className="h-5 w-5 text-primary" />
-          <h3 className="font-semibold">Relatório IA — Competência {competencia}</h3>
+          <div>
+            <h3 className="font-semibold text-sm">Relatório IA — {competencia}</h3>
+            <p className="text-xs text-muted-foreground">CCT EAA × SESCON-SP 2025/2026</p>
+          </div>
         </div>
         <Button variant="outline" size="sm" onClick={runAnalysis} disabled={loading}>
           {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Brain className="h-4 w-4 mr-2" />}
-          Atualizar Análise
+          Atualizar
         </Button>
       </div>
 
       {/* Summary cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="rounded-lg bg-primary/10 p-2"><Users className="h-5 w-5 text-primary" /></div>
-              <p className="text-sm font-medium text-muted-foreground">Colaboradores</p>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="rounded-lg bg-primary/10 p-1.5"><Users className="h-4 w-4 text-primary" /></div>
+              <p className="text-[11px] text-muted-foreground">Colaboradores</p>
             </div>
-            <p className="text-3xl font-bold">{r.total_colaboradores}</p>
-            <div className="flex gap-2 mt-2">
-              <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20">✅ {r.normais}</Badge>
-              <Badge className="bg-amber-500/10 text-amber-600 hover:bg-amber-500/20">⚠️ {r.atencao}</Badge>
-              <Badge className="bg-destructive/10 text-destructive hover:bg-destructive/20">🔴 {r.criticos}</Badge>
+            <p className="text-2xl font-bold">{r.total_colaboradores}</p>
+            <div className="flex gap-1.5 mt-2 flex-wrap">
+              <Badge className="bg-emerald-500/10 text-emerald-600 text-[10px] px-1.5">🟢 {r.normais}</Badge>
+              <Badge className="bg-amber-500/10 text-amber-600 text-[10px] px-1.5">🟡 {r.urgentes}</Badge>
+              <Badge className="bg-destructive/10 text-destructive text-[10px] px-1.5">🔴 {r.vencidos}</Badge>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="rounded-lg bg-destructive/10 p-2"><DollarSign className="h-5 w-5 text-destructive" /></div>
-              <p className="text-sm font-medium text-muted-foreground">Passivo Projetado</p>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="rounded-lg bg-destructive/10 p-1.5"><DollarSign className="h-4 w-4 text-destructive" /></div>
+              <p className="text-[11px] text-muted-foreground">Passivo CCT</p>
             </div>
-            <p className="text-2xl font-bold text-destructive">{formatCurrency(r.custo_total_projetado)}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Extras 50%: {formatCurrency(r.custo_extras_50)} · 100%: {formatCurrency(r.custo_extras_100)}
+            <p className="text-xl font-bold text-destructive">{formatCurrency(r.passivo_projetado)}</p>
+            <div className="text-[10px] text-muted-foreground mt-1 space-y-0.5">
+              <p>60%: {formatCurrency(r.passivo_extras_60)} · 80%: {formatCurrency(r.passivo_extras_80)}</p>
+              <p>100%: {formatCurrency(r.passivo_extras_100)}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="rounded-lg bg-primary/10 p-1.5"><TrendingUp className="h-4 w-4 text-primary" /></div>
+              <p className="text-[11px] text-muted-foreground">Encargos</p>
+            </div>
+            <p className="text-base font-bold">INSS: {formatCurrency(r.custo_inss)}</p>
+            <p className="text-base font-bold">FGTS: {formatCurrency(r.custo_fgts)}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="rounded-lg bg-emerald-100 dark:bg-emerald-900/30 p-1.5"><Scale className="h-4 w-4 text-emerald-600" /></div>
+              <p className="text-[11px] text-muted-foreground">Conformidade</p>
+            </div>
+            <p className={`text-2xl font-bold ${r.conformidade_percent >= 95 ? "text-emerald-600" : r.conformidade_percent >= 70 ? "text-amber-600" : "text-destructive"}`}>
+              {r.conformidade_percent}%
             </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="rounded-lg bg-primary/10 p-2"><TrendingUp className="h-5 w-5 text-primary" /></div>
-              <p className="text-sm font-medium text-muted-foreground">Encargos</p>
-            </div>
-            <p className="text-lg font-bold">INSS: {formatCurrency(r.custo_inss)}</p>
-            <p className="text-lg font-bold">FGTS: {formatCurrency(r.custo_fgts)}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="rounded-lg bg-emerald-100 dark:bg-emerald-900/30 p-2"><Scale className="h-5 w-5 text-emerald-600" /></div>
-              <p className="text-sm font-medium text-muted-foreground">Conformidade</p>
-            </div>
-            <p className="text-3xl font-bold text-emerald-600">{safePercent}%</p>
-            <Progress value={safePercent} className="mt-2 h-2" />
-            <p className="text-xs text-muted-foreground mt-1">{r.normais} de {r.total_colaboradores} dentro do limite</p>
+            <Progress value={r.conformidade_percent} className="mt-2 h-1.5" />
           </CardContent>
         </Card>
       </div>
 
+      {/* Checklist de Conformidade CCT */}
+      {analise.checklist_conformidade && (
+        <Collapsible open={showChecklist} onOpenChange={setShowChecklist}>
+          <Card>
+            <CardHeader className="pb-2 pt-4 px-4">
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="w-full justify-between p-0 h-auto">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <FileCheck className="h-4 w-4 text-primary" />
+                    Checklist de Conformidade CCT
+                  </CardTitle>
+                  {showChecklist ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </CollapsibleTrigger>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent className="px-4 pb-4">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {Object.entries(analise.checklist_conformidade).map(([key, value]) => {
+                    const labels: Record<string, string> = {
+                      cartas_assinadas: "Cartas de manifestação assinadas (Cl. 41.1)",
+                      vencimentos_por_quinzena: "Vencimentos calculados por quinzena (Cl. 41.2)",
+                      adicionais_cct: "Adicionais da CCT aplicados (60%/80%/100%)",
+                      pagamento_2a_folha: "Vencidos pagos até 2ª folha (Cl. 41.3)",
+                      limite_dias_ponte: "Dias-ponte ≤ 2h/dia (Cl. 41.6)",
+                      feriados_atualizados: "Calendário de feriados atualizado",
+                      encargos_incluidos: "Encargos (INSS+FGTS) incluídos no passivo",
+                      reflexo_habituais: "Reflexo HE em férias/13º/DSR (Cl. 7)",
+                    };
+                    return (
+                      <div key={key} className="flex items-center gap-2 text-xs">
+                        {value ? (
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-destructive shrink-0" />
+                        )}
+                        <span className={value ? "text-muted-foreground" : "text-destructive font-medium"}>
+                          {labels[key] || key}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
+
       {/* Critical alerts */}
       {analise.alertas_criticos.length > 0 && (
         <Card className="border-destructive/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2 text-destructive">
-              <AlertTriangle className="h-5 w-5" /> Alertas Críticos ({analise.alertas_criticos.length})
+          <CardHeader className="pb-3 pt-4 px-4">
+            <CardTitle className="text-sm flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-4 w-4" /> Alertas Críticos ({analise.alertas_criticos.length})
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="px-4 pb-4 space-y-2">
             {analise.alertas_criticos.map((a, i) => (
-              <div key={i} className="rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+              <div key={i} className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-semibold text-sm">🔴 {a.colaborador}</p>
-                    <p className="text-sm text-muted-foreground mt-1">{a.motivo}</p>
-                    <p className="text-sm font-medium mt-2">→ {a.acao_imediata}</p>
+                    <p className="font-semibold text-xs">🔴 {a.colaborador}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{a.motivo}</p>
+                    <p className="text-xs font-medium mt-1">→ {a.acao_imediata}</p>
                   </div>
-                  <Badge variant="outline" className="text-xs shrink-0">{a.base_legal}</Badge>
+                  <div className="text-right shrink-0">
+                    <Badge variant="outline" className="text-[10px]">{a.base_legal}</Badge>
+                    {a.passivo_envolvido > 0 && (
+                      <p className="text-[10px] text-destructive font-mono mt-1">{formatCurrency(a.passivo_envolvido)}</p>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -242,49 +325,57 @@ const BancoHorasAIReport = ({ data, competencia }: BancoHorasAIReportProps) => {
 
       {/* Detailed table */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Análise por Colaborador</CardTitle>
+        <CardHeader className="pb-2 pt-4 px-4">
+          <CardTitle className="text-sm">Análise Individual (CCT)</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Colaborador</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Saldo</TableHead>
-                  <TableHead className="text-right">Ex 50%</TableHead>
-                  <TableHead className="text-right">Ex 100%</TableHead>
-                  <TableHead className="text-right">Custo Proj.</TableHead>
-                  <TableHead className="text-right">Vencimento</TableHead>
-                  <TableHead>Ações Recomendadas</TableHead>
+                <TableRow className="text-xs">
+                  <TableHead className="text-xs">Colaborador</TableHead>
+                  <TableHead className="text-xs">Status</TableHead>
+                  <TableHead className="text-right text-xs">Saldo</TableHead>
+                  <TableHead className="text-right text-xs">60%</TableHead>
+                  <TableHead className="text-right text-xs">80%</TableHead>
+                  <TableHead className="text-right text-xs">100%</TableHead>
+                  <TableHead className="text-right text-xs">Passivo</TableHead>
+                  <TableHead className="text-right text-xs">Vence</TableHead>
+                  <TableHead className="text-xs">Carta</TableHead>
+                  <TableHead className="text-xs">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {analise.colaboradores.map((c, i) => (
-                  <TableRow key={i} className={c.nivel_alerta === "critico" ? "bg-destructive/5" : c.nivel_alerta === "atencao" ? "bg-amber-500/5" : ""}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium text-sm">{c.nome}</p>
-                        <p className="text-xs text-muted-foreground">{c.cargo}</p>
-                      </div>
+                  <TableRow key={i} className={c.status === "vencido" ? "bg-destructive/5" : c.status === "urgente" ? "bg-amber-500/5" : ""}>
+                    <TableCell className="py-2">
+                      <p className="font-medium text-xs">{c.nome}</p>
+                      <p className="text-[10px] text-muted-foreground">{c.cargo}</p>
                     </TableCell>
-                    <TableCell>{alertBadge(c.nivel_alerta)}</TableCell>
-                    <TableCell className={`text-right font-mono text-sm font-bold ${c.saldo_decimal >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                    <TableCell className="py-2">{statusBadge(c.status)}</TableCell>
+                    <TableCell className={`text-right font-mono text-xs font-bold py-2 ${c.saldo_decimal >= 0 ? "text-emerald-600" : "text-destructive"}`}>
                       {c.saldo}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-sm">{c.horas_extras_50}</TableCell>
-                    <TableCell className="text-right font-mono text-sm">{c.horas_extras_100}</TableCell>
-                    <TableCell className="text-right font-mono text-sm font-bold text-destructive">
-                      {formatCurrency(c.custo_projetado)}
+                    <TableCell className="text-right font-mono text-xs py-2">{c.horas_extras_60}</TableCell>
+                    <TableCell className="text-right font-mono text-xs py-2">{c.horas_extras_80}</TableCell>
+                    <TableCell className="text-right font-mono text-xs py-2">{c.horas_extras_100}</TableCell>
+                    <TableCell className="text-right font-mono text-xs font-bold text-destructive py-2">
+                      {formatCurrency(c.passivo_projetado)}
                     </TableCell>
-                    <TableCell className="text-right text-sm">
-                      <span className={c.dias_para_vencer <= 30 ? "text-destructive font-bold" : ""}>
+                    <TableCell className="text-right text-xs py-2">
+                      <span className={c.dias_para_vencer <= 15 ? "text-destructive font-bold" : c.dias_para_vencer <= 30 ? "text-amber-600" : ""}>
                         {c.dias_para_vencer}d
                       </span>
                     </TableCell>
-                    <TableCell className="max-w-[200px]">
-                      <ul className="text-xs text-muted-foreground space-y-0.5">
+                    <TableCell className="py-2">
+                      {c.carta_assinada ? (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-destructive" />
+                      )}
+                    </TableCell>
+                    <TableCell className="max-w-[180px] py-2">
+                      <ul className="text-[10px] text-muted-foreground space-y-0.5">
                         {c.acoes_recomendadas?.slice(0, 2).map((a, j) => (
                           <li key={j}>• {a}</li>
                         ))}
@@ -301,41 +392,42 @@ const BancoHorasAIReport = ({ data, competencia }: BancoHorasAIReportProps) => {
       {/* Recommendations & Legal */}
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">📋 Recomendações Gerais</CardTitle>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-sm">📋 Recomendações</CardTitle>
           </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
+          <CardContent className="px-4 pb-4">
+            <ul className="space-y-1.5">
               {analise.recomendacoes_gerais.map((r, i) => (
-                <li key={i} className="text-sm flex gap-2">
-                  <span className="text-primary font-bold">{i + 1}.</span> {r}
+                <li key={i} className="text-xs flex gap-2">
+                  <span className="text-primary font-bold shrink-0">{i + 1}.</span>
+                  <span>{r}</span>
                 </li>
               ))}
             </ul>
           </CardContent>
         </Card>
 
-        <Card>
-          <Collapsible open={showLegal} onOpenChange={setShowLegal}>
-            <CardHeader className="pb-3">
+        <Collapsible open={showLegal} onOpenChange={setShowLegal}>
+          <Card>
+            <CardHeader className="pb-2 pt-4 px-4">
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" className="w-full justify-between p-0 h-auto">
-                  <CardTitle className="text-base">⚖️ Base Legal Aplicada</CardTitle>
+                  <CardTitle className="text-sm">⚖️ Base Legal Aplicada</CardTitle>
                   {showLegal ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </Button>
               </CollapsibleTrigger>
             </CardHeader>
             <CollapsibleContent>
-              <CardContent>
-                <ul className="space-y-1.5">
+              <CardContent className="px-4 pb-4">
+                <ul className="space-y-1">
                   {analise.base_legal_aplicada.map((b, i) => (
-                    <li key={i} className="text-xs text-muted-foreground">• {b}</li>
+                    <li key={i} className="text-[11px] text-muted-foreground">• {b}</li>
                   ))}
                 </ul>
               </CardContent>
             </CollapsibleContent>
-          </Collapsible>
-        </Card>
+          </Card>
+        </Collapsible>
       </div>
     </div>
   );

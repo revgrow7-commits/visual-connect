@@ -50,6 +50,7 @@ const BancoHorasTable = ({ data, loading }: TableProps) => (
               <TableHead className="text-right text-xs">Carga</TableHead>
               <TableHead className="text-right text-xs">Faltas</TableHead>
               <TableHead className="text-right text-xs">Ex 60%</TableHead>
+              <TableHead className="text-right text-xs">Ex 80%</TableHead>
               <TableHead className="text-right text-xs">Ex 100%</TableHead>
               <TableHead className="text-right text-xs">Crédito</TableHead>
               <TableHead className="text-right text-xs">Débito</TableHead>
@@ -60,14 +61,14 @@ const BancoHorasTable = ({ data, loading }: TableProps) => (
             {loading ? (
               Array.from({ length: 8 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 10 }).map((_, j) => (
+                  {Array.from({ length: 11 }).map((_, j) => (
                     <TableCell key={j}><Skeleton className="h-4 w-14" /></TableCell>
                   ))}
                 </TableRow>
               ))
             ) : data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="h-24 text-center text-muted-foreground text-sm">
+                <TableCell colSpan={11} className="h-24 text-center text-muted-foreground text-sm">
                   Nenhum dado encontrado.
                 </TableCell>
               </TableRow>
@@ -96,7 +97,10 @@ const BancoHorasTable = ({ data, loading }: TableProps) => (
                   <TableCell className={`text-right font-mono text-xs py-2 ${c.ex60 !== "00:00" ? "text-amber-600 font-bold" : "text-muted-foreground"}`}>
                     {c.ex60}
                   </TableCell>
-                  <TableCell className={`text-right font-mono text-xs py-2 ${c.ex100 !== "00:00" ? "text-amber-600 font-bold" : "text-muted-foreground"}`}>
+                  <TableCell className={`text-right font-mono text-xs py-2 ${c.ex80 !== "00:00" ? "text-orange-600 font-bold" : "text-muted-foreground"}`}>
+                    {c.ex80}
+                  </TableCell>
+                  <TableCell className={`text-right font-mono text-xs py-2 ${c.ex100 !== "00:00" ? "text-destructive font-bold" : "text-muted-foreground"}`}>
                     {c.ex100}
                   </TableCell>
                   <TableCell className="text-right font-mono text-xs text-emerald-600 py-2">{c.bCred}</TableCell>
