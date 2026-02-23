@@ -879,6 +879,192 @@ export type Database = {
         }
         Relationships: []
       }
+      job_checklist: {
+        Row: {
+          checked: boolean
+          created_at: string
+          id: string
+          job_id: string
+          responsible_name: string | null
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          checked?: boolean
+          created_at?: string
+          id?: string
+          job_id: string
+          responsible_name?: string | null
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          checked?: boolean
+          created_at?: string
+          id?: string
+          job_id?: string
+          responsible_name?: string | null
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      job_history: {
+        Row: {
+          content: string | null
+          created_at: string
+          event_type: string
+          id: string
+          job_id: string
+          metadata: Json | null
+          user_name: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          job_id: string
+          metadata?: Json | null
+          user_name?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          job_id?: string
+          metadata?: Json | null
+          user_name?: string
+        }
+        Relationships: []
+      }
+      job_items: {
+        Row: {
+          checked: boolean
+          created_at: string
+          created_by: string | null
+          flexfields: Json | null
+          format: string | null
+          id: string
+          job_id: string
+          name: string
+          observation: string | null
+          quantity: number
+          total_value: number
+          unit: string
+          unit_value: number
+          updated_at: string
+        }
+        Insert: {
+          checked?: boolean
+          created_at?: string
+          created_by?: string | null
+          flexfields?: Json | null
+          format?: string | null
+          id?: string
+          job_id: string
+          name: string
+          observation?: string | null
+          quantity?: number
+          total_value?: number
+          unit?: string
+          unit_value?: number
+          updated_at?: string
+        }
+        Update: {
+          checked?: boolean
+          created_at?: string
+          created_by?: string | null
+          flexfields?: Json | null
+          format?: string | null
+          id?: string
+          job_id?: string
+          name?: string
+          observation?: string | null
+          quantity?: number
+          total_value?: number
+          unit?: string
+          unit_value?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      job_materials: {
+        Row: {
+          created_at: string
+          id: string
+          job_id: string
+          name: string
+          observation: string | null
+          quantity: number
+          supplier: string | null
+          total_cost: number
+          unit: string
+          unit_cost: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_id: string
+          name: string
+          observation?: string | null
+          quantity?: number
+          supplier?: string | null
+          total_cost?: number
+          unit?: string
+          unit_cost?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_id?: string
+          name?: string
+          observation?: string | null
+          quantity?: number
+          supplier?: string | null
+          total_cost?: number
+          unit?: string
+          unit_cost?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      job_time_entries: {
+        Row: {
+          created_at: string
+          description: string | null
+          entry_date: string
+          id: string
+          job_id: string
+          minutes: number
+          user_name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          entry_date?: string
+          id?: string
+          job_id: string
+          minutes?: number
+          user_name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          entry_date?: string
+          id?: string
+          job_id?: string
+          minutes?: number
+          user_name?: string
+        }
+        Relationships: []
+      }
       onboarding_conversas: {
         Row: {
           cargo: string | null
