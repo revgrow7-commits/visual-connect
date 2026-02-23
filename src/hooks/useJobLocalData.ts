@@ -314,6 +314,90 @@ export function useAddComment(jobId: string) {
   });
 }
 
+// ─── Files ──────────────────────────────────────────────
+export interface LocalJobFile {
+  id: string;
+  job_id: string;
+  file_name: string;
+  file_url: string;
+  file_size: number;
+  file_type: string;
+  uploaded_by: string;
+  created_at: string;
+}
+
+export function useJobFiles(jobId: string | null) {
+  return useQuery({
+    queryKey: ["job-files", jobId],
+    enabled: !!jobId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("job_files")
+        .select("*")
+        .eq("job_id", jobId!)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data || []) as LocalJobFile[];
+    },
+  });
+}
+
+export function useUploadJobFile(jobId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const ext = file.name.split(".").pop();
+      const path = `${jobId}/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from("job-files")
+        .upload(path, file);
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from("job-files").getPublicUrl(path);
+
+      const { error: dbError } = await supabase.from("job_files").insert({
+        job_id: jobId,
+        file_name: file.name,
+        file_url: urlData.publicUrl,
+        file_size: file.size,
+        file_type: file.type || ext || "",
+        uploaded_by: "Usuário",
+      });
+      if (dbError) throw dbError;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["job-files", jobId] });
+      qc.invalidateQueries({ queryKey: ["job-history", jobId] });
+      logHistory(jobId, "file_uploaded", "Arquivo enviado");
+      toast({ title: "Arquivo enviado" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao enviar arquivo", description: err.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useDeleteJobFile(jobId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ fileId, filePath }: { fileId: string; filePath: string }) => {
+      // Extract storage path from URL
+      const bucketPrefix = "/storage/v1/object/public/job-files/";
+      const idx = filePath.indexOf(bucketPrefix);
+      if (idx >= 0) {
+        const storagePath = decodeURIComponent(filePath.substring(idx + bucketPrefix.length));
+        await supabase.storage.from("job-files").remove([storagePath]);
+      }
+      const { error } = await supabase.from("job_files").delete().eq("id", fileId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["job-files", jobId] });
+      toast({ title: "Arquivo removido" });
+    },
+  });
+}
+
 // ─── Helper to log history events ──────────────────────
 async function logHistory(
   jobId: string,
