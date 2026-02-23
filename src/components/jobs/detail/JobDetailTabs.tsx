@@ -30,9 +30,10 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { getActiveBoards, type Board } from "@/stores/boardsStore";
 import { useAssignToBoard, useJobAssignments } from "@/hooks/useJobBoardAssignments";
+import { useItemAssignments, useAssignItemsToCollaborators } from "@/hooks/useJobItemAssignments";
 import {
   Package, Plus, Trash2, CheckCircle, Clock, MessageSquare,
-  Loader2, ChevronDown, ChevronUp, Play, Send, X, Paperclip, FileText, Image, Download, Pause, Square, LayoutGrid, Check,
+  Loader2, ChevronDown, ChevronUp, Play, Send, X, Paperclip, FileText, Image, Download, Pause, Square, LayoutGrid, Check, UserPlus, Users,
 } from "lucide-react";
 
 interface Props {
@@ -50,6 +51,8 @@ const TabItens: React.FC<Props> = ({ job }) => {
   const deleteItem = useDeleteJobItem(jobId);
   const assignToBoard = useAssignToBoard(jobId);
   const { data: assignments = [] } = useJobAssignments(jobId);
+  const { data: itemAssignments = [] } = useItemAssignments(jobId);
+  const assignItemsToCollabs = useAssignItemsToCollaborators(jobId);
 
   const [showForm, setShowForm] = useState(false);
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
@@ -57,7 +60,69 @@ const TabItens: React.FC<Props> = ({ job }) => {
   const [importing, setImporting] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [boardPopoverOpen, setBoardPopoverOpen] = useState(false);
+  const [collabPopoverOpen, setCollabPopoverOpen] = useState(false);
+  const [selectedCollabs, setSelectedCollabs] = useState<Set<string>>(new Set());
+  const [colabList, setColabList] = useState<string[]>([]);
   const boards = React.useMemo(() => getActiveBoards(), []);
+
+  // Load collaborator names
+  useEffect(() => {
+    supabase.from("colaboradores").select("nome").eq("status", "ativo").order("nome").then(({ data }) => {
+      if (data) setColabList(data.map(c => c.nome));
+    });
+  }, []);
+
+  // Build item→collaborators lookup
+  const collabsByItemName = React.useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const a of itemAssignments) {
+      if (!a.is_active) continue;
+      const key = a.item_name.toLowerCase().trim();
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(a.collaborator_name);
+    }
+    return map;
+  }, [itemAssignments]);
+
+  const toggleCollab = (name: string) => {
+    setSelectedCollabs(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  };
+
+  const handleAssignCollaborators = async () => {
+    if (selectedCollabs.size === 0) return;
+    setCollabPopoverOpen(false);
+    const selected = allItems.filter(i => selectedItems.has(`${i._source}-${i.id}`));
+
+    try {
+      await assignItemsToCollabs.mutateAsync({
+        items: selected.map(i => ({
+          item_id: i._source === "local" ? i.id : undefined,
+          item_name: i.name,
+        })),
+        collaborators: Array.from(selectedCollabs),
+      });
+
+      await logHistory(
+        jobId,
+        "items_assigned_to_collaborator",
+        `${selected.length} item(ns) atribuído(s) a ${Array.from(selectedCollabs).join(", ")}`,
+        { collaborators: Array.from(selectedCollabs).join(", "), item_count: String(selected.length) }
+      );
+
+      toast({
+        title: "✅ Itens atribuídos",
+        description: `${selected.length} item(ns) → ${Array.from(selectedCollabs).join(", ")}`,
+      });
+      setSelectedItems(new Set());
+      setSelectedCollabs(new Set());
+    } catch (err: any) {
+      toast({ title: "Erro ao atribuir", description: err.message, variant: "destructive" });
+    }
+  };
 
   const toggleSelectItem = (itemId: string) => {
     setSelectedItems(prev => {
@@ -252,27 +317,73 @@ const TabItens: React.FC<Props> = ({ job }) => {
       {selectedItems.size > 0 && (
         <div className="flex items-center gap-2 p-2.5 rounded-lg bg-primary/10 border border-primary/20">
           <span className="text-xs font-medium text-primary">{selectedItems.size} selecionado{selectedItems.size > 1 ? "s" : ""}</span>
-          <Popover open={boardPopoverOpen} onOpenChange={setBoardPopoverOpen}>
-            <PopoverTrigger asChild>
-              <Button size="sm" className="gap-1.5 text-xs h-7 ml-auto">
-                <LayoutGrid className="h-3.5 w-3.5" />
-                Atribuir a Board
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-56 p-1" align="end">
-              <p className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Selecionar Board</p>
-              {boards.map(b => (
-                <button
-                  key={b.id}
-                  onClick={() => handleAssignToBoard(b)}
-                  className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover:bg-accent text-left"
-                >
-                  <span className="h-3 w-3 rounded-sm flex-shrink-0" style={{ backgroundColor: b.color }} />
-                  <span className="flex-1">{b.name}</span>
-                </button>
-              ))}
-            </PopoverContent>
-          </Popover>
+          <div className="flex items-center gap-1.5 ml-auto">
+            {/* Atribuir a Colaborador */}
+            <Popover open={collabPopoverOpen} onOpenChange={(o) => { setCollabPopoverOpen(o); if (!o) setSelectedCollabs(new Set()); }}>
+              <PopoverTrigger asChild>
+                <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7">
+                  <UserPlus className="h-3.5 w-3.5" />
+                  Atribuir a Colaborador
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-0" align="end">
+                <Command>
+                  <CommandInput placeholder="Buscar colaborador..." />
+                  <CommandList className="max-h-48">
+                    <CommandEmpty>Nenhum colaborador encontrado.</CommandEmpty>
+                    <CommandGroup>
+                      {colabList.map(name => (
+                        <CommandItem
+                          key={name}
+                          value={name}
+                          onSelect={() => toggleCollab(name)}
+                          className="flex items-center gap-2 cursor-pointer"
+                        >
+                          <Checkbox
+                            checked={selectedCollabs.has(name)}
+                            className="pointer-events-none"
+                          />
+                          <span className="text-sm">{name}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+                {selectedCollabs.size > 0 && (
+                  <div className="border-t p-2 flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">{selectedCollabs.size} selecionado(s)</span>
+                    <Button size="sm" className="h-7 text-xs gap-1" onClick={handleAssignCollaborators} disabled={assignItemsToCollabs.isPending}>
+                      {assignItemsToCollabs.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                      Confirmar
+                    </Button>
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
+
+            {/* Atribuir a Board */}
+            <Popover open={boardPopoverOpen} onOpenChange={setBoardPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button size="sm" className="gap-1.5 text-xs h-7">
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  Atribuir a Board
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-1" align="end">
+                <p className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Selecionar Board</p>
+                {boards.map(b => (
+                  <button
+                    key={b.id}
+                    onClick={() => handleAssignToBoard(b)}
+                    className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover:bg-accent text-left"
+                  >
+                    <span className="h-3 w-3 rounded-sm flex-shrink-0" style={{ backgroundColor: b.color }} />
+                    <span className="flex-1">{b.name}</span>
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+          </div>
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setSelectedItems(new Set())}>
             <X className="h-3.5 w-3.5" />
           </Button>
@@ -354,6 +465,16 @@ const TabItens: React.FC<Props> = ({ job }) => {
                   {item.assignment.stage_name && ` → ${item.assignment.stage_name}`}
                 </Badge>
               )}
+              {(() => {
+                const collabs = collabsByItemName.get(item.name.toLowerCase().trim());
+                if (!collabs || collabs.length === 0) return null;
+                return (
+                  <Badge variant="secondary" className="text-[9px] ml-1 gap-0.5">
+                    <Users className="h-2.5 w-2.5" />
+                    {collabs.length <= 2 ? collabs.join(", ") : `${collabs[0]} +${collabs.length - 1}`}
+                  </Badge>
+                );
+              })()}
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span>Qtd: <strong>{item.quantity}</strong></span>
