@@ -333,13 +333,13 @@ const JobsKanban: React.FC = () => {
             {/* Left scroll button */}
             <button
               onClick={() => scrollKanban("left")}
-              className={`flex-shrink-0 w-10 flex items-center justify-center z-20 transition-opacity duration-200 ${
-                canScrollLeft ? "opacity-100 cursor-pointer" : "opacity-30 pointer-events-none"
+              className={`flex-shrink-0 w-10 flex items-center justify-center z-20 transition-all duration-300 ${
+                canScrollLeft ? "opacity-100 cursor-pointer" : "opacity-0 pointer-events-none"
               }`}
               aria-label="Rolar para esquerda"
             >
-              <div className="bg-[#1a2332] hover:bg-[#243044] text-white shadow-xl rounded-full p-2 hover:scale-110 transition-transform">
-                <ChevronLeft className="h-5 w-5" />
+              <div className="bg-red-600 hover:bg-red-700 text-white shadow-lg rounded-full p-2.5 hover:scale-110 transition-transform animate-pulse">
+                <ChevronLeft className="h-6 w-6" />
               </div>
             </button>
 
@@ -387,13 +387,13 @@ const JobsKanban: React.FC = () => {
             {/* Right scroll button */}
             <button
               onClick={() => scrollKanban("right")}
-              className={`flex-shrink-0 w-10 flex items-center justify-center z-20 transition-opacity duration-200 ${
-                canScrollRight ? "opacity-100 cursor-pointer" : "opacity-30 pointer-events-none"
+              className={`flex-shrink-0 w-10 flex items-center justify-center z-20 transition-all duration-300 ${
+                canScrollRight ? "opacity-100 cursor-pointer" : "opacity-0 pointer-events-none"
               }`}
               aria-label="Rolar para direita"
             >
-              <div className="bg-[#1a2332] hover:bg-[#243044] text-white shadow-xl rounded-full p-2 hover:scale-110 transition-transform">
-                <ChevronRight className="h-5 w-5" />
+              <div className="bg-red-600 hover:bg-red-700 text-white shadow-lg rounded-full p-2.5 hover:scale-110 transition-transform animate-pulse">
+                <ChevronRight className="h-6 w-6" />
               </div>
             </button>
           </div>
