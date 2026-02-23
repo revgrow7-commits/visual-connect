@@ -2,14 +2,16 @@ import React from "react";
 import type { Job } from "./types";
 import { formatBRL, formatDateBR, formatTimeMins, isOverdue } from "./types";
 import { Zap, Users, AlignLeft, Clock } from "lucide-react";
+import type { FlexField } from "@/stores/boardsStore";
 
 interface Props {
   job: Job;
   onClick: () => void;
   isDragging?: boolean;
+  visibleFlexfields?: FlexField[];
 }
 
-const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging }) => {
+const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visibleFlexfields }) => {
   const overdue = isOverdue(job.delivery_date);
 
   return (
@@ -33,27 +35,36 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging }) => {
       {/* Description */}
       <p className="text-[11px] text-[#6b7280] leading-tight line-clamp-1">{job.description}</p>
 
+      {/* Flexfields visible on card */}
+      {visibleFlexfields && visibleFlexfields.length > 0 && job.flexfields && (
+        <div className="flex flex-wrap gap-1">
+          {visibleFlexfields.map((ff) => {
+            const val = job.flexfields?.[ff.key];
+            if (val == null || val === "") return null;
+            return (
+              <span key={ff.key} className="text-[10px] bg-[#f0f2f5] text-[#6b7280] rounded px-1.5 py-0.5">
+                {ff.label}: {String(val)}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
       {/* Date + code + value */}
       <div className="flex items-center justify-between text-[11px]">
-        <div className="flex items-center gap-1.5">
-          <span className={overdue ? "text-red-600 font-semibold" : "text-[#6b7280]"}>
-            {formatDateBR(job.delivery_date)}
-          </span>
-        </div>
+        <span className={overdue ? "text-red-600 font-semibold" : "text-[#6b7280]"}>
+          {formatDateBR(job.delivery_date)}
+        </span>
         <span className="font-mono text-[#6b7280]">J{job.code || job.id}</span>
       </div>
 
       <p className="text-[12px] font-semibold text-[#1a2332]">{formatBRL(job.value)}</p>
 
-      {/* Footer: items | responsible | progress | time */}
+      {/* Footer */}
       <div className="flex items-center gap-2 text-[10px] text-[#6b7280] border-t border-[#e5e7eb] pt-1.5">
-        <span className="flex items-center gap-0.5">
-          <AlignLeft className="h-3 w-3" /> {job.items_count}
-        </span>
+        <span className="flex items-center gap-0.5"><AlignLeft className="h-3 w-3" /> {job.items_count}</span>
         {job.responsible.length > 0 && (
-          <span className="flex items-center gap-0.5">
-            <Users className="h-3 w-3" /> {job.responsible[0].name}
-          </span>
+          <span className="flex items-center gap-0.5"><Users className="h-3 w-3" /> {job.responsible[0].name}</span>
         )}
         <span className="flex items-center gap-0.5 ml-auto">
           <Clock className="h-3 w-3" />
