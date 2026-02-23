@@ -329,30 +329,34 @@ const JobsKanban: React.FC = () => {
         </div>
       ) : viewMode === "kanban" ? (
         <DragDropContext onDragEnd={onDragEnd}>
-          <div className="flex-1 relative">
+          <div className="flex-1 relative group">
             {/* Left scroll button */}
             {canScrollLeft && (
               <button
                 onClick={() => scrollKanban("left")}
-                className="absolute left-1 top-1/2 -translate-y-1/2 z-10 bg-white/90 backdrop-blur border border-border shadow-lg rounded-full p-2 hover:bg-muted transition-colors"
+                className="absolute left-0 top-0 bottom-0 z-10 w-10 flex items-center justify-center bg-gradient-to-r from-background/90 to-transparent hover:from-background transition-all"
                 aria-label="Rolar para esquerda"
               >
-                <ChevronLeft className="h-5 w-5 text-foreground" />
+                <div className="bg-white border border-border shadow-md rounded-full p-1.5">
+                  <ChevronLeft className="h-5 w-5 text-foreground" />
+                </div>
               </button>
             )}
             {/* Right scroll button */}
             {canScrollRight && (
               <button
                 onClick={() => scrollKanban("right")}
-                className="absolute right-1 top-1/2 -translate-y-1/2 z-10 bg-white/90 backdrop-blur border border-border shadow-lg rounded-full p-2 hover:bg-muted transition-colors"
+                className="absolute right-0 top-0 bottom-0 z-10 w-10 flex items-center justify-center bg-gradient-to-l from-background/90 to-transparent hover:from-background transition-all"
                 aria-label="Rolar para direita"
               >
-                <ChevronRight className="h-5 w-5 text-foreground" />
+                <div className="bg-white border border-border shadow-md rounded-full p-1.5">
+                  <ChevronRight className="h-5 w-5 text-foreground" />
+                </div>
               </button>
             )}
             <div
               ref={scrollRef}
-              className="overflow-x-auto px-6 pb-4 scroll-smooth scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/40"
+              className="overflow-x-auto px-6 pb-4 scroll-smooth scrollbar-thin"
             >
               <div className="flex gap-3 min-h-[calc(100vh-300px)]">
                 {byStage.map(col => (
