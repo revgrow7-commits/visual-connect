@@ -88,6 +88,7 @@ Deno.serve(async (req) => {
     let endDate: string | undefined;
     let unit: string | undefined;
     let maxPages = 50;
+    let fullDetail = false;
 
     try {
       const body = await req.json();
@@ -96,6 +97,7 @@ Deno.serve(async (req) => {
       if (body?.endDate) endDate = body.endDate;
       if (body?.unit) unit = body.unit;
       if (body?.maxPages) maxPages = Math.min(body.maxPages, 100);
+      if (body?.fullDetail) fullDetail = true;
     } catch { /* no body */ }
 
     const results: Record<string, Record<string, unknown>[]> = {};
@@ -114,7 +116,7 @@ Deno.serve(async (req) => {
           // Strip heavy fields to reduce payload size
           const processed = items.map(item => {
             const rec = item as Record<string, unknown>;
-            if (ep === "jobs") {
+            if (ep === "jobs" && !fullDetail) {
               const { production, products, ...slim } = rec;
               return { ...slim, _unidade: u.label, _unit_key: u.key };
             }
