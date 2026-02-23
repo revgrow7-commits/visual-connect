@@ -930,6 +930,68 @@ export type Database = {
         }
         Relationships: []
       }
+      job_board_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          board_id: string
+          board_name: string
+          customer_name: string | null
+          id: string
+          is_active: boolean
+          item_id: string | null
+          item_name: string | null
+          job_code: number | null
+          job_id: string
+          job_title: string | null
+          stage_id: string | null
+          stage_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          board_id: string
+          board_name: string
+          customer_name?: string | null
+          id?: string
+          is_active?: boolean
+          item_id?: string | null
+          item_name?: string | null
+          job_code?: number | null
+          job_id: string
+          job_title?: string | null
+          stage_id?: string | null
+          stage_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          board_id?: string
+          board_name?: string
+          customer_name?: string | null
+          id?: string
+          is_active?: boolean
+          item_id?: string | null
+          item_name?: string | null
+          job_code?: number | null
+          job_id?: string
+          job_title?: string | null
+          stage_id?: string | null
+          stage_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_board_assignments_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "job_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_checklist: {
         Row: {
           checked: boolean

@@ -3,6 +3,7 @@ import type { Job } from "./types";
 import { formatBRL, formatDateBR, isOverdue } from "./types";
 import { DEFAULT_STAGES } from "./types";
 import { getActiveBoards, type Board } from "@/stores/boardsStore";
+import { useAssignToBoard, useJobAssignments } from "@/hooks/useJobBoardAssignments";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { TabItens, TabInfo, TabProducao, TabMateriais, TabHistorico } from "./detail/JobDetailTabs";
 import { LayoutGrid, Check } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { logHistory } from "@/hooks/useJobLocalData";
 
 interface Props {
   job: Job | null;
@@ -23,23 +25,53 @@ interface Props {
 
 const JobDetailDrawer: React.FC<Props> = ({ job, open, onOpenChange, onStageChange }) => {
   const boards = useMemo(() => getActiveBoards(), []);
-  const [assignedBoard, setAssignedBoard] = useState<string | null>(null);
   const [boardPopoverOpen, setBoardPopoverOpen] = useState(false);
+
+  // DB-backed assignment tracking
+  const { data: jobAssignments = [] } = useJobAssignments(job?.id || null);
+  const assignToBoard = useAssignToBoard(job?.id || "");
 
   if (!job) return null;
 
-  const currentBoard = assignedBoard ? boards.find(b => b.id === assignedBoard) : null;
+  // Get the most recent job-level board assignment
+  const currentAssignment = jobAssignments.find(a => a.is_active && !a.item_id);
+  const currentBoard = currentAssignment ? boards.find(b => b.id === currentAssignment.board_id) : null;
+
   const stageCfg = DEFAULT_STAGES.find(s => s.id === job.stage);
   const overdue = isOverdue(job.delivery_date);
 
-  const handleAssignBoard = (board: Board) => {
-    setAssignedBoard(board.id);
+  const handleAssignBoard = async (board: Board) => {
     setBoardPopoverOpen(false);
-    // Move job to first stage of the selected board
     const firstStage = board.stages[0];
+
+    // Persist to DB
+    try {
+      await assignToBoard.mutateAsync({
+        items: [{ item_name: `Job #${job.code || job.id}` }],
+        job_code: job.code,
+        job_title: job.description || job.client_name,
+        customer_name: job.client_name,
+        board_id: board.id,
+        board_name: board.name,
+        stage_id: firstStage?.id,
+        stage_name: firstStage?.name,
+      });
+    } catch (err: any) {
+      console.error("[assign-board] error:", err);
+    }
+
+    // Move job to first stage of the selected board
     if (firstStage && onStageChange) {
       onStageChange(job.id, firstStage.id);
     }
+
+    // Log history
+    await logHistory(job.id, "job_assigned_to_board", `Job atribuído à board "${board.name}" → ${firstStage?.name || "primeira etapa"}`, {
+      board_id: board.id,
+      board_name: board.name,
+      stage: firstStage?.id || "",
+    });
+
     toast({ title: "Atribuído à Board", description: `Job movido para "${board.name}" → ${firstStage?.name || "primeira etapa"}` });
   };
 
@@ -110,14 +142,14 @@ const JobDetailDrawer: React.FC<Props> = ({ job, open, onOpenChange, onStageChan
                   >
                     <span className="h-3 w-3 rounded-sm flex-shrink-0" style={{ backgroundColor: b.color }} />
                     <span className="flex-1">{b.name}</span>
-                    {assignedBoard === b.id && <Check className="h-3.5 w-3.5 text-primary" />}
+                    {currentAssignment?.board_id === b.id && <Check className="h-3.5 w-3.5 text-primary" />}
                   </button>
                 ))}
               </PopoverContent>
             </Popover>
-            {currentBoard && (
+            {currentBoard && currentAssignment && (
               <Badge className="text-[10px] text-white border-white/20" style={{ backgroundColor: currentBoard.color }}>
-                {currentBoard.stages[0]?.name}
+                {currentAssignment.stage_name || currentBoard.stages[0]?.name}
               </Badge>
             )}
           </div>
