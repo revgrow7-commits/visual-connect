@@ -51,6 +51,7 @@ const HoldprintOportunidades = lazy(() => import("./pages/holdprint/Oportunidade
 const HoldprintRelatorios = lazy(() => import("./pages/holdprint/RelatoriosPage"));
 const HoldprintRelatorioDetalhe = lazy(() => import("./pages/holdprint/RelatorioDetalhePage"));
 const HoldprintConfiguracoes = lazy(() => import("./pages/holdprint/ConfiguracoesPage"));
+const JobsPage = lazy(() => import("./pages/JobsPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -87,6 +88,7 @@ const App = () => (
               <Route path="/beneficios" element={<BeneficiosPage />} />
               <Route path="/processos" element={<ProcessosPage />} />
               <Route path="/kanban" element={<KanbanPage />} />
+              <Route path="/jobs" element={<JobsPage />} />
               <Route path="/faixa-preta" element={<FaixaPretaPage />} />
               <Route path="/questionarios" element={<QuestionariosPage />} />
               <Route path="/unidades" element={<UnidadesPage />} />
