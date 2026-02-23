@@ -76,28 +76,50 @@ const TabItens: React.FC<Props> = ({ job }) => {
     const selected = allItems.filter(i => selectedItems.has(`${i._source}-${i.id}`));
     const itemNames = selected.map(i => i.name);
     const firstStage = board.stages[0];
+    const boardFlexfields = {
+      board_id: board.id,
+      board_name: board.name,
+      board_stage: firstStage?.id || null,
+      board_stage_name: firstStage?.name || null,
+      assigned_at: new Date().toISOString(),
+    };
 
-    // Persist board assignment in flexfields for local items
+    // Update existing local items
     const localSelected = selected.filter(i => i._source === "local");
     if (localSelected.length > 0) {
       const ids = localSelected.map(i => i.id);
       const { error } = await supabase
         .from("job_items")
-        .update({
-          flexfields: {
-            board_id: board.id,
-            board_name: board.name,
-            board_stage: firstStage?.id || null,
-            board_stage_name: firstStage?.name || null,
-            assigned_at: new Date().toISOString(),
-          },
-        })
+        .update({ flexfields: boardFlexfields })
         .in("id", ids);
-
       if (error) {
-        console.error("[assign-board] Error:", error);
+        console.error("[assign-board] local update error:", error);
         toast({ title: "Erro ao atribuir", description: error.message, variant: "destructive" });
         return;
+      }
+    }
+
+    // Auto-import API items that aren't local yet, with board flexfields
+    const apiSelected = selected.filter(i => i._source === "api");
+    if (apiSelected.length > 0) {
+      for (const ai of apiSelected) {
+        const localMatch = localItems.find(li => li.name.toLowerCase().trim() === ai.name.toLowerCase().trim());
+        if (localMatch) {
+          // Update existing local item's flexfields
+          await supabase.from("job_items").update({ flexfields: boardFlexfields }).eq("id", localMatch.id);
+        } else {
+          // Import as new local item with board flexfields
+          await new Promise<void>((resolve) => {
+            addItem.mutate(
+              {
+                name: ai.name, quantity: ai.quantity || 1, unit: ai.unit || "un", format: null,
+                unit_value: ai.unitPrice || 0, total_value: ai.subtotal || (ai.unitPrice || 0) * (ai.quantity || 1),
+                checked: false, observation: ai.description || null, flexfields: boardFlexfields,
+              },
+              { onSuccess: () => resolve(), onError: () => resolve() }
+            );
+          });
+        }
       }
     }
 
@@ -124,10 +146,10 @@ const TabItens: React.FC<Props> = ({ job }) => {
 
   // Merge: API items (read-only) + local items (CRUD)
   const apiItems = apiDetail?.items || [];
-  type MergedItem = { id: string; name: string; quantity: number; unit: string; subtotal: number; checked: boolean; description: string; format?: string; unitPrice?: number; materials: any[]; _source: "api" | "local" };
+  type MergedItem = { id: string; name: string; quantity: number; unit: string; subtotal: number; checked: boolean; description: string; format?: string; unitPrice?: number; materials: any[]; _source: "api" | "local"; flexfields?: Record<string, unknown> };
   const allItems: MergedItem[] = [
     ...apiItems.map(ai => ({ id: ai.id, _source: "api" as const, checked: false, name: ai.name, quantity: ai.quantity || 1, unit: ai.unit || "un", subtotal: ai.subtotal || 0, unitPrice: ai.unitPrice || 0, description: ai.description || "", materials: ai.materials || [] })),
-    ...localItems.map(li => ({ id: li.id, _source: "local" as const, name: li.name, quantity: li.quantity, unit: li.unit, subtotal: li.total_value, checked: li.checked, description: li.observation || "", format: li.format || undefined, materials: [] })),
+    ...localItems.map(li => ({ id: li.id, _source: "local" as const, name: li.name, quantity: li.quantity, unit: li.unit, subtotal: li.total_value, checked: li.checked, description: li.observation || "", format: li.format || undefined, materials: [], flexfields: li.flexfields })),
   ];
 
   const checkedCount = allItems.filter(i => i.checked).length;
@@ -289,6 +311,11 @@ const TabItens: React.FC<Props> = ({ job }) => {
                 {idx + 1}. {item.name}
               </span>
               {item._source === "api" && <Badge variant="outline" className="text-[9px] ml-1">API</Badge>}
+              {item.flexfields?.board_name && (
+                <Badge className="text-[9px] ml-1 text-white" style={{ backgroundColor: boards.find(b => b.id === item.flexfields?.board_id)?.color || "hsl(var(--primary))" }}>
+                  {String(item.flexfields.board_name)}
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span>Qtd: <strong>{item.quantity}</strong></span>
