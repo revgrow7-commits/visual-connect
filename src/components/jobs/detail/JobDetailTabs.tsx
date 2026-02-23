@@ -25,9 +25,11 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { getActiveBoards, type Board } from "@/stores/boardsStore";
 import {
   Package, Plus, Trash2, CheckCircle, Clock, MessageSquare,
-  Loader2, ChevronDown, ChevronUp, Play, Send, X, Paperclip, FileText, Image, Download, Pause, Square,
+  Loader2, ChevronDown, ChevronUp, Play, Send, X, Paperclip, FileText, Image, Download, Pause, Square, LayoutGrid, Check,
 } from "lucide-react";
 
 interface Props {
@@ -48,6 +50,36 @@ const TabItens: React.FC<Props> = ({ job }) => {
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", quantity: "1", unit: "un", format: "", unit_value: "", observation: "" });
   const [importing, setImporting] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [boardPopoverOpen, setBoardPopoverOpen] = useState(false);
+  const boards = React.useMemo(() => getActiveBoards(), []);
+
+  const toggleSelectItem = (itemId: string) => {
+    setSelectedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (allIds: string[]) => {
+    if (selectedItems.size === allIds.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(allIds));
+    }
+  };
+
+  const handleAssignToBoard = (board: Board) => {
+    setBoardPopoverOpen(false);
+    const itemNames = allItems.filter(i => selectedItems.has(`${i._source}-${i.id}`)).map(i => i.name);
+    toast({
+      title: `Itens atribuídos: ${board.name}`,
+      description: `${itemNames.length} ite${itemNames.length === 1 ? "m" : "ns"} → ${board.stages[0]?.name || "primeira etapa"}`,
+    });
+    setSelectedItems(new Set());
+  };
 
   // Merge: API items (read-only) + local items (CRUD)
   const apiItems = apiDetail?.items || [];
@@ -116,6 +148,37 @@ const TabItens: React.FC<Props> = ({ job }) => {
         </span>
       </div>
 
+      {/* Selection bar */}
+      {selectedItems.size > 0 && (
+        <div className="flex items-center gap-2 p-2.5 rounded-lg bg-primary/10 border border-primary/20">
+          <span className="text-xs font-medium text-primary">{selectedItems.size} selecionado{selectedItems.size > 1 ? "s" : ""}</span>
+          <Popover open={boardPopoverOpen} onOpenChange={setBoardPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button size="sm" className="gap-1.5 text-xs h-7 ml-auto">
+                <LayoutGrid className="h-3.5 w-3.5" />
+                Atribuir a Board
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-1" align="end">
+              <p className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Selecionar Board</p>
+              {boards.map(b => (
+                <button
+                  key={b.id}
+                  onClick={() => handleAssignToBoard(b)}
+                  className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover:bg-accent text-left"
+                >
+                  <span className="h-3 w-3 rounded-sm flex-shrink-0" style={{ backgroundColor: b.color }} />
+                  <span className="flex-1">{b.name}</span>
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setSelectedItems(new Set())}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+
       {showForm && (
         <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
           <div className="grid grid-cols-2 gap-3">
@@ -158,13 +221,22 @@ const TabItens: React.FC<Props> = ({ job }) => {
         </div>
       )}
 
-      {allItems.map((item, idx) => (
-        <div key={`${item._source}-${item.id}`} className={`border rounded-lg overflow-hidden ${item.checked ? "opacity-60" : ""}`}>
+      {allItems.map((item, idx) => {
+        const itemKey = `${item._source}-${item.id}`;
+        const isSelected = selectedItems.has(itemKey);
+        return (
+        <div key={itemKey} className={`border rounded-lg overflow-hidden ${item.checked ? "opacity-60" : ""} ${isSelected ? "ring-2 ring-primary/50" : ""}`}>
           <div
             className="flex items-center justify-between p-3 bg-muted/30 cursor-pointer hover:bg-muted/50"
             onClick={() => setExpandedItem(expandedItem === item.id ? null : item.id)}
           >
             <div className="flex items-center gap-2">
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={() => toggleSelectItem(itemKey)}
+                onClick={e => e.stopPropagation()}
+                className="border-muted-foreground/40"
+              />
               {item._source === "local" && (
                 <Checkbox
                   checked={item.checked}
@@ -208,7 +280,8 @@ const TabItens: React.FC<Props> = ({ job }) => {
             </div>
           )}
         </div>
-      ))}
+        );
+      })}
 
       {allItems.length === 0 && <EmptyState icon={<Package />} message="Nenhum item encontrado" sub="Adicione itens manualmente ou os dados serão carregados da API" />}
 
