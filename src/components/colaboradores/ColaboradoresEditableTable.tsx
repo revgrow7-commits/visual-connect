@@ -188,7 +188,14 @@ const ColaboradoresEditableTable: React.FC<Props> = ({ colaboradores, loading, o
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto scrollbar-thin" style={{ maxHeight: "70vh", overflowY: "auto" }}>
+      <style>{`
+        .scrollbar-thin::-webkit-scrollbar { height: 10px; width: 8px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: hsl(var(--muted)); border-radius: 5px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(var(--primary)); border-radius: 5px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.8)); }
+        .scrollbar-thin { scrollbar-width: thin; scrollbar-color: hsl(var(--primary)) hsl(var(--muted)); }
+      `}</style>
       <Table className="text-xs">
         <TableHeader>
           <TableRow>
