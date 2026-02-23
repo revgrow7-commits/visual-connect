@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { HoldprintJob } from "@/hooks/useCSHoldprintData";
 import type { Job, Stage, JobsByStage, JobsFilters, StageConfig } from "./types";
 import { DEFAULT_STAGES } from "./types";
+import type { Board, BoardStage } from "@/stores/boardsStore";
 
 // Map Holdprint production step names to our stage IDs
 const STEP_TO_STAGE: Record<string, Stage> = {
@@ -39,7 +40,6 @@ function mapStage(stepName: string, job: HoldprintJob): Stage {
   for (const [key, stageId] of Object.entries(STEP_TO_STAGE)) {
     if (lower.includes(key) || key.includes(lower)) return stageId;
   }
-  // Fallback based on production status
   const status = String(job.productionStatus || job.status || "").toLowerCase();
   if (job.isFinalized || status.includes("final")) return "expedicao";
   if (status.includes("progress")) return "impressao";
@@ -78,9 +78,19 @@ function transformJob(raw: HoldprintJob): Job {
   };
 }
 
-export function useJobsData(filters?: JobsFilters) {
+/** Convert BoardStage[] to StageConfig[] for grouping */
+function boardStagesToConfigs(stages: BoardStage[]): StageConfig[] {
+  return stages.map((s, i) => ({
+    id: s.id as Stage,
+    name: s.name,
+    order: i + 1,
+    color: s.color,
+  }));
+}
+
+export function useJobsData(filters?: JobsFilters, activeBoard?: Board | null) {
   return useQuery({
-    queryKey: ["holdprint-jobs-kanban", filters],
+    queryKey: ["holdprint-jobs-kanban", filters, activeBoard?.id],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("cs-holdprint-data", {
         body: {
@@ -116,8 +126,16 @@ export function useJobsData(filters?: JobsFilters) {
         }
       }
 
-      // Group by stage
-      const byStage: JobsByStage[] = DEFAULT_STAGES.map(stage => {
+      // Use board stages if provided, otherwise use defaults
+      const stageConfigs = activeBoard
+        ? boardStagesToConfigs(activeBoard.stages)
+        : DEFAULT_STAGES;
+
+      // Get valid stage IDs for this board
+      const validStageIds = new Set(stageConfigs.map(s => s.id));
+
+      // Group by stage — jobs whose stage doesn't match go into first column
+      const byStage: JobsByStage[] = stageConfigs.map(stage => {
         const stageJobs = jobs.filter(j => j.stage === stage.id);
         return {
           stage,
@@ -125,6 +143,13 @@ export function useJobsData(filters?: JobsFilters) {
           totalValue: stageJobs.reduce((s, j) => s + j.value, 0),
         };
       });
+
+      // Put unmatched jobs into first column
+      const unmatchedJobs = jobs.filter(j => !validStageIds.has(j.stage));
+      if (unmatchedJobs.length > 0 && byStage.length > 0) {
+        byStage[0].jobs = [...unmatchedJobs, ...byStage[0].jobs];
+        byStage[0].totalValue = byStage[0].jobs.reduce((s, j) => s + j.value, 0);
+      }
 
       return {
         jobs,

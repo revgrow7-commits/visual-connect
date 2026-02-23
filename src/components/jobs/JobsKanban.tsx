@@ -1,10 +1,10 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { useJobsData } from "./useJobsData";
 import type { Job, JobsFilters, JobsByStage } from "./types";
 import { formatBRL, DEFAULT_STAGES } from "./types";
+import { getActiveBoards, type Board } from "@/stores/boardsStore";
 import JobCard from "./JobCard";
 import JobDetailDrawer from "./JobDetailDrawer";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,11 +17,21 @@ import {
 } from "@hello-pangea/dnd";
 import {
   Search, RefreshCw, Loader2, Plus, LayoutGrid, List,
-  Bell, Calendar,
+  Calendar, Settings2,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { Link } from "react-router-dom";
 
 const JobsKanban: React.FC = () => {
+  const boards = useMemo(() => getActiveBoards(), []);
+  const [activeBoardId, setActiveBoardId] = useState(boards[0]?.id || "");
+  const activeBoard = useMemo(() => boards.find(b => b.id === activeBoardId) || boards[0] || null, [boards, activeBoardId]);
+
+  const visibleFlexfields = useMemo(
+    () => activeBoard?.flexfields.filter(f => f.show_on_card) || [],
+    [activeBoard]
+  );
+
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("aberto");
@@ -31,32 +41,22 @@ const JobsKanban: React.FC = () => {
   const now = new Date();
   const dateFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
 
-  const filters: JobsFilters = {
-    search,
-    status: status as JobsFilters["status"],
-    productionType,
-    dateFrom,
-    dateTo: "",
-  };
-
-  const { data, isLoading, isFetching, refetch, isError } = useJobsData(filters);
+  const filters: JobsFilters = { search, status: status as JobsFilters["status"], productionType, dateFrom, dateTo: "" };
+  const { data, isLoading, isFetching, refetch, isError } = useJobsData(filters, activeBoard);
 
   const [localByStage, setLocalByStage] = useState<JobsByStage[] | null>(null);
   const byStage = localByStage || data?.byStage || [];
 
-  // Reset local state when data changes
-  React.useEffect(() => {
-    if (data?.byStage) setLocalByStage(null);
-  }, [data?.byStage]);
+  React.useEffect(() => { if (data?.byStage) setLocalByStage(null); }, [data?.byStage]);
 
   const onDragEnd = useCallback((result: DropResult) => {
-    const { source, destination, draggableId } = result;
+    const { source, destination } = result;
     if (!destination || !data) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
     const srcStage = source.droppableId;
     const dstStage = destination.droppableId;
-    const dstStageName = DEFAULT_STAGES.find(s => s.id === dstStage)?.name || dstStage;
+    const dstStageName = byStage.find(c => c.stage.id === dstStage)?.stage.name || dstStage;
 
     setLocalByStage(prev => {
       const current = prev || data.byStage;
@@ -68,51 +68,61 @@ const JobsKanban: React.FC = () => {
       const [moved] = srcCol.jobs.splice(source.index, 1);
       moved.stage = dstStage as Job["stage"];
       dstCol.jobs.splice(destination.index, 0, moved);
-
-      // Recalculate totals
       srcCol.totalValue = srcCol.jobs.reduce((s, j) => s + j.value, 0);
       dstCol.totalValue = dstCol.jobs.reduce((s, j) => s + j.value, 0);
-
       return next;
     });
 
     toast({ title: "Job movido", description: `Job movido para ${dstStageName}` });
-  }, [data]);
+  }, [data, byStage]);
+
+  const stageConfigs = activeBoard?.stages || DEFAULT_STAGES;
 
   return (
     <div className="flex flex-col h-full min-h-[calc(100vh-120px)]">
       {/* Page Header */}
-      <div className="px-6 py-4">
-        <h1 className="text-2xl font-bold text-[#1a2332]">Jobs</h1>
-        <p className="text-sm text-[#6b7280]">Home / Jobs</p>
+      <div className="px-6 py-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-[#1a2332]">Jobs</h1>
+          <p className="text-sm text-[#6b7280]">Home / Jobs</p>
+        </div>
+        <Link to="/admin/boards">
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+            <Settings2 className="h-3.5 w-3.5" /> Configurar Boards
+          </Button>
+        </Link>
       </div>
 
-      {/* Filters Toolbar */}
+      {/* Board Selector + Filters */}
       <div className="px-6 pb-4 flex flex-wrap items-center gap-3">
+        {/* Board tabs */}
+        {boards.length > 1 && (
+          <div className="flex border rounded-md overflow-hidden mr-2">
+            {boards.map(b => (
+              <button
+                key={b.id}
+                onClick={() => { setActiveBoardId(b.id); setLocalByStage(null); }}
+                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                  activeBoardId === b.id
+                    ? "text-white"
+                    : "bg-white text-[#6b7280] hover:bg-gray-50"
+                }`}
+                style={activeBoardId === b.id ? { backgroundColor: b.color } : undefined}
+              >
+                {b.name}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="relative flex-1 min-w-[180px] max-w-[250px]">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-[#6b7280]" />
-          <Input
-            placeholder="Buscar"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-8 h-9 border-[#e5e7eb]"
-          />
+          <Input placeholder="Buscar" value={search} onChange={e => setSearch(e.target.value)} className="pl-8 h-9 border-[#e5e7eb]" />
         </div>
 
-        {/* View toggle */}
         <div className="flex border rounded-md overflow-hidden">
-          <button
-            onClick={() => setViewMode("kanban")}
-            className={`p-2 ${viewMode === "kanban" ? "bg-[#1a2332] text-white" : "bg-white text-[#6b7280] hover:bg-gray-50"}`}
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => setViewMode("list")}
-            className={`p-2 ${viewMode === "list" ? "bg-[#1a2332] text-white" : "bg-white text-[#6b7280] hover:bg-gray-50"}`}
-          >
-            <List className="h-4 w-4" />
-          </button>
+          <button onClick={() => setViewMode("kanban")} className={`p-2 ${viewMode === "kanban" ? "bg-[#1a2332] text-white" : "bg-white text-[#6b7280] hover:bg-gray-50"}`}><LayoutGrid className="h-4 w-4" /></button>
+          <button onClick={() => setViewMode("list")} className={`p-2 ${viewMode === "list" ? "bg-[#1a2332] text-white" : "bg-white text-[#6b7280] hover:bg-gray-50"}`}><List className="h-4 w-4" /></button>
         </div>
 
         <Select value={productionType} onValueChange={setProductionType}>
@@ -141,24 +151,16 @@ const JobsKanban: React.FC = () => {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="h-9"
-          >
+          <Button variant="ghost" size="sm" onClick={() => refetch()} disabled={isFetching} className="h-9">
             {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
-          <Button className="bg-[#1DB899] hover:bg-[#17a085] text-white h-9 gap-1.5">
-            <Plus className="h-4 w-4" /> Novo Job
-          </Button>
+          <Button className="bg-[#1DB899] hover:bg-[#17a085] text-white h-9 gap-1.5"><Plus className="h-4 w-4" /> Novo Job</Button>
         </div>
       </div>
 
       {/* Board */}
       {isLoading ? (
-        <BoardSkeleton />
+        <BoardSkeleton count={stageConfigs.length} />
       ) : isError ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
@@ -172,40 +174,30 @@ const JobsKanban: React.FC = () => {
             <div className="flex gap-3 min-h-[calc(100vh-300px)]">
               {byStage.map(col => (
                 <div key={col.stage.id} className="min-w-[210px] flex-1 max-w-[260px] flex flex-col">
-                  {/* Column header */}
-                  <div className="bg-white rounded-t-lg p-3 border border-[#e5e7eb] border-b-0">
+                  <div className="bg-white rounded-t-lg p-3 border border-[#e5e7eb] border-b-0" style={{ borderTopWidth: 3, borderTopColor: col.stage.color }}>
                     <p className="font-bold text-sm text-[#1a2332]">{col.stage.name}</p>
                     <p className="text-xs text-[#6b7280]">{formatBRL(col.totalValue)}</p>
                     <p className="text-xs text-[#6b7280]">{col.jobs.length} Jobs</p>
                   </div>
-                  {/* Cards */}
                   <Droppable droppableId={col.stage.id}>
                     {(provided, snapshot) => (
                       <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className={`flex-1 bg-[#f0f2f5] border border-[#e5e7eb] border-t-0 rounded-b-lg p-2 space-y-2 transition-colors ${
-                          snapshot.isDraggingOver ? "bg-[#d1fae5]" : ""
-                        }`}
+                        className={`flex-1 bg-[#f0f2f5] border border-[#e5e7eb] border-t-0 rounded-b-lg p-2 space-y-2 transition-colors ${snapshot.isDraggingOver ? "bg-[#d1fae5]" : ""}`}
                       >
                         {col.jobs.map((job, idx) => (
                           <Draggable key={job.id} draggableId={job.id} index={idx}>
                             {(prov, snap) => (
-                              <div
-                                ref={prov.innerRef}
-                                {...prov.draggableProps}
-                                {...prov.dragHandleProps}
-                              >
-                                <JobCard job={job} onClick={() => setSelectedJob(job)} isDragging={snap.isDragging} />
+                              <div ref={prov.innerRef} {...prov.draggableProps} {...prov.dragHandleProps}>
+                                <JobCard job={job} onClick={() => setSelectedJob(job)} isDragging={snap.isDragging} visibleFlexfields={visibleFlexfields} />
                               </div>
                             )}
                           </Draggable>
                         ))}
                         {provided.placeholder}
                         {col.jobs.length === 0 && (
-                          <div className="text-center py-8 text-[#6b7280] text-xs">
-                            Nenhum job nesta etapa
-                          </div>
+                          <div className="text-center py-8 text-[#6b7280] text-xs">Nenhum job nesta etapa</div>
                         )}
                       </div>
                     )}
@@ -216,7 +208,6 @@ const JobsKanban: React.FC = () => {
           </div>
         </DragDropContext>
       ) : (
-        /* List view */
         <div className="px-6 pb-4">
           <div className="border rounded-lg overflow-hidden bg-white">
             <table className="w-full text-sm">
@@ -234,27 +225,17 @@ const JobsKanban: React.FC = () => {
               </thead>
               <tbody>
                 {data?.jobs.map(job => {
-                  const stageCfg = DEFAULT_STAGES.find(s => s.id === job.stage);
+                  const stageCfg = byStage.find(s => s.stage.id === job.stage)?.stage;
                   const overdue = job.delivery_date && new Date(job.delivery_date) < new Date();
                   return (
-                    <tr
-                      key={job.id}
-                      onClick={() => setSelectedJob(job)}
-                      className={`border-b cursor-pointer hover:bg-gray-50 ${overdue ? "bg-red-50/50" : ""}`}
-                    >
+                    <tr key={job.id} onClick={() => setSelectedJob(job)} className={`border-b cursor-pointer hover:bg-gray-50 ${overdue ? "bg-red-50/50" : ""}`}>
                       <td className="p-3 font-mono text-xs">J{job.code || job.id}</td>
                       <td className="p-3 font-medium">{job.client_name}</td>
                       <td className="p-3 text-[#6b7280] max-w-[200px] truncate">{job.description}</td>
-                      <td className="p-3">
-                        <Badge className="text-[10px] text-white" style={{ backgroundColor: stageCfg?.color }}>
-                          {stageCfg?.name}
-                        </Badge>
-                      </td>
+                      <td className="p-3"><Badge className="text-[10px] text-white" style={{ backgroundColor: stageCfg?.color }}>{stageCfg?.name}</Badge></td>
                       <td className="p-3">{job.responsible[0]?.name || "—"}</td>
                       <td className="p-3 text-right font-medium">{formatBRL(job.value)}</td>
-                      <td className={`p-3 ${overdue ? "text-red-600 font-semibold" : ""}`}>
-                        {job.delivery_date ? new Date(job.delivery_date).toLocaleDateString("pt-BR") : "—"}
-                      </td>
+                      <td className={`p-3 ${overdue ? "text-red-600 font-semibold" : ""}`}>{job.delivery_date ? new Date(job.delivery_date).toLocaleDateString("pt-BR") : "—"}</td>
                       <td className="p-3 text-right">{job.progress_percent}%</td>
                     </tr>
                   );
@@ -268,18 +249,14 @@ const JobsKanban: React.FC = () => {
         </div>
       )}
 
-      <JobDetailDrawer
-        job={selectedJob}
-        open={!!selectedJob}
-        onOpenChange={o => { if (!o) setSelectedJob(null); }}
-      />
+      <JobDetailDrawer job={selectedJob} open={!!selectedJob} onOpenChange={o => { if (!o) setSelectedJob(null); }} />
     </div>
   );
 };
 
-const BoardSkeleton = () => (
+const BoardSkeleton = ({ count = 7 }: { count?: number }) => (
   <div className="flex gap-3 px-6 pb-4">
-    {[...Array(7)].map((_, i) => (
+    {[...Array(count)].map((_, i) => (
       <div key={i} className="min-w-[210px] flex-1 max-w-[260px] space-y-2">
         <Skeleton className="h-16 w-full rounded-lg" />
         <Skeleton className="h-28 w-full rounded-lg" />
