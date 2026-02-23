@@ -149,7 +149,9 @@ export function useJobChecklist(jobId: string | null) {
 export function useAddChecklistTask(jobId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (title: string) => {
+    mutationFn: async (input: string | { title: string; responsible_name?: string }) => {
+      const title = typeof input === "string" ? input : input.title;
+      const responsible_name = typeof input === "string" ? null : (input.responsible_name || null);
       const { data: existing } = await supabase
         .from("job_checklist")
         .select("sort_order")
@@ -157,7 +159,7 @@ export function useAddChecklistTask(jobId: string) {
         .order("sort_order", { ascending: false })
         .limit(1);
       const nextOrder = (existing?.[0]?.sort_order ?? -1) + 1;
-      const { error } = await supabase.from("job_checklist").insert({ job_id: jobId, title, sort_order: nextOrder });
+      const { error } = await supabase.from("job_checklist").insert({ job_id: jobId, title, sort_order: nextOrder, responsible_name });
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["job-checklist", jobId] }),
