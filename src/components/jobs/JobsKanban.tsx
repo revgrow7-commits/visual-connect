@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useJobsData } from "./useJobsData";
 import { supabase } from "@/integrations/supabase/client";
 import type { Job, JobsFilters, JobsByStage } from "./types";
@@ -18,7 +18,7 @@ import {
 } from "@hello-pangea/dnd";
 import {
   Search, RefreshCw, Loader2, Plus, LayoutGrid, List,
-  Calendar, Settings2, Users,
+  Calendar, Settings2, Users, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
@@ -104,6 +104,25 @@ const JobsKanban: React.FC = () => {
   const [productionType, setProductionType] = useState("todos");
   const [filterResponsavel, setFilterResponsavel] = useState("todos");
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollButtons = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 0);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+  }, []);
+
+  
+
+  const scrollKanban = useCallback((direction: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const amount = 280;
+    el.scrollBy({ left: direction === "right" ? amount : -amount, behavior: "smooth" });
+  }, []);
 
   // Fetch colaboradores for filter
   const [colaboradores, setColaboradores] = useState<string[]>([]);
@@ -141,6 +160,16 @@ const JobsKanban: React.FC = () => {
   const byStage = localByStage || filteredData?.byStage || [];
 
   React.useEffect(() => { if (data?.byStage) setLocalByStage(null); }, [data?.byStage]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    updateScrollButtons();
+    el.addEventListener("scroll", updateScrollButtons, { passive: true });
+    const ro = new ResizeObserver(updateScrollButtons);
+    ro.observe(el);
+    return () => { el.removeEventListener("scroll", updateScrollButtons); ro.disconnect(); };
+  }, [updateScrollButtons, byStage]);
 
   const onDragEnd = useCallback((result: DropResult) => {
     const { source, destination } = result;
@@ -300,40 +329,65 @@ const JobsKanban: React.FC = () => {
         </div>
       ) : viewMode === "kanban" ? (
         <DragDropContext onDragEnd={onDragEnd}>
-          <div className="flex-1 overflow-x-auto px-6 pb-4">
-            <div className="flex gap-3 min-h-[calc(100vh-300px)]">
-              {byStage.map(col => (
-                <div key={col.stage.id} className="min-w-[210px] flex-1 max-w-[260px] flex flex-col">
-                  <div className="bg-white rounded-t-lg p-3 border border-[#e5e7eb] border-b-0" style={{ borderTopWidth: 3, borderTopColor: col.stage.color }}>
-                    <p className="font-bold text-sm text-[#1a2332]">{col.stage.name}</p>
-                    <p className="text-xs text-[#6b7280]">{formatBRL(col.totalValue)}</p>
-                    <p className="text-xs text-[#6b7280]">{col.jobs.length} Jobs</p>
+          <div className="flex-1 relative">
+            {/* Left scroll button */}
+            {canScrollLeft && (
+              <button
+                onClick={() => scrollKanban("left")}
+                className="absolute left-1 top-1/2 -translate-y-1/2 z-10 bg-white/90 backdrop-blur border border-border shadow-lg rounded-full p-2 hover:bg-muted transition-colors"
+                aria-label="Rolar para esquerda"
+              >
+                <ChevronLeft className="h-5 w-5 text-foreground" />
+              </button>
+            )}
+            {/* Right scroll button */}
+            {canScrollRight && (
+              <button
+                onClick={() => scrollKanban("right")}
+                className="absolute right-1 top-1/2 -translate-y-1/2 z-10 bg-white/90 backdrop-blur border border-border shadow-lg rounded-full p-2 hover:bg-muted transition-colors"
+                aria-label="Rolar para direita"
+              >
+                <ChevronRight className="h-5 w-5 text-foreground" />
+              </button>
+            )}
+            <div
+              ref={scrollRef}
+              className="overflow-x-auto px-6 pb-4 scroll-smooth scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/40"
+            >
+              <div className="flex gap-3 min-h-[calc(100vh-300px)]">
+                {byStage.map(col => (
+                  <div key={col.stage.id} className="min-w-[210px] flex-1 max-w-[260px] flex flex-col">
+                    <div className="bg-white rounded-t-lg p-3 border border-[#e5e7eb] border-b-0" style={{ borderTopWidth: 3, borderTopColor: col.stage.color }}>
+                      <p className="font-bold text-sm text-[#1a2332]">{col.stage.name}</p>
+                      <p className="text-xs text-[#6b7280]">{formatBRL(col.totalValue)}</p>
+                      <p className="text-xs text-[#6b7280]">{col.jobs.length} Jobs</p>
+                    </div>
+                    <Droppable droppableId={col.stage.id}>
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={`flex-1 bg-[#f0f2f5] border border-[#e5e7eb] border-t-0 rounded-b-lg p-2 space-y-2 transition-colors ${snapshot.isDraggingOver ? "bg-[#d1fae5]" : ""}`}
+                        >
+                          {col.jobs.map((job, idx) => (
+                            <Draggable key={job.id} draggableId={job.id} index={idx}>
+                              {(prov, snap) => (
+                                <div ref={prov.innerRef} {...prov.draggableProps} {...prov.dragHandleProps}>
+                                  <JobCard job={job} onClick={() => setSelectedJob(job)} isDragging={snap.isDragging} visibleFlexfields={visibleFlexfields} />
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                          {col.jobs.length === 0 && (
+                            <div className="text-center py-8 text-[#6b7280] text-xs">Nenhum job nesta etapa</div>
+                          )}
+                        </div>
+                      )}
+                    </Droppable>
                   </div>
-                  <Droppable droppableId={col.stage.id}>
-                    {(provided, snapshot) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.droppableProps}
-                        className={`flex-1 bg-[#f0f2f5] border border-[#e5e7eb] border-t-0 rounded-b-lg p-2 space-y-2 transition-colors ${snapshot.isDraggingOver ? "bg-[#d1fae5]" : ""}`}
-                      >
-                        {col.jobs.map((job, idx) => (
-                          <Draggable key={job.id} draggableId={job.id} index={idx}>
-                            {(prov, snap) => (
-                              <div ref={prov.innerRef} {...prov.draggableProps} {...prov.dragHandleProps}>
-                                <JobCard job={job} onClick={() => setSelectedJob(job)} isDragging={snap.isDragging} visibleFlexfields={visibleFlexfields} />
-                              </div>
-                            )}
-                          </Draggable>
-                        ))}
-                        {provided.placeholder}
-                        {col.jobs.length === 0 && (
-                          <div className="text-center py-8 text-[#6b7280] text-xs">Nenhum job nesta etapa</div>
-                        )}
-                      </div>
-                    )}
-                  </Droppable>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </DragDropContext>
