@@ -211,7 +211,7 @@ const ColaboradoresEditableTable: React.FC<Props> = ({ colaboradores, loading, o
   }
 
   return (
-    <div className="overflow-hidden">
+    <div className="w-full" style={{ overflow: "hidden" }}>
       <div className="flex items-center gap-3 px-3 py-2 border-b bg-muted/30">
         <span className="text-[10px] text-muted-foreground whitespace-nowrap font-medium">◀ Rolagem Horizontal ▶</span>
         <input
@@ -226,8 +226,8 @@ const ColaboradoresEditableTable: React.FC<Props> = ({ colaboradores, loading, o
         />
       </div>
 
-      <div ref={scrollRef} className="overflow-x-auto" style={{ maxHeight: "70vh", overflowY: "auto" }}>
-        <Table className="text-xs" style={{ minWidth: "3200px" }}>
+      <div ref={scrollRef} className="w-full" style={{ overflowX: "scroll", overflowY: "auto", maxHeight: "70vh" }}>
+        <table className="text-xs caption-bottom w-full" style={{ minWidth: "3200px" }}>
           <TableHeader>
             <TableRow>
               <TableHead className="sticky left-0 z-10 bg-background min-w-[40px]">Ações</TableHead>
@@ -410,7 +410,7 @@ const ColaboradoresEditableTable: React.FC<Props> = ({ colaboradores, loading, o
               </TableRow>
             )}
           </TableBody>
-        </Table>
+        </table>
       </div>
     </div>
   );
