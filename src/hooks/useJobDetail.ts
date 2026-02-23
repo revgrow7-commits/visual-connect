@@ -116,31 +116,12 @@ export function useJobDetail(job: Job | null) {
     enabled: !!jobId,
     queryFn: async () => {
       // Check if _raw already has production data
+      // Use _raw data if available (from useJobsData with fullDetail)
       if (job?._raw?.production || job?._raw?.products) {
         return parseJobDetail(job._raw);
       }
 
-      // Strategy 1: Try direct job endpoint via holdprint-erp proxy
-      try {
-        const { data: directData, error: directError } = await supabase.functions.invoke("holdprint-erp", {
-          body: {
-            endpoint: `/api-key/jobs/${jobId}/data?language=pt-BR`,
-            method: "GET",
-            unidade: unitKey,
-          },
-        });
-
-        if (!directError && directData && !directData.error) {
-          const jobData = directData?.data || directData;
-          if (jobData && (jobData.production || jobData.products)) {
-            return parseJobDetail(jobData as Record<string, unknown>);
-          }
-        }
-      } catch (e) {
-        console.warn("[useJobDetail] Direct fetch failed, trying bulk:", e);
-      }
-
-      // Strategy 2: Fetch full detail via cs-holdprint-data (bulk)
+      // Fallback: Fetch full detail via cs-holdprint-data (bulk)
       const { data, error } = await supabase.functions.invoke("cs-holdprint-data", {
         body: {
           endpoints: ["jobs"],
