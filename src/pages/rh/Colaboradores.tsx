@@ -1,13 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, Search, Filter, Download, Building2,
-  CheckCircle2, Table2, LayoutGrid, UserPlus,
+  CheckCircle2, Table2, UserPlus, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,6 +24,8 @@ const ColaboradoresPage = () => {
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
   const [loading, setLoading] = useState(true);
   const [novoOpen, setNovoOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
 
   const fetchColaboradores = useCallback(async () => {
     setLoading(true);
@@ -52,6 +53,12 @@ const ColaboradoresPage = () => {
     const matchSetor = filterSetor === "todos" || c.setor === filterSetor;
     return matchSearch && matchUnidade && matchStatus && matchSetor;
   });
+
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [search, filterUnidade, filterStatus, filterSetor]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+  const paginated = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
 
   const setores = [...new Set(colaboradores.map(c => c.setor).filter(Boolean))] as string[];
 
@@ -161,18 +168,85 @@ const ColaboradoresPage = () => {
       {/* Full Table */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Table2 className="h-4 w-4" />
-            {loading ? "Carregando..." : `${filtered.length} colaborador${filtered.length !== 1 ? "es" : ""} encontrado${filtered.length !== 1 ? "s" : ""}`}
-          </CardTitle>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Table2 className="h-4 w-4" />
+              {loading ? "Carregando..." : `${filtered.length} colaborador${filtered.length !== 1 ? "es" : ""} encontrado${filtered.length !== 1 ? "s" : ""}`}
+            </CardTitle>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground text-xs">Itens por página:</span>
+              <Select value={String(perPage)} onValueChange={(v) => { setPerPage(Number(v)); setCurrentPage(1); }}>
+                <SelectTrigger className="h-8 w-[70px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <ColaboradoresEditableTable
-            colaboradores={filtered}
+            colaboradores={paginated}
             loading={loading}
             onRefresh={fetchColaboradores}
           />
         </CardContent>
+
+        {/* Pagination */}
+        {!loading && totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t">
+            <p className="text-xs text-muted-foreground">
+              Mostrando {((currentPage - 1) * perPage) + 1}–{Math.min(currentPage * perPage, filtered.length)} de {filtered.length}
+            </p>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => p - 1)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+                .reduce<(number | string)[]>((acc, p, idx, arr) => {
+                  if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, idx) =>
+                  typeof p === "string" ? (
+                    <span key={`ellipsis-${idx}`} className="px-1 text-xs text-muted-foreground">…</span>
+                  ) : (
+                    <Button
+                      key={p}
+                      variant={p === currentPage ? "default" : "outline"}
+                      size="icon"
+                      className={`h-8 w-8 text-xs ${p === currentPage ? "gradient-bordo text-primary-foreground" : ""}`}
+                      onClick={() => setCurrentPage(p)}
+                    >
+                      {p}
+                    </Button>
+                  )
+                )}
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => p + 1)}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
       <NovoColaboradorDialog open={novoOpen} onOpenChange={setNovoOpen} onSuccess={fetchColaboradores} />
     </div>
