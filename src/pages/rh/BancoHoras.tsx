@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Clock, Loader2, DatabaseBackup, Brain, AlertTriangle, Scale } from "lucide-react";
+import { Clock, Loader2, DatabaseBackup, Brain, AlertTriangle, Scale, Mail, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -118,6 +118,8 @@ const BancoHorasPage = () => {
     }
   };
 
+  const [sendingAlerts, setSendingAlerts] = useState(false);
+
   const parsed = parseRows(dbData);
   const filtered = parsed.filter((c) =>
     c.nome.toLowerCase().includes(search.toLowerCase()) ||
@@ -129,6 +131,84 @@ const BancoHorasPage = () => {
   const negativos = filtered.filter((c) => c.saldoDecimal < 0).length;
   const positivos = filtered.filter((c) => c.saldoDecimal > 0).length;
   const hasData = parsed.length > 0;
+
+  // Compliance classification
+  const SALARIO_BASE = 2500;
+  const CARGA_MENSAL = 220;
+  const VALOR_HORA = SALARIO_BASE / CARGA_MENSAL;
+
+  const conformes = parsed.filter((c) => Math.abs(c.saldoDecimal) <= 20).length;
+  const alertas = parsed.filter((c) => Math.abs(c.saldoDecimal) > 20 && Math.abs(c.saldoDecimal) <= 40).length;
+  const criticos = parsed.filter((c) => Math.abs(c.saldoDecimal) > 40).length;
+  const conformidade = parsed.length > 0 ? Math.round((conformes / parsed.length) * 100) : 0;
+
+  const alertaColabs = parsed
+    .filter((c) => Math.abs(c.saldoDecimal) > 20)
+    .map((c) => {
+      const parseH = (v: string) => { if (!v || v === "00:00") return 0; const neg = v.startsWith("-"); const cl = v.replace("-",""); const [h,m] = cl.split(":").map(Number); return (neg ? -1 : 1) * ((h||0) + (m||0)/60); };
+      const hEx60 = parseH(c.ex60);
+      const hEx80 = parseH(c.ex80);
+      const hEx100 = parseH(c.ex100);
+      const passivo = (hEx60 * VALOR_HORA * 1.60 + hEx80 * VALOR_HORA * 1.80 + hEx100 * VALOR_HORA * 2.00) * 1.368;
+      return {
+        nome: c.nome, cargo: c.cargo, departamento: c.departamento,
+        saldo: c.bSaldo, saldoDecimal: c.saldoDecimal,
+        ex60: c.ex60, ex80: c.ex80, ex100: c.ex100,
+        passivo,
+        status: Math.abs(c.saldoDecimal) > 40 ? "critico" : "urgente",
+      };
+    })
+    .sort((a, b) => Math.abs(b.saldoDecimal) - Math.abs(a.saldoDecimal));
+
+  const passivoTotal = parsed.reduce((acc, c) => {
+    const parseH = (v: string) => { if (!v || v === "00:00") return 0; const neg = v.startsWith("-"); const cl = v.replace("-",""); const [h,m] = cl.split(":").map(Number); return (neg ? -1 : 1) * ((h||0) + (m||0)/60); };
+    return acc + (parseH(c.ex60) * VALOR_HORA * 1.60 + parseH(c.ex80) * VALOR_HORA * 1.80 + parseH(c.ex100) * VALOR_HORA * 2.00) * 1.368;
+  }, 0);
+
+  const handleSendAlerts = async () => {
+    if (alertaColabs.length === 0) {
+      toast({ title: "Sem alertas", description: "Nenhum colaborador com saldo acima de 20h.", variant: "destructive" });
+      return;
+    }
+    setSendingAlerts(true);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/banco-horas-notify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+        body: JSON.stringify({
+          alertas: alertaColabs,
+          competencia,
+          resumo: { total: parsed.length, conformes, urgentes: alertas, criticos, conformidade, passivoTotal, saldoTotal: totalSaldo },
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || `HTTP ${res.status}`);
+      toast({ title: "📧 Alertas enviados", description: `${result.notified} de ${result.total_recipients} emails enviados com sucesso.` });
+    } catch (e: any) {
+      toast({ title: "Erro ao enviar alertas", description: e.message, variant: "destructive" });
+    } finally {
+      setSendingAlerts(false);
+    }
+  };
+
+  const handleDownloadCSV = () => {
+    if (parsed.length === 0) return;
+    const headers = ["Nome","Cargo","Departamento","Unidade","Normais","Carga","Faltas","Ex60%","Ex80%","Ex100%","Crédito","Débito","Saldo","Saldo Decimal"];
+    const rows = parsed.map(c => [c.nome,c.cargo,c.departamento,c.unidade,c.normais,c.carga,c.faltas,c.ex60,c.ex80,c.ex100,c.bCred,c.bDeb,c.bSaldo,c.saldoDecimal.toString()]);
+    const csv = [headers.join(";"), ...rows.map(r => r.join(";"))].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `banco-horas-${competencia}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Download iniciado", description: `Relatório ${competencia} exportado.` });
+  };
 
   return (
     <div className="space-y-4">
@@ -143,10 +223,20 @@ const BancoHorasPage = () => {
             <p className="text-muted-foreground text-xs mt-0.5">Dados sincronizados do Secullum</p>
           </div>
         </div>
-        <Button onClick={handleImport} disabled={importing} size="sm" className="gap-1.5 text-xs h-8">
-          {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DatabaseBackup className="h-3.5 w-3.5" />}
-          {importing ? "Importando..." : "Importar"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={handleDownloadCSV} disabled={!hasData} variant="outline" size="sm" className="gap-1.5 text-xs h-8">
+            <Download className="h-3.5 w-3.5" />
+            Baixar CSV
+          </Button>
+          <Button onClick={handleSendAlerts} disabled={sendingAlerts || !hasData} variant="outline" size="sm" className="gap-1.5 text-xs h-8">
+            {sendingAlerts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+            {sendingAlerts ? "Enviando..." : `Enviar Alertas (${alertaColabs.length})`}
+          </Button>
+          <Button onClick={handleImport} disabled={importing} size="sm" className="gap-1.5 text-xs h-8">
+            {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DatabaseBackup className="h-3.5 w-3.5" />}
+            {importing ? "Importando..." : "Importar"}
+          </Button>
+        </div>
       </div>
 
       {error && (
