@@ -41,6 +41,7 @@ const FiscalPage = lazy(() => import("./pages/gestao/FiscalPage"));
 const MarketingPage = lazy(() => import("./pages/gestao/MarketingPage"));
 const CsPage = lazy(() => import("./pages/gestao/CsPage"));
 const JuridicoPage = lazy(() => import("./pages/gestao/JuridicoPage"));
+const WhatsAppTestPage = lazy(() => import("./pages/gestao/WhatsAppTestPage"));
 const OrquestradorPage = lazy(() => import("./pages/OrquestradorPage"));
 const GatewayLogin = lazy(() => import("./pages/GatewayLogin"));
 
@@ -114,6 +115,7 @@ const App = () => (
               <Route path="/gestao/marketing" element={<MarketingPage />} />
               <Route path="/gestao/cs" element={<CsPage />} />
               <Route path="/gestao/juridico" element={<JuridicoPage />} />
+              <Route path="/gestao/cs/whatsapp-test" element={<WhatsAppTestPage />} />
               <Route path="/orquestrador" element={<OrquestradorPage />} />
               {/* Holdprint ERP */}
               <Route path="/holdprint/processos" element={<HoldprintProcessos />} />
