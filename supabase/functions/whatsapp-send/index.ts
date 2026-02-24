@@ -65,7 +65,6 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Client-Token": ZAPI_CLIENT_TOKEN || "",
       },
       body: JSON.stringify({
         phone: cleanPhone,
