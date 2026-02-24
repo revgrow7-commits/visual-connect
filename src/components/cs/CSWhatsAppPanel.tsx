@@ -1,216 +1,489 @@
-import React, { useState } from "react";
-import { useWhatsAppLogs, useSendWhatsAppMessage } from "@/hooks/useWhatsAppLogs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { MessageSquare, Send, ArrowUpRight, ArrowDownLeft, RefreshCw, Loader2, Phone, Search, Filter } from "lucide-react";
-import { format } from "date-fns";
+import {
+  Send, RefreshCw, Search, Phone, Copy, User,
+  MessageSquare, Loader2, CheckCheck, Check, Clock, X,
+  ArrowLeft
+} from "lucide-react";
+import { format, isToday, isYesterday, isSameDay } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { useIsMobile } from "@/hooks/use-mobile";
 
-const statusColors: Record<string, string> = {
-  pending: "bg-yellow-500/10 text-yellow-600 border-yellow-500/30",
-  sent: "bg-blue-500/10 text-blue-600 border-blue-500/30",
-  delivered: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
-  read: "bg-green-500/10 text-green-700 border-green-500/30",
-  failed: "bg-red-500/10 text-red-600 border-red-500/30",
+// --- Types ---
+interface WhatsAppLog {
+  id: string;
+  created_at: string | null;
+  customer_id: number | null;
+  customer_name: string | null;
+  phone: string;
+  direction: string;
+  message: string;
+  origin: string | null;
+  origin_id: string | null;
+  status: string | null;
+  evolution_message_id: string | null;
+  error_message: string | null;
+  sent_at: string | null;
+  delivered_at: string | null;
+  read_at: string | null;
+  sent_by: string | null;
+  unidade: string | null;
+}
+
+interface Conversation {
+  phone: string;
+  customer_id: number | null;
+  customer_name: string | null;
+  lastMessage: string;
+  lastMessageAt: string;
+  lastDirection: string;
+  origin: string | null;
+  unreadCount: number;
+}
+
+// --- Helpers ---
+const originColors: Record<string, string> = {
+  regua: "🟢",
+  ticket: "🔴",
+  oportunidade: "🟡",
+  manual: "⚪",
 };
 
-const originLabels: Record<string, string> = {
-  regua: "Régua",
-  ticket: "Ticket",
-  oportunidade: "Oportunidade",
-  nps: "NPS",
-  manual: "Manual",
+const formatPhone = (p: string) => {
+  const clean = p.replace(/\D/g, "");
+  if (clean.length === 13) return `+${clean.slice(0, 2)} (${clean.slice(2, 4)}) ${clean.slice(4, 9)}-${clean.slice(9)}`;
+  if (clean.length === 12) return `+${clean.slice(0, 2)} (${clean.slice(2, 4)}) ${clean.slice(4, 8)}-${clean.slice(8)}`;
+  return p;
 };
 
+const getInitials = (name: string | null) => {
+  if (!name) return "?";
+  return name.split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
+};
+
+const formatDateLabel = (d: Date) => {
+  if (isToday(d)) return "Hoje";
+  if (isYesterday(d)) return "Ontem";
+  return format(d, "dd/MM/yyyy");
+};
+
+const StatusIcon: React.FC<{ status: string | null }> = ({ status }) => {
+  switch (status) {
+    case "pending": return <Clock className="h-3 w-3 text-muted-foreground" />;
+    case "sent": return <Check className="h-3 w-3 text-muted-foreground" />;
+    case "delivered": return <CheckCheck className="h-3 w-3 text-muted-foreground" />;
+    case "read": return <CheckCheck className="h-3 w-3 text-blue-500" />;
+    case "failed": return <X className="h-3 w-3 text-red-500" />;
+    default: return <Clock className="h-3 w-3 text-muted-foreground" />;
+  }
+};
+
+const originTag = (origin: string | null, originId: string | null) => {
+  if (!origin || origin === "manual") return <span className="text-[9px] text-muted-foreground/60">manual</span>;
+  const label = origin === "regua" ? "régua" : origin === "ticket" ? `ticket ${originId ? `#${originId.slice(0,8)}` : ""}` : origin;
+  return <span className="text-[9px] text-muted-foreground/60">{label}</span>;
+};
+
+// --- Main Component ---
 const CSWhatsAppPanel: React.FC = () => {
-  const { data: logs, isLoading, refetch } = useWhatsAppLogs();
-  const sendMsg = useSendWhatsAppMessage();
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const isMobile = useIsMobile();
+  const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | "unread" | "clients" | "leads">("all");
   const [search, setSearch] = useState("");
-  const [filterOrigin, setFilterOrigin] = useState<string>("all");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const qc = useQueryClient();
 
-  // Form state
-  const [phone, setPhone] = useState("");
-  const [customerName, setCustomerName] = useState("");
-  const [message, setMessage] = useState("");
+  // === Fetch all logs for conversation list ===
+  const { data: allLogs, isLoading: loadingLogs } = useQuery({
+    queryKey: ["whatsapp-logs-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("whatsapp_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(1000);
+      if (error) throw error;
+      return data as WhatsAppLog[];
+    },
+    refetchInterval: 15000,
+  });
 
-  const handleSend = async () => {
-    if (!phone || !message) {
-      toast.error("Preencha telefone e mensagem");
-      return;
+  // === Build conversation list ===
+  const conversations: Conversation[] = React.useMemo(() => {
+    if (!allLogs) return [];
+    const map = new Map<string, Conversation>();
+    for (const log of allLogs) {
+      const existing = map.get(log.phone);
+      if (!existing) {
+        map.set(log.phone, {
+          phone: log.phone,
+          customer_id: log.customer_id,
+          customer_name: log.customer_name,
+          lastMessage: log.message,
+          lastMessageAt: log.created_at || "",
+          lastDirection: log.direction,
+          origin: log.origin,
+          unreadCount: log.direction === "inbound" && !log.read_at ? 1 : 0,
+        });
+      } else {
+        if (!existing.customer_name && log.customer_name) existing.customer_name = log.customer_name;
+        if (!existing.customer_id && log.customer_id) existing.customer_id = log.customer_id;
+        if (log.direction === "inbound" && !log.read_at) existing.unreadCount++;
+      }
     }
-    try {
-      await sendMsg.mutateAsync({
-        phone,
-        message,
-        customer_name: customerName || undefined,
-        origin: "manual",
-        sent_by: "Carlos",
+    let list = Array.from(map.values());
+
+    // Filters
+    if (filter === "unread") list = list.filter(c => c.unreadCount > 0);
+    if (filter === "clients") list = list.filter(c => c.customer_id != null);
+    if (filter === "leads") list = list.filter(c => c.customer_id == null);
+
+    if (search) {
+      const s = search.toLowerCase();
+      list = list.filter(c =>
+        c.customer_name?.toLowerCase().includes(s) ||
+        c.phone.includes(s)
+      );
+    }
+
+    return list.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+  }, [allLogs, filter, search]);
+
+  const selectedConvo = conversations.find(c => c.phone === selectedPhone);
+
+  // === Chat messages for selected phone ===
+  const { data: chatMessages, isLoading: loadingChat } = useQuery({
+    queryKey: ["whatsapp-chat", selectedPhone],
+    queryFn: async () => {
+      if (!selectedPhone) return [];
+      const { data, error } = await supabase
+        .from("whatsapp_logs")
+        .select("*")
+        .eq("phone", selectedPhone)
+        .order("created_at", { ascending: true })
+        .limit(500);
+      if (error) throw error;
+      return data as WhatsAppLog[];
+    },
+    enabled: !!selectedPhone,
+    refetchInterval: 8000,
+  });
+
+  // === Mark as read when opening conversation ===
+  useEffect(() => {
+    if (!selectedPhone || !chatMessages) return;
+    const unreadIds = chatMessages
+      .filter(m => m.direction === "inbound" && !m.read_at)
+      .map(m => m.id);
+    if (unreadIds.length === 0) return;
+
+    supabase
+      .from("whatsapp_logs")
+      .update({ read_at: new Date().toISOString() })
+      .in("id", unreadIds)
+      .then(() => {
+        qc.invalidateQueries({ queryKey: ["whatsapp-logs-all"] });
       });
+  }, [selectedPhone, chatMessages, qc]);
+
+  // === Send message ===
+  const [msgText, setMsgText] = useState("");
+  const sendMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedPhone || !msgText.trim()) throw new Error("Missing data");
+      const { data, error } = await supabase.functions.invoke("whatsapp-send", {
+        body: {
+          phone: selectedPhone,
+          message: msgText.trim(),
+          origin: "manual",
+          client_id: selectedConvo?.customer_id,
+          client_name: selectedConvo?.customer_name,
+        },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      setMsgText("");
+      qc.invalidateQueries({ queryKey: ["whatsapp-chat", selectedPhone] });
+      qc.invalidateQueries({ queryKey: ["whatsapp-logs-all"] });
       toast.success("Mensagem enviada!");
-      setDialogOpen(false);
-      setPhone("");
-      setCustomerName("");
-      setMessage("");
-    } catch {
-      toast.error("Falha ao enviar mensagem");
+    },
+    onError: () => toast.error("Falha ao enviar mensagem"),
+  });
+
+  // === Auto-scroll ===
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  // === Keyboard shortcut ===
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && e.ctrlKey && msgText.trim()) {
+      e.preventDefault();
+      sendMutation.mutate();
     }
   };
 
-  const filtered = (logs || []).filter((l) => {
-    if (filterOrigin !== "all" && l.origin !== filterOrigin) return false;
-    if (filterStatus !== "all" && l.status !== filterStatus) return false;
-    if (search) {
-      const s = search.toLowerCase();
-      return (
-        l.customer_name?.toLowerCase().includes(s) ||
-        l.phone.includes(s) ||
-        l.message.toLowerCase().includes(s)
-      );
-    }
-    return true;
-  });
-
-  // KPIs
-  const total = logs?.length || 0;
-  const sent = logs?.filter((l) => l.status === "sent" || l.status === "delivered" || l.status === "read").length || 0;
-  const failed = logs?.filter((l) => l.status === "failed").length || 0;
-  const read = logs?.filter((l) => l.status === "read").length || 0;
+  const showChat = isMobile ? !!selectedPhone : true;
+  const showList = isMobile ? !selectedPhone : true;
 
   return (
-    <div className="space-y-4">
-      {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{total}</p><p className="text-xs text-muted-foreground">Total mensagens</p></CardContent></Card>
-        <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-blue-600">{sent}</p><p className="text-xs text-muted-foreground">Enviadas</p></CardContent></Card>
-        <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-green-600">{read}</p><p className="text-xs text-muted-foreground">Lidas</p></CardContent></Card>
-        <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-red-600">{failed}</p><p className="text-xs text-muted-foreground">Falhas</p></CardContent></Card>
-      </div>
-
-      {/* Actions Bar */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2"><Send className="h-4 w-4" /> Nova Mensagem</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Enviar WhatsApp</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <Input placeholder="Nome do cliente (opcional)" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
-              <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <Input placeholder="5551999999999" value={phone} onChange={(e) => setPhone(e.target.value)} />
-              </div>
-              <Textarea placeholder="Mensagem..." rows={4} value={message} onChange={(e) => setMessage(e.target.value)} />
-              <Button className="w-full gap-2" onClick={handleSend} disabled={sendMsg.isPending}>
-                {sendMsg.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Enviar
-              </Button>
+    <div className="flex h-[calc(100vh-var(--topbar-height)-10rem)] border rounded-lg overflow-hidden bg-card">
+      {/* === Conversation List === */}
+      {showList && (
+        <div className={`${isMobile ? "w-full" : "w-[35%]"} border-r flex flex-col`}>
+          {/* Search & Filters */}
+          <div className="p-3 border-b space-y-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-8 h-9 text-sm"
+                placeholder="Buscar nome ou número..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
             </div>
-          </DialogContent>
-        </Dialog>
+            <div className="flex gap-1">
+              {(["all", "unread", "clients", "leads"] as const).map(f => (
+                <Button
+                  key={f}
+                  size="sm"
+                  variant={filter === f ? "default" : "ghost"}
+                  className="h-7 text-xs px-2.5"
+                  onClick={() => setFilter(f)}
+                >
+                  {f === "all" ? "Todas" : f === "unread" ? "Não lidas" : f === "clients" ? "Clientes" : "Leads"}
+                </Button>
+              ))}
+            </div>
+          </div>
 
-        <div className="flex-1" />
-
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input className="pl-8 w-48" placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
-
-        <Select value={filterOrigin} onValueChange={setFilterOrigin}>
-          <SelectTrigger className="w-32"><Filter className="h-3 w-3 mr-1" /><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas origens</SelectItem>
-            <SelectItem value="manual">Manual</SelectItem>
-            <SelectItem value="regua">Régua</SelectItem>
-            <SelectItem value="ticket">Ticket</SelectItem>
-            <SelectItem value="oportunidade">Oportunidade</SelectItem>
-            <SelectItem value="nps">NPS</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos status</SelectItem>
-            <SelectItem value="pending">Pendente</SelectItem>
-            <SelectItem value="sent">Enviado</SelectItem>
-            <SelectItem value="delivered">Entregue</SelectItem>
-            <SelectItem value="read">Lido</SelectItem>
-            <SelectItem value="failed">Falha</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Button size="icon" variant="ghost" onClick={() => refetch()}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
-      </div>
-
-      {/* Table */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" /> Histórico de Mensagens
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-          ) : filtered.length === 0 ? (
-            <p className="text-center text-muted-foreground py-10 text-sm">Nenhuma mensagem encontrada</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10"></TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Telefone</TableHead>
-                  <TableHead>Mensagem</TableHead>
-                  <TableHead>Origem</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell>
-                      {log.direction === "outbound" ? (
-                        <ArrowUpRight className="h-4 w-4 text-blue-500" />
-                      ) : (
-                        <ArrowDownLeft className="h-4 w-4 text-green-500" />
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">
-                      {log.created_at ? format(new Date(log.created_at), "dd/MM HH:mm") : "—"}
-                    </TableCell>
-                    <TableCell className="text-xs font-medium max-w-[120px] truncate">{log.customer_name || "—"}</TableCell>
-                    <TableCell className="text-xs font-mono">{log.phone}</TableCell>
-                    <TableCell className="text-xs max-w-[250px] truncate">{log.message}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-[10px]">
-                        {originLabels[log.origin || "manual"] || log.origin}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={`text-[10px] ${statusColors[log.status || "pending"]}`}>
-                        {log.status || "pending"}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
+          {/* Conversation Items */}
+          <div className="flex-1 overflow-y-auto">
+            {loadingLogs ? (
+              <div className="space-y-2 p-3">
+                {[1, 2, 3, 4, 5].map(i => (
+                  <div key={i} className="flex items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="flex-1 space-y-1">
+                      <Skeleton className="h-3 w-24" />
+                      <Skeleton className="h-3 w-40" />
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            ) : conversations.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-10">Nenhuma conversa encontrada</p>
+            ) : (
+              conversations.map(c => (
+                <button
+                  key={c.phone}
+                  onClick={() => setSelectedPhone(c.phone)}
+                  className={`w-full flex items-center gap-3 px-3 py-3 hover:bg-muted/50 transition-colors text-left ${
+                    selectedPhone === c.phone ? "bg-muted" : ""
+                  }`}
+                >
+                  <Avatar className="h-10 w-10 flex-shrink-0">
+                    <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                      {getInitials(c.customer_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-sm font-medium truncate">
+                        {c.customer_name || formatPhone(c.phone)}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                        {c.lastMessageAt ? format(new Date(c.lastMessageAt), "HH:mm") : ""}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-xs text-muted-foreground truncate max-w-[180px]">
+                        {c.lastDirection === "outbound" && <Check className="h-3 w-3 inline mr-0.5" />}
+                        {c.lastMessage.slice(0, 45)}{c.lastMessage.length > 45 ? "..." : ""}
+                      </span>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <span className="text-[10px]">{originColors[c.origin || "manual"] || "⚪"}</span>
+                        {c.unreadCount > 0 && (
+                          <Badge className="bg-red-500 text-white text-[9px] h-4 min-w-4 p-0 flex items-center justify-center rounded-full">
+                            {c.unreadCount}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* === Chat Area === */}
+      {showChat && (
+        <div className={`${isMobile ? "w-full" : "w-[65%]"} flex flex-col`}>
+          {selectedPhone && selectedConvo ? (
+            <>
+              {/* Chat Header */}
+              <div className="flex items-center gap-3 px-4 py-3 border-b bg-card flex-shrink-0">
+                {isMobile && (
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setSelectedPhone(null)}>
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                )}
+                <Avatar className="h-9 w-9">
+                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                    {getInitials(selectedConvo.customer_name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate">
+                    {selectedConvo.customer_name || formatPhone(selectedConvo.phone)}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-muted-foreground font-mono">{formatPhone(selectedConvo.phone)}</span>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-5 w-5"
+                            onClick={() => {
+                              navigator.clipboard.writeText(selectedConvo.phone);
+                              toast.success("Telefone copiado!");
+                            }}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Copiar telefone</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Badge variant="outline" className="text-[10px]">
+                    {selectedConvo.customer_id ? "Cliente" : "Lead"}
+                  </Badge>
+                  <Badge variant="outline" className="text-[10px] bg-green-500/10 text-green-700 border-green-500/30">
+                    Ativa
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-1 bg-muted/20" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }}>
+                {loadingChat ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className={`flex ${i % 2 === 0 ? "justify-end" : "justify-start"}`}>
+                        <Skeleton className="h-12 w-48 rounded-lg" />
+                      </div>
+                    ))}
+                  </div>
+                ) : chatMessages && chatMessages.length > 0 ? (
+                  <>
+                    {chatMessages.map((msg, idx) => {
+                      const msgDate = msg.created_at ? new Date(msg.created_at) : new Date();
+                      const prevDate = idx > 0 && chatMessages[idx - 1].created_at ? new Date(chatMessages[idx - 1].created_at!) : null;
+                      const showDateSep = idx === 0 || (prevDate && !isSameDay(msgDate, prevDate));
+                      const isOutbound = msg.direction === "outbound";
+
+                      return (
+                        <React.Fragment key={msg.id}>
+                          {showDateSep && (
+                            <div className="flex justify-center py-2">
+                              <span className="text-[10px] bg-muted px-3 py-1 rounded-full text-muted-foreground font-medium">
+                                {formatDateLabel(msgDate)}
+                              </span>
+                            </div>
+                          )}
+                          <div className={`flex ${isOutbound ? "justify-end" : "justify-start"} mb-1`}>
+                            <div
+                              className={`max-w-[75%] px-3 py-2 rounded-lg shadow-sm ${
+                                isOutbound
+                                  ? "bg-[#DCF8C6] text-foreground rounded-tr-none"
+                                  : "bg-card border text-foreground rounded-tl-none"
+                              }`}
+                            >
+                              <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
+                              <div className={`flex items-center gap-1 mt-1 ${isOutbound ? "justify-end" : "justify-start"}`}>
+                                {originTag(msg.origin, msg.origin_id)}
+                                <span className="text-[10px] text-muted-foreground">
+                                  {msg.created_at ? format(new Date(msg.created_at), "HH:mm") : ""}
+                                </span>
+                                {isOutbound && <StatusIcon status={msg.status} />}
+                              </div>
+                            </div>
+                          </div>
+                        </React.Fragment>
+                      );
+                    })}
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+                    <MessageSquare className="h-10 w-10 opacity-30" />
+                    <p className="text-sm">Nenhuma mensagem ainda. Envie a primeira!</p>
+                  </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+
+              {/* Send Bar */}
+              <div className="border-t p-3 bg-card flex-shrink-0">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1 relative">
+                    <Textarea
+                      placeholder="Mensagem..."
+                      value={msgText}
+                      onChange={e => setMsgText(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      className="min-h-[40px] max-h-[120px] resize-none pr-12 text-sm"
+                      rows={1}
+                    />
+                    <span className="absolute bottom-1.5 right-2 text-[9px] text-muted-foreground">
+                      {msgText.length}
+                    </span>
+                  </div>
+                  <Button
+                    size="icon"
+                    className="h-10 w-10 rounded-full"
+                    disabled={!msgText.trim() || sendMutation.isPending}
+                    onClick={() => sendMutation.mutate()}
+                  >
+                    {sendMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-[9px] text-muted-foreground mt-1">Ctrl+Enter para enviar</p>
+              </div>
+            </>
+          ) : (
+            /* Empty state */
+            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3">
+              <div className="h-16 w-16 rounded-full bg-green-500/10 flex items-center justify-center">
+                <Phone className="h-8 w-8 text-green-600" />
+              </div>
+              <p className="text-sm font-medium">Selecione uma conversa para começar</p>
+              <p className="text-xs">Escolha um contato na lista à esquerda</p>
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   );
 };

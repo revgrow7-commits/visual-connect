@@ -1,4 +1,6 @@
 import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -15,7 +17,7 @@ interface Props {
   onSectionChange: (section: CSSectionId) => void;
 }
 
-const sections: Array<{ id: CSSectionId; label: string; icon: React.ElementType; badge?: number }> = [
+const sections: Array<{ id: CSSectionId; label: string; icon: React.ElementType; badge?: number; dynamicBadge?: boolean }> = [
   { id: "resumo", label: "Resumo", icon: BarChart3 },
   { id: "clientes", label: "Clientes", icon: Users },
   { id: "health", label: "Health Score", icon: Heart },
@@ -28,7 +30,7 @@ const sections: Array<{ id: CSSectionId; label: string; icon: React.ElementType;
   { id: "playbooks", label: "Playbooks", icon: ClipboardList },
   { id: "relatorios", label: "Relatórios", icon: LineChart },
   { id: "pcp", label: "PCP (Kanban)", icon: Kanban },
-  { id: "whatsapp", label: "WhatsApp", icon: Phone },
+  { id: "whatsapp", label: "WhatsApp", icon: Phone, dynamicBadge: true },
   { id: "insider", label: "Insider AI", icon: Lightbulb },
   { id: "agente", label: "Agente IA", icon: Bot },
 ];
@@ -40,6 +42,21 @@ const savedViews = [
 ];
 
 const CSWorkspaceSidebar: React.FC<Props> = ({ activeSection, onSectionChange }) => {
+  // Polling for unread WhatsApp count
+  const { data: unreadCount } = useQuery({
+    queryKey: ["whatsapp-unread-count"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("whatsapp_logs")
+        .select("*", { count: "exact", head: true })
+        .eq("direction", "inbound")
+        .is("read_at", null);
+      if (error) return 0;
+      return count || 0;
+    },
+    refetchInterval: 15000,
+  });
+
   return (
     <aside className="w-60 bg-[#1A1A1A] text-white flex-shrink-0 flex flex-col h-full overflow-y-auto">
       {/* Header */}
@@ -55,24 +72,27 @@ const CSWorkspaceSidebar: React.FC<Props> = ({ activeSection, onSectionChange })
       {/* Sections */}
       <nav className="flex-1 py-2 px-2 space-y-0.5">
         <p className="text-[10px] uppercase tracking-wider text-white/40 px-2 pt-2 pb-1">Seções</p>
-        {sections.map((s) => (
-          <button
-            key={s.id}
-            onClick={() => onSectionChange(s.id)}
-            className={cn(
-              "w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors",
-              activeSection === s.id
-                ? "bg-primary/10 text-white border-l-[3px] border-l-primary"
-                : "text-white/70 hover:bg-white/5 border-l-[3px] border-l-transparent"
-            )}
-          >
-            <s.icon className="h-[18px] w-[18px] flex-shrink-0" />
-            <span className="flex-1 text-left truncate">{s.label}</span>
-            {s.badge && s.badge > 0 && (
-              <Badge className="bg-red-500 text-white text-[10px] h-5 min-w-5 flex items-center justify-center rounded-full p-0">{s.badge}</Badge>
-            )}
-          </button>
-        ))}
+        {sections.map((s) => {
+          const badgeValue = s.dynamicBadge ? (unreadCount || 0) : (s.badge || 0);
+          return (
+            <button
+              key={s.id}
+              onClick={() => onSectionChange(s.id)}
+              className={cn(
+                "w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors",
+                activeSection === s.id
+                  ? "bg-primary/10 text-white border-l-[3px] border-l-primary"
+                  : "text-white/70 hover:bg-white/5 border-l-[3px] border-l-transparent"
+              )}
+            >
+              <s.icon className="h-[18px] w-[18px] flex-shrink-0" />
+              <span className="flex-1 text-left truncate">{s.label}</span>
+              {badgeValue > 0 && (
+                <Badge className="bg-red-500 text-white text-[10px] h-5 min-w-5 flex items-center justify-center rounded-full p-0">{badgeValue}</Badge>
+              )}
+            </button>
+          );
+        })}
       </nav>
 
       <Separator className="bg-white/10 mx-3" />
