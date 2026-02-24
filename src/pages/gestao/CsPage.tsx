@@ -18,6 +18,7 @@ import CSRelatoriosSection from "@/components/cs/CSRelatoriosSection";
 import CSClientesTab from "@/components/cs/CSClientesTab";
 import CSMeetingDialog from "@/components/cs/CSMeetingDialog";
 import AgentChat from "@/components/ai-agent/AgentChat";
+import CSWhatsAppPanel from "@/components/cs/CSWhatsAppPanel";
 import { useCSHoldprintData, transformToCSCustomers, transformToCSCustomersList } from "@/hooks/useCSHoldprintData";
 import type { CSSectionId } from "@/components/cs/types";
 
@@ -36,6 +37,7 @@ const sectionTitles: Record<CSSectionId, string> = {
   pcp: "PCP (Kanban)",
   insider: "Insider AI (Holdprint)",
   agente: "Agente IA",
+  whatsapp: "WhatsApp",
 };
 
 const CsPage = () => {
@@ -92,6 +94,7 @@ const CsPage = () => {
         </div>
       );
       case "agente": return <AgentChat sector="cs" sectorLabel="Customer Success" />;
+      case "whatsapp": return <CSWhatsAppPanel />;
       default: return null;
     }
   };
