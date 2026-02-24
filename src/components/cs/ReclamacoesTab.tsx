@@ -15,6 +15,7 @@ import { useCSTickets, useCreateCSTicket } from "@/hooks/useCSData";
 import { mockComplaintsWithSLA } from "./mockData";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 const statusCfg: Record<string, { label: string; className: string }> = {
   open: { label: "🔴 Aberta", className: "bg-red-100 text-red-800 hover:bg-red-100" },
@@ -45,6 +46,19 @@ const ReclamacoesTab = React.forwardRef<HTMLDivElement>((_, ref) => {
 
   const { data: dbTickets, isLoading } = useCSTickets();
   const createTicket = useCreateCSTicket();
+
+  // Fetch colaboradores for the responsible select
+  const { data: colaboradores } = useQuery({
+    queryKey: ["colaboradores-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("colaboradores")
+        .select("id, nome, sobrenome, email_pessoal, telefone_celular, cargo, setor")
+        .order("nome");
+      if (error) throw error;
+      return data;
+    },
+  });
 
   // Use DB data if available, fallback to mock
   const tickets = dbTickets && dbTickets.length > 0 ? dbTickets.map(t => ({
@@ -132,17 +146,47 @@ const ReclamacoesTab = React.forwardRef<HTMLDivElement>((_, ref) => {
       return;
     }
     try {
-      await createTicket.mutateAsync({
+      const responsibleName = form.responsible_name || "Não atribuído";
+      const ticket = await createTicket.mutateAsync({
         customer_name: form.customer_name,
         job_code: form.job_code ? parseInt(form.job_code) : undefined,
         job_title: form.job_title,
         category: form.category,
         priority: form.priority,
         description: form.description,
-        responsible_name: form.responsible_name || "Não atribuído",
+        responsible_name: responsibleName,
       });
       toast.success("Ticket criado com sucesso!");
       setCreateOpen(false);
+
+      // Send notifications if responsible is assigned
+      if (form.responsible_name && colaboradores) {
+        const colab = colaboradores.find(c => `${c.nome}${c.sobrenome ? ` ${c.sobrenome}` : ""}` === form.responsible_name);
+        if (colab && (colab.email_pessoal || colab.telefone_celular)) {
+          try {
+            await supabase.functions.invoke("ticket-notify", {
+              body: {
+                ticket_code: ticket.code,
+                customer_name: form.customer_name,
+                category: form.category,
+                priority: form.priority,
+                description: form.description,
+                responsible_name: responsibleName,
+                responsible_email: colab.email_pessoal || null,
+                responsible_phone: colab.telefone_celular || null,
+                job_code: form.job_code ? parseInt(form.job_code) : undefined,
+                job_title: form.job_title || undefined,
+              },
+            });
+            const channels = [colab.email_pessoal ? "e-mail" : "", colab.telefone_celular ? "WhatsApp" : ""].filter(Boolean).join(" e ");
+            toast.success(`Notificação enviada via ${channels} para ${responsibleName}`);
+          } catch (e) {
+            console.error("Notification error:", e);
+            toast.warning("Ticket criado, mas falha ao notificar responsável");
+          }
+        }
+      }
+
       setForm({ customer_name: "", job_code: "", job_title: "", category: "other", priority: "medium", description: "", responsible_name: "" });
     } catch (e) {
       toast.error("Erro ao criar ticket");
@@ -165,7 +209,24 @@ const ReclamacoesTab = React.forwardRef<HTMLDivElement>((_, ref) => {
             <div className="space-y-4 mt-2">
               <div className="grid grid-cols-2 gap-4">
                 <div><Label>Cliente *</Label><Input value={form.customer_name} onChange={e => setForm(f => ({ ...f, customer_name: e.target.value }))} placeholder="Nome do cliente" /></div>
-                <div><Label>Responsável</Label><Input value={form.responsible_name} onChange={e => setForm(f => ({ ...f, responsible_name: e.target.value }))} placeholder="Nome do responsável" /></div>
+                <div><Label>Responsável</Label>
+                  <Select value={form.responsible_name} onValueChange={v => setForm(f => ({ ...f, responsible_name: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Selecione o responsável" /></SelectTrigger>
+                    <SelectContent>
+                      {(colaboradores || []).map(c => {
+                        const fullName = `${c.nome}${c.sobrenome ? ` ${c.sobrenome}` : ""}`;
+                        return (
+                          <SelectItem key={c.id} value={fullName}>
+                            <div className="flex flex-col">
+                              <span>{fullName}</span>
+                              {c.cargo && <span className="text-[10px] text-muted-foreground">{c.cargo}{c.setor ? ` — ${c.setor}` : ""}</span>}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div><Label>Job Code</Label><Input value={form.job_code} onChange={e => setForm(f => ({ ...f, job_code: e.target.value }))} placeholder="Ex: 1234" /></div>
