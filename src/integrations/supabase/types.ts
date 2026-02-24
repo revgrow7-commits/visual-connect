@@ -1826,6 +1826,66 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_logs: {
+        Row: {
+          created_at: string | null
+          customer_id: number | null
+          customer_name: string | null
+          delivered_at: string | null
+          direction: string
+          error_message: string | null
+          evolution_message_id: string | null
+          id: string
+          message: string
+          origin: string | null
+          origin_id: string | null
+          phone: string
+          read_at: string | null
+          sent_at: string | null
+          sent_by: string | null
+          status: string | null
+          unidade: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          customer_id?: number | null
+          customer_name?: string | null
+          delivered_at?: string | null
+          direction?: string
+          error_message?: string | null
+          evolution_message_id?: string | null
+          id?: string
+          message: string
+          origin?: string | null
+          origin_id?: string | null
+          phone: string
+          read_at?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string | null
+          unidade?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          customer_id?: number | null
+          customer_name?: string | null
+          delivered_at?: string | null
+          direction?: string
+          error_message?: string | null
+          evolution_message_id?: string | null
+          id?: string
+          message?: string
+          origin?: string | null
+          origin_id?: string | null
+          phone?: string
+          read_at?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string | null
+          unidade?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       gateway_users_safe: {
