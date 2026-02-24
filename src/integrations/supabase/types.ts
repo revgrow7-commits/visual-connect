@@ -1097,6 +1097,7 @@ export type Database = {
           assigned_by: string | null
           collaborator_name: string
           created_at: string
+          deadline: string | null
           id: string
           is_active: boolean
           item_id: string | null
@@ -1109,6 +1110,7 @@ export type Database = {
           assigned_by?: string | null
           collaborator_name: string
           created_at?: string
+          deadline?: string | null
           id?: string
           is_active?: boolean
           item_id?: string | null
@@ -1121,6 +1123,7 @@ export type Database = {
           assigned_by?: string | null
           collaborator_name?: string
           created_at?: string
+          deadline?: string | null
           id?: string
           is_active?: boolean
           item_id?: string | null

@@ -10,6 +10,7 @@ export interface JobItemAssignment {
   assigned_by: string;
   assigned_at: string;
   is_active: boolean;
+  deadline: string | null;
 }
 
 export function useItemAssignments(jobId: string | null) {
@@ -37,6 +38,7 @@ export function useAssignItemsToCollaborators(jobId: string) {
       items: Array<{ item_id?: string; item_name: string }>;
       collaborators: string[];
       assigned_by?: string;
+      deadline?: string | null;
     }) => {
       // Deactivate previous assignments for these items
       const itemNames = payload.items.map(i => i.item_name);
@@ -55,6 +57,7 @@ export function useAssignItemsToCollaborators(jobId: string) {
           collaborator_name: collab,
           assigned_by: payload.assigned_by || "Sistema",
           is_active: true,
+          deadline: payload.deadline || null,
         }))
       );
 
