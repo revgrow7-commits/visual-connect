@@ -6,10 +6,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
-import { Users, UserCheck, UserX, Search, Loader2, Calendar } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Users, UserCheck, UserX, Search, Loader2, Calendar, MessageCircle } from "lucide-react";
 import { mockCSCustomers } from "./mockData";
 import CSMeetingDialog from "./CSMeetingDialog";
 import CSTicketFromClientDialog from "./CSTicketFromClientDialog";
+import ClientWhatsAppChat from "./ClientWhatsAppChat";
 import type { CSCustomer, CSWorkspaceCustomer } from "./types";
 import type { HoldprintJob } from "@/hooks/useCSHoldprintData";
 
@@ -179,91 +181,114 @@ const CSClientesTab = React.forwardRef<HTMLDivElement, CSClientesTabProps>(({ ho
               <SheetHeader>
                 <SheetTitle>{selected.name}</SheetTitle>
               </SheetHeader>
-              <div className="mt-6 space-y-4">
-                <div className="text-sm space-y-1 text-muted-foreground">
-                  <p>CNPJ: {selected.document}</p>
-                  <p>Contato: {selected.contact_person}</p>
-                  <p>Email: {selected.email}</p>
-                  <p>Telefone: {selected.phone}</p>
-                  {selected.city && <p>Cidade: {selected.city} - {selected.state}</p>}
-                </div>
-                <Separator />
-                <div className="grid grid-cols-2 gap-4">
-                  <Card>
-                    <CardContent className="p-3 text-center">
-                      <p className="text-xs text-muted-foreground">NPS</p>
-                      <p className={`text-2xl font-bold ${npsColor(selected.nps_score)}`}>{selected.nps_score ?? "—"}</p>
-                      <p className="text-xs capitalize">{selected.nps_category ?? ""}</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-3 text-center">
-                      <p className="text-xs text-muted-foreground">Satisfação</p>
-                      {selected.avg_satisfaction > 0 ? (
-                        <>
-                          <p className="text-lg">{renderStars(selected.avg_satisfaction)}</p>
-                          <p className="text-xs">{selected.avg_satisfaction.toFixed(1)}/5</p>
-                        </>
-                      ) : <p className="text-lg text-muted-foreground">—</p>}
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-3 text-center">
-                      <p className="text-xs text-muted-foreground">Jobs Realizados</p>
-                      <p className="text-2xl font-bold">{selected.total_jobs}</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-3 text-center">
-                      <p className="text-xs text-muted-foreground">Receita Total</p>
-                      <p className="text-lg font-bold">{formatCurrency(selected.total_revenue)}</p>
-                    </CardContent>
-                  </Card>
-                </div>
+              <div className="mt-4">
+                <Tabs defaultValue="info">
+                  <TabsList className="w-full grid grid-cols-3">
+                    <TabsTrigger value="info">Detalhes</TabsTrigger>
+                    <TabsTrigger value="jobs">Jobs</TabsTrigger>
+                    <TabsTrigger value="whatsapp" className="gap-1.5">
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      WhatsApp
+                    </TabsTrigger>
+                  </TabsList>
 
-                {/* Jobs from Holdprint */}
-                {holdprintJobs && (
-                  <>
+                  {/* Tab: Detalhes */}
+                  <TabsContent value="info" className="space-y-4 mt-4">
+                    <div className="text-sm space-y-1 text-muted-foreground">
+                      <p>CNPJ: {selected.document}</p>
+                      <p>Contato: {selected.contact_person}</p>
+                      <p>Email: {selected.email}</p>
+                      <p>Telefone: {selected.phone}</p>
+                      {selected.city && <p>Cidade: {selected.city} - {selected.state}</p>}
+                    </div>
+                    <Separator />
+                    <div className="grid grid-cols-2 gap-4">
+                      <Card>
+                        <CardContent className="p-3 text-center">
+                          <p className="text-xs text-muted-foreground">NPS</p>
+                          <p className={`text-2xl font-bold ${npsColor(selected.nps_score)}`}>{selected.nps_score ?? "—"}</p>
+                          <p className="text-xs capitalize">{selected.nps_category ?? ""}</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="p-3 text-center">
+                          <p className="text-xs text-muted-foreground">Satisfação</p>
+                          {selected.avg_satisfaction > 0 ? (
+                            <>
+                              <p className="text-lg">{renderStars(selected.avg_satisfaction)}</p>
+                              <p className="text-xs">{selected.avg_satisfaction.toFixed(1)}/5</p>
+                            </>
+                          ) : <p className="text-lg text-muted-foreground">—</p>}
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="p-3 text-center">
+                          <p className="text-xs text-muted-foreground">Jobs Realizados</p>
+                          <p className="text-2xl font-bold">{selected.total_jobs}</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="p-3 text-center">
+                          <p className="text-xs text-muted-foreground">Receita Total</p>
+                          <p className="text-lg font-bold">{formatCurrency(selected.total_revenue)}</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                    <Separator />
+                    <div className="flex gap-2">
+                      <CSMeetingDialog customerName={selected.name} customerEmail={selected.email} />
+                      <CSTicketFromClientDialog customerName={selected.name} customerId={selected.id} />
+                    </div>
                     <Separator />
                     <div>
-                      <h4 className="font-semibold text-sm mb-2">Jobs Recentes (Holdprint)</h4>
-                      {getCustomerJobs(selected).length === 0 ? (
-                        <p className="text-sm text-muted-foreground">Nenhum job encontrado.</p>
+                      <h4 className="font-semibold text-sm mb-2">Reclamações</h4>
+                      {selected.complaint_count === 0 ? (
+                        <p className="text-sm text-muted-foreground">Nenhuma reclamação registrada.</p>
                       ) : (
-                        <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                          {getCustomerJobs(selected).slice(0, 10).map((j) => (
-                            <div key={String(j.id)} className="text-sm p-2 bg-muted/30 rounded">
-                              <p className="font-medium">#{j.code || j.id} — {j.title || "Sem título"}</p>
-                              <p className="text-xs text-muted-foreground">
-                                Status: {j.currentProductionStepName || j.productionStatus || j.status || "?"} | 
-                                Valor: {formatCurrency(j.costs?.budgetedTotalPrice || j.totalPrice || 0)} |
-                                {j.finalizedTime ? ` Finalizado: ${formatDate(j.finalizedTime)}` : j.deliveryNeeded ? ` Prazo: ${formatDate(j.deliveryNeeded)}` : ""}
-                              </p>
-                            </div>
-                          ))}
+                        <div className="text-sm space-y-1">
+                          <p>Total: {selected.complaint_count}</p>
+                          {selected.open_complaints > 0 && <p className="text-red-600">Abertas: {selected.open_complaints}</p>}
                         </div>
                       )}
                     </div>
-                  </>
-                )}
+                  </TabsContent>
 
-                <Separator />
-                <div className="flex gap-2">
-                  <CSMeetingDialog customerName={selected.name} customerEmail={selected.email} />
-                  <CSTicketFromClientDialog customerName={selected.name} customerId={selected.id} />
-                </div>
-                <Separator />
-                <div>
-                  <h4 className="font-semibold text-sm mb-2">Reclamações</h4>
-                  {selected.complaint_count === 0 ? (
-                    <p className="text-sm text-muted-foreground">Nenhuma reclamação registrada.</p>
-                  ) : (
-                    <div className="text-sm space-y-1">
-                      <p>Total: {selected.complaint_count}</p>
-                      {selected.open_complaints > 0 && <p className="text-red-600">Abertas: {selected.open_complaints}</p>}
-                    </div>
-                  )}
-                </div>
+                  {/* Tab: Jobs */}
+                  <TabsContent value="jobs" className="mt-4">
+                    {holdprintJobs ? (
+                      <>
+                        <h4 className="font-semibold text-sm mb-2">Jobs Recentes (Holdprint)</h4>
+                        {getCustomerJobs(selected).length === 0 ? (
+                          <p className="text-sm text-muted-foreground">Nenhum job encontrado.</p>
+                        ) : (
+                          <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                            {getCustomerJobs(selected).slice(0, 20).map((j) => (
+                              <div key={String(j.id)} className="text-sm p-2 bg-muted/30 rounded">
+                                <p className="font-medium">#{j.code || j.id} — {j.title || "Sem título"}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Status: {j.currentProductionStepName || j.productionStatus || j.status || "?"} |
+                                  Valor: {formatCurrency(j.costs?.budgetedTotalPrice || j.totalPrice || 0)} |
+                                  {j.finalizedTime ? ` Finalizado: ${formatDate(j.finalizedTime)}` : j.deliveryNeeded ? ` Prazo: ${formatDate(j.deliveryNeeded)}` : ""}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Dados de jobs não disponíveis.</p>
+                    )}
+                  </TabsContent>
+
+                  {/* Tab: WhatsApp */}
+                  <TabsContent value="whatsapp" className="mt-4">
+                    <ClientWhatsAppChat
+                      clientId={selected.id}
+                      clientName={selected.name}
+                      clientPhone={selected.phone}
+                    />
+                  </TabsContent>
+                </Tabs>
               </div>
             </>
           )}
