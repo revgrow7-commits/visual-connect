@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
     const dataFormatada = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
     const horaFormatada = new Date().toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
 
-    const subject = `⚠️ Alertas Banco de Horas — ${competencia} | ${alertas.filter(a => a.status === "critico").length} críticos, ${alertas.filter(a => a.status === "urgente").length} urgentes`;
+    const subject = `Banco de Horas — Alerta de Conformidade | ${competencia}`;
 
     const htmlBody = `
       <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; background: #ffffff;">
