@@ -63,6 +63,7 @@ const TabItens: React.FC<Props> = ({ job }) => {
   const [collabPopoverOpen, setCollabPopoverOpen] = useState(false);
   const [selectedCollabs, setSelectedCollabs] = useState<Set<string>>(new Set());
   const [colabList, setColabList] = useState<string[]>([]);
+  const [deadlineInput, setDeadlineInput] = useState("");
   const boards = React.useMemo(() => getActiveBoards(), []);
 
   // Load collaborator names
@@ -84,6 +85,17 @@ const TabItens: React.FC<Props> = ({ job }) => {
     return map;
   }, [itemAssignments]);
 
+  // Deadline lookup by item name
+  const deadlineByItemName = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const a of itemAssignments) {
+      if (!a.is_active || !a.deadline) continue;
+      const key = a.item_name.toLowerCase().trim();
+      if (!map.has(key)) map.set(key, a.deadline);
+    }
+    return map;
+  }, [itemAssignments]);
+
   const toggleCollab = (name: string) => {
     setSelectedCollabs(prev => {
       const next = new Set(prev);
@@ -92,10 +104,11 @@ const TabItens: React.FC<Props> = ({ job }) => {
     });
   };
 
-  const handleAssignCollaborators = async () => {
+  const handleAssignCollaborators = async (startProcess = false) => {
     if (selectedCollabs.size === 0) return;
     setCollabPopoverOpen(false);
     const selected = allItems.filter(i => selectedItems.has(`${i._source}-${i.id}`));
+    const deadlineVal = deadlineInput ? new Date(deadlineInput).toISOString() : null;
 
     try {
       const collabNames = Array.from(selectedCollabs);
@@ -107,13 +120,14 @@ const TabItens: React.FC<Props> = ({ job }) => {
           item_name: i.name,
         })),
         collaborators: collabNames,
+        deadline: deadlineVal,
       });
 
       await logHistory(
         jobId,
         "items_assigned_to_collaborator",
-        `${selected.length} item(ns) atribuído(s) a ${collabNames.join(", ")}`,
-        { collaborators: collabNames.join(", "), item_count: String(selected.length) }
+        `${selected.length} item(ns) atribuído(s) a ${collabNames.join(", ")}${deadlineVal ? ` — Prazo: ${new Date(deadlineVal).toLocaleDateString("pt-BR")}` : ""}`,
+        { collaborators: collabNames.join(", "), item_count: String(selected.length), deadline: deadlineVal || "" }
       );
 
       // Fire notification email (fire-and-forget)
@@ -127,6 +141,7 @@ const TabItens: React.FC<Props> = ({ job }) => {
           item_names: itemNames,
           collaborators: collabNames,
           assigned_by: "Sistema",
+          deadline: deadlineVal,
         },
       }).then(({ data }) => {
         if (data?.notified > 0) {
@@ -134,12 +149,24 @@ const TabItens: React.FC<Props> = ({ job }) => {
         }
       }).catch(() => {});
 
-      toast({
-        title: "✅ Itens atribuídos",
-        description: `${selected.length} item(ns) → ${collabNames.join(", ")}`,
-      });
+      // If "Iniciar Processo" → auto-assign to first available board
+      if (startProcess && boards.length > 0) {
+        const board = boards[0];
+        await handleAssignToBoard(board);
+        toast({
+          title: "🚀 Processo iniciado",
+          description: `${selected.length} item(ns) → ${collabNames.join(", ")} | Board: ${board.name}`,
+        });
+      } else {
+        toast({
+          title: "✅ Itens atribuídos",
+          description: `${selected.length} item(ns) → ${collabNames.join(", ")}${deadlineVal ? ` | Prazo: ${new Date(deadlineVal).toLocaleDateString("pt-BR")}` : ""}`,
+        });
+      }
+
       setSelectedItems(new Set());
       setSelectedCollabs(new Set());
+      setDeadlineInput("");
     } catch (err: any) {
       toast({ title: "Erro ao atribuir", description: err.message, variant: "destructive" });
     }
@@ -371,12 +398,30 @@ const TabItens: React.FC<Props> = ({ job }) => {
                   </CommandList>
                 </Command>
                 {selectedCollabs.size > 0 && (
-                  <div className="border-t p-2 flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">{selectedCollabs.size} selecionado(s)</span>
-                    <Button size="sm" className="h-7 text-xs gap-1" onClick={handleAssignCollaborators} disabled={assignItemsToCollabs.isPending}>
-                      {assignItemsToCollabs.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                      Confirmar
-                    </Button>
+                  <div className="border-t p-2 space-y-2">
+                    <div>
+                      <label className="text-[10px] font-medium text-muted-foreground">Prazo de entrega</label>
+                      <Input
+                        type="date"
+                        value={deadlineInput}
+                        onChange={e => setDeadlineInput(e.target.value)}
+                        className="h-7 text-xs mt-0.5"
+                        min={new Date().toISOString().split("T")[0]}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-1.5">
+                      <span className="text-xs text-muted-foreground">{selectedCollabs.size} selecionado(s)</span>
+                      <div className="flex gap-1.5">
+                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => handleAssignCollaborators(false)} disabled={assignItemsToCollabs.isPending}>
+                          {assignItemsToCollabs.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                          Atribuir
+                        </Button>
+                        <Button size="sm" className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleAssignCollaborators(true)} disabled={assignItemsToCollabs.isPending || boards.length === 0}>
+                          {assignItemsToCollabs.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+                          Iniciar Processo
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </PopoverContent>
@@ -493,6 +538,18 @@ const TabItens: React.FC<Props> = ({ job }) => {
                   <Badge variant="secondary" className="text-[9px] ml-1 gap-0.5">
                     <Users className="h-2.5 w-2.5" />
                     {collabs.length <= 2 ? collabs.join(", ") : `${collabs[0]} +${collabs.length - 1}`}
+                  </Badge>
+                );
+              })()}
+              {(() => {
+                const dl = deadlineByItemName.get(item.name.toLowerCase().trim());
+                if (!dl) return null;
+                const dlDate = new Date(dl);
+                const isLate = dlDate < new Date();
+                return (
+                  <Badge variant="outline" className={`text-[9px] ml-1 gap-0.5 ${isLate ? "border-destructive text-destructive" : "border-amber-500 text-amber-600"}`}>
+                    <Clock className="h-2.5 w-2.5" />
+                    {dlDate.toLocaleDateString("pt-BR")}
                   </Badge>
                 );
               })()}
