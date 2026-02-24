@@ -60,6 +60,7 @@ Deno.serve(async (req) => {
     // 2. Send via Z-API
     const cleanPhone = phone.replace(/\D/g, "");
     const zapiUrl = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`;
+    
 
     const zapiRes = await fetch(zapiUrl, {
       method: "POST",
