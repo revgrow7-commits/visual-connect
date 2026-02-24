@@ -78,9 +78,10 @@ const OportunidadesTab = () => {
   const createOpp = useCreateCSOpportunity();
   const updateOpp = useUpdateCSOpportunity();
 
-  // === Pipeline (Holdprint) ===
+  // === Pipeline (Holdprint) — only non-approved budgets (Perdido / Cancelado) ===
   const allBudgets = (budgets?.data || []).filter(
-    (b) => !pipelineSearch || (b.customerName || b.title || "").toLowerCase().includes(pipelineSearch.toLowerCase())
+    (b) => (b.budgetState === 4 || b.budgetState === 5) &&
+      (!pipelineSearch || (b.customerName || b.title || "").toLowerCase().includes(pipelineSearch.toLowerCase()))
   );
   const pipelineTotal = allBudgets.reduce((acc, b) => acc + getBudgetValue(b), 0);
   const avgTicket = allBudgets.length > 0 ? pipelineTotal / allBudgets.length : 0;
