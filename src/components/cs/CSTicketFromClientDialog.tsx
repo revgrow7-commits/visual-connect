@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { AlertCircle, Loader2, ChevronRight } from "lucide-react";
 import { useCreateCSTicket } from "@/hooks/useCSData";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 
 // PCP workflow departments/stages based on the company's production flow
 const PCP_DEPARTMENTS = [
@@ -59,6 +60,19 @@ const CSTicketFromClientDialog: React.FC<CSTicketFromClientDialogProps> = ({ cus
   });
 
   const createTicket = useCreateCSTicket();
+
+  const { data: colaboradores } = useQuery({
+    queryKey: ["colaboradores-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("colaboradores")
+        .select("id, nome, sobrenome, email_pessoal, telefone_celular, cargo, setor")
+        .eq("status", "ativo")
+        .order("nome");
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const statuses = department ? PCP_STATUS_MAP[department] || [] : [];
   const selectedDept = PCP_DEPARTMENTS.find(d => d.key === department);
@@ -236,7 +250,22 @@ const CSTicketFromClientDialog: React.FC<CSTicketFromClientDialogProps> = ({ cus
 
               <div>
                 <Label>Responsável</Label>
-                <Input value={form.responsible_name} onChange={e => setForm(f => ({ ...f, responsible_name: e.target.value }))} placeholder="Nome do responsável" />
+                <Select value={form.responsible_name} onValueChange={v => setForm(f => ({ ...f, responsible_name: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o responsável" /></SelectTrigger>
+                  <SelectContent>
+                    {(colaboradores || []).map(c => {
+                      const fullName = `${c.nome}${c.sobrenome ? ` ${c.sobrenome}` : ""}`;
+                      return (
+                        <SelectItem key={c.id} value={fullName}>
+                          <div className="flex flex-col">
+                            <span>{fullName}</span>
+                            {c.cargo && <span className="text-[10px] text-muted-foreground">{c.cargo}{c.setor ? ` — ${c.setor}` : ""}</span>}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
