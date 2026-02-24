@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { AlertCircle, Loader2, CheckCircle, Clock, Search, AlertOctagon, Phone, Plus, Link2, Copy, Star } from "lucide-react";
+import { AlertCircle, Loader2, CheckCircle, Clock, Search, AlertOctagon, Phone, Plus, Link2, Copy, Star, MessageCircle, Mail, Send } from "lucide-react";
 import { useCSTickets, useCreateCSTicket } from "@/hooks/useCSData";
 import { mockComplaintsWithSLA } from "./mockData";
 import { toast } from "sonner";
@@ -382,6 +382,86 @@ const ReclamacoesTab = React.forwardRef<HTMLDivElement>((_, ref) => {
                   <p><strong>Job:</strong> #{selected.jobCode} — {selected.jobTitle}</p>
                   <p><strong>Responsável:</strong> {selected.responsibleName}</p>
                 </div>
+
+                {/* WhatsApp / Email notification buttons */}
+                {selected.responsibleName && selected.responsibleName !== "Não atribuído" && (() => {
+                  const colab = colaboradores?.find(c => `${c.nome}${c.sobrenome ? ` ${c.sobrenome}` : ""}` === selected.responsibleName);
+                  if (!colab) return null;
+                  const hasPhone = !!colab.telefone_celular;
+                  const hasEmail = !!colab.email_pessoal;
+                  if (!hasPhone && !hasEmail) return null;
+
+                  const handleSendWhatsApp = async () => {
+                    if (!colab.telefone_celular) return;
+                    toast.info("Enviando WhatsApp...");
+                    try {
+                      await supabase.functions.invoke("ticket-notify", {
+                        body: {
+                          ticket_code: selected.id,
+                          customer_name: selected.customerName,
+                          category: selected.category,
+                          priority: selected.priority,
+                          description: selected.description,
+                          responsible_name: selected.responsibleName,
+                          responsible_phone: colab.telefone_celular,
+                          responsible_email: null,
+                          job_code: selected.jobCode || undefined,
+                          job_title: selected.jobTitle || undefined,
+                        },
+                      });
+                      toast.success(`WhatsApp enviado para ${selected.responsibleName}`);
+                    } catch {
+                      toast.error("Falha ao enviar WhatsApp");
+                    }
+                  };
+
+                  const handleSendEmail = async () => {
+                    if (!colab.email_pessoal) return;
+                    toast.info("Enviando e-mail...");
+                    try {
+                      await supabase.functions.invoke("ticket-notify", {
+                        body: {
+                          ticket_code: selected.id,
+                          customer_name: selected.customerName,
+                          category: selected.category,
+                          priority: selected.priority,
+                          description: selected.description,
+                          responsible_name: selected.responsibleName,
+                          responsible_email: colab.email_pessoal,
+                          responsible_phone: null,
+                          job_code: selected.jobCode || undefined,
+                          job_title: selected.jobTitle || undefined,
+                        },
+                      });
+                      toast.success(`E-mail enviado para ${selected.responsibleName}`);
+                    } catch {
+                      toast.error("Falha ao enviar e-mail");
+                    }
+                  };
+
+                  return (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {hasPhone && (
+                        <Button size="sm" variant="outline" className="gap-2 text-green-700 border-green-300 hover:bg-green-50" onClick={handleSendWhatsApp}>
+                          <MessageCircle className="h-4 w-4" />
+                          Enviar WhatsApp
+                        </Button>
+                      )}
+                      {hasEmail && (
+                        <Button size="sm" variant="outline" className="gap-2 text-blue-700 border-blue-300 hover:bg-blue-50" onClick={handleSendEmail}>
+                          <Mail className="h-4 w-4" />
+                          Enviar E-mail
+                        </Button>
+                      )}
+                      {hasPhone && hasEmail && (
+                        <Button size="sm" variant="default" className="gap-2" onClick={async () => { await handleSendWhatsApp(); await handleSendEmail(); }}>
+                          <Send className="h-4 w-4" />
+                          Enviar Ambos
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })()}
                 <Separator />
                 <div>
                   <h4 className="font-semibold text-sm mb-2">Descrição</h4>
