@@ -12,11 +12,33 @@ import { toast } from "sonner";
 import {
   Send, RefreshCw, Search, Phone, Copy, User,
   MessageSquare, Loader2, CheckCheck, Check, Clock, X,
-  ArrowLeft
+  ArrowLeft, Building2
 } from "lucide-react";
 import { format, isToday, isYesterday, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { customersService } from "@/services/holdprint/customers";
+import { setHoldprintUnidade } from "@/services/holdprint/api";
+import type { HoldprintCustomer } from "@/services/holdprint/types";
 import { useIsMobile } from "@/hooks/use-mobile";
+
+// Helper to extract best phone from Holdprint customer
+const extractCustomerPhone = (customer: HoldprintCustomer): string | null => {
+  // Check contacts for phone numbers first
+  if (customer.contacts?.length) {
+    for (const contact of customer.contacts) {
+      if (contact.phoneNumber) {
+        const clean = contact.phoneNumber.replace(/\D/g, "");
+        if (clean.length >= 10) return clean.length <= 11 ? `55${clean}` : clean;
+      }
+    }
+  }
+  // Fallback to mainPhoneNumber
+  if (customer.mainPhoneNumber) {
+    const clean = customer.mainPhoneNumber.replace(/\D/g, "");
+    if (clean.length >= 10) return clean.length <= 11 ? `55${clean}` : clean;
+  }
+  return null;
+};
 
 // --- Types ---
 interface WhatsAppLog {
@@ -101,6 +123,25 @@ const CSWhatsAppPanel: React.FC = () => {
   const [search, setSearch] = useState("");
   const qc = useQueryClient();
 
+  // === Fetch Holdprint customers (both units) ===
+  const { data: holdprintCustomers, isLoading: loadingCustomers } = useQuery({
+    queryKey: ["holdprint-customers-whatsapp"],
+    queryFn: async () => {
+      const allCustomers: HoldprintCustomer[] = [];
+      for (const unit of ["poa", "sp"] as const) {
+        try {
+          setHoldprintUnidade(unit);
+          const result = await customersService.list({ skip: 0, take: 200 });
+          allCustomers.push(...result.data);
+        } catch (e) {
+          console.warn(`Holdprint ${unit} customers fetch failed:`, e);
+        }
+      }
+      return allCustomers;
+    },
+    staleTime: 5 * 60 * 1000, // 5 min cache
+  });
+
   // === Fetch all logs for conversation list ===
   const { data: allLogs, isLoading: loadingLogs } = useQuery({
     queryKey: ["whatsapp-logs-all"],
@@ -116,34 +157,63 @@ const CSWhatsAppPanel: React.FC = () => {
     refetchInterval: 15000,
   });
 
-  // === Build conversation list ===
+  // === Build conversation list (merging Holdprint customers) ===
   const conversations: Conversation[] = React.useMemo(() => {
-    if (!allLogs) return [];
     const map = new Map<string, Conversation>();
-    for (const log of allLogs) {
-      const existing = map.get(log.phone);
-      if (!existing) {
-        map.set(log.phone, {
-          phone: log.phone,
-          customer_id: log.customer_id,
-          customer_name: log.customer_name,
-          lastMessage: log.message,
-          lastMessageAt: log.created_at || "",
-          lastDirection: log.direction,
-          origin: log.origin,
-          unreadCount: log.direction === "inbound" && !log.read_at ? 1 : 0,
-        });
-      } else {
-        if (!existing.customer_name && log.customer_name) existing.customer_name = log.customer_name;
-        if (!existing.customer_id && log.customer_id) existing.customer_id = log.customer_id;
-        if (log.direction === "inbound" && !log.read_at) existing.unreadCount++;
+
+    // 1. Build from existing logs
+    if (allLogs) {
+      for (const log of allLogs) {
+        const existing = map.get(log.phone);
+        if (!existing) {
+          map.set(log.phone, {
+            phone: log.phone,
+            customer_id: log.customer_id,
+            customer_name: log.customer_name,
+            lastMessage: log.message,
+            lastMessageAt: log.created_at || "",
+            lastDirection: log.direction,
+            origin: log.origin,
+            unreadCount: log.direction === "inbound" && !log.read_at ? 1 : 0,
+          });
+        } else {
+          if (!existing.customer_name && log.customer_name) existing.customer_name = log.customer_name;
+          if (!existing.customer_id && log.customer_id) existing.customer_id = log.customer_id;
+          if (log.direction === "inbound" && !log.read_at) existing.unreadCount++;
+        }
       }
     }
+
+    // 2. When "clients" filter active, merge Holdprint customers with phone
+    if (filter === "clients" && holdprintCustomers) {
+      for (const customer of holdprintCustomers) {
+        const phone = extractCustomerPhone(customer);
+        if (!phone) continue;
+        if (!map.has(phone)) {
+          map.set(phone, {
+            phone,
+            customer_id: customer.id ? Number(customer.id) || null : null,
+            customer_name: customer.name || customer.fullName || null,
+            lastMessage: "",
+            lastMessageAt: "",
+            lastDirection: "",
+            origin: null,
+            unreadCount: 0,
+          });
+        } else {
+          // Enrich existing conversation with customer name
+          const existing = map.get(phone)!;
+          if (!existing.customer_name) existing.customer_name = customer.name || customer.fullName || null;
+          if (!existing.customer_id && customer.id) existing.customer_id = Number(customer.id) || null;
+        }
+      }
+    }
+
     let list = Array.from(map.values());
 
     // Filters
     if (filter === "unread") list = list.filter(c => c.unreadCount > 0);
-    if (filter === "clients") list = list.filter(c => c.customer_id != null);
+    if (filter === "clients") list = list.filter(c => c.customer_id != null || c.customer_name != null);
     if (filter === "leads") list = list.filter(c => c.customer_id == null);
 
     if (search) {
@@ -154,8 +224,14 @@ const CSWhatsAppPanel: React.FC = () => {
       );
     }
 
-    return list.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
-  }, [allLogs, filter, search]);
+    // Sort: conversations with messages first, then alphabetically
+    return list.sort((a, b) => {
+      if (a.lastMessageAt && b.lastMessageAt) return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+      if (a.lastMessageAt) return -1;
+      if (b.lastMessageAt) return 1;
+      return (a.customer_name || a.phone).localeCompare(b.customer_name || b.phone);
+    });
+  }, [allLogs, filter, search, holdprintCustomers]);
 
   const selectedConvo = conversations.find(c => c.phone === selectedPhone);
 
@@ -270,7 +346,7 @@ const CSWhatsAppPanel: React.FC = () => {
 
           {/* Conversation Items */}
           <div className="flex-1 overflow-y-auto">
-            {loadingLogs ? (
+            {(loadingLogs || (filter === "clients" && loadingCustomers)) ? (
               <div className="space-y-2 p-3">
                 {[1, 2, 3, 4, 5].map(i => (
                   <div key={i} className="flex items-center gap-3">
@@ -309,11 +385,19 @@ const CSWhatsAppPanel: React.FC = () => {
                     </div>
                     <div className="flex items-center justify-between gap-1">
                       <span className="text-xs text-muted-foreground truncate max-w-[180px]">
-                        {c.lastDirection === "outbound" && <Check className="h-3 w-3 inline mr-0.5" />}
-                        {c.lastMessage.slice(0, 45)}{c.lastMessage.length > 45 ? "..." : ""}
+                        {c.lastMessage ? (
+                          <>
+                            {c.lastDirection === "outbound" && <Check className="h-3 w-3 inline mr-0.5" />}
+                            {c.lastMessage.slice(0, 45)}{c.lastMessage.length > 45 ? "..." : ""}
+                          </>
+                        ) : (
+                          <span className="flex items-center gap-1 text-muted-foreground/60">
+                            <Building2 className="h-3 w-3" /> Holdprint • {formatPhone(c.phone)}
+                          </span>
+                        )}
                       </span>
                       <div className="flex items-center gap-1 flex-shrink-0">
-                        <span className="text-[10px]">{originColors[c.origin || "manual"] || "⚪"}</span>
+                        {c.lastMessage && <span className="text-[10px]">{originColors[c.origin || "manual"] || "⚪"}</span>}
                         {c.unreadCount > 0 && (
                           <Badge className="bg-red-500 text-white text-[9px] h-4 min-w-4 p-0 flex items-center justify-center rounded-full">
                             {c.unreadCount}
