@@ -7,9 +7,10 @@ import { useItemAssignments, useAssignItemsToCollaborators } from "@/hooks/useJo
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Save, Users } from "lucide-react";
+import { Loader2, Save, Users, Bell } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { DEFAULT_STAGES } from "../types";
+import { logHistory } from "@/hooks/useJobLocalData";
 
 interface Props { job: Job }
 
@@ -21,7 +22,7 @@ const TabEquipe: React.FC<Props> = ({ job }) => {
 
   const [colaboradores, setColaboradores] = useState<{ nome: string; cargo: string | null }[]>([]);
   const [assignments, setAssignments] = useState<Record<string, Record<string, string>>>({});
-
+  const [notifying, setNotifying] = useState(false);
   useEffect(() => {
     supabase.from("colaboradores").select("nome, cargo").eq("status", "ativo").order("nome").then(({ data }) => {
       if (data) setColaboradores(data);
@@ -91,16 +92,76 @@ const TabEquipe: React.FC<Props> = ({ job }) => {
     }
   };
 
+  const handleNotify = async () => {
+    // Collect all unique collaborators with their items
+    const collabItems = new Map<string, string[]>();
+    for (const item of allItems) {
+      const itemAssigns = assignments[item.name.toLowerCase().trim()];
+      if (!itemAssigns) continue;
+      for (const [teamId, colabName] of Object.entries(itemAssigns)) {
+        if (!colabName || colabName === "—") continue;
+        if (!collabItems.has(colabName)) collabItems.set(colabName, []);
+        const teamName = DEFAULT_STAGES.find(s => s.id === teamId)?.name || teamId;
+        collabItems.get(colabName)!.push(`${item.name} (${teamName})`);
+      }
+    }
+
+    if (collabItems.size === 0) {
+      toast({ title: "Nenhum colaborador atribuído", description: "Atribua colaboradores antes de notificar.", variant: "destructive" });
+      return;
+    }
+
+    setNotifying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("job-movement-notify", {
+        body: {
+          action: "item_assignment",
+          job_id: job.id,
+          job_code: job.code,
+          job_title: job.description || job.client_name,
+          customer_name: job.client_name,
+          item_names: Array.from(collabItems.values()).flat(),
+          collaborators: Array.from(collabItems.keys()),
+          assigned_by: "Sistema",
+        },
+      });
+
+      if (error) throw error;
+
+      await logHistory(
+        job.id,
+        "notification_sent",
+        `Notificação enviada para ${collabItems.size} colaborador(es): ${Array.from(collabItems.keys()).join(", ")}`,
+        { notified_count: String(collabItems.size) }
+      );
+
+      toast({
+        title: "📧 Notificação enviada",
+        description: `${data?.notified || collabItems.size} colaborador(es) notificado(s) por e-mail`,
+      });
+    } catch (err: any) {
+      toast({ title: "Erro ao notificar", description: err.message, variant: "destructive" });
+    } finally {
+      setNotifying(false);
+    }
+  };
+
   if (apiLoading || localLoading) return <div className="p-5 flex justify-center"><Loader2 className="h-5 w-5 animate-spin" /></div>;
 
   return (
     <div className="p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold flex items-center gap-1.5"><Users className="h-4 w-4" /> Distribuição de Itens por Equipe</h3>
-        <Button size="sm" onClick={handleSave} disabled={assignItems.isPending} className="gap-1.5 text-xs">
-          {assignItems.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-          Salvar distribuição
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={handleNotify} disabled={notifying} className="gap-1.5 text-xs">
+            {notifying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bell className="h-3.5 w-3.5" />}
+            Enviar Notificação
+          </Button>
+          <Button size="sm" onClick={handleSave} disabled={assignItems.isPending} className="gap-1.5 text-xs">
+            {assignItems.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            Salvar distribuição
+          </Button>
+        </div>
       </div>
 
       <div className="border rounded-lg overflow-x-auto">
