@@ -933,6 +933,39 @@ export type Database = {
         }
         Relationships: []
       }
+      job_archives: {
+        Row: {
+          archived_at: string
+          archived_by: string | null
+          customer_name: string | null
+          id: string
+          job_code: number | null
+          job_id: string
+          job_title: string | null
+          reason: string | null
+        }
+        Insert: {
+          archived_at?: string
+          archived_by?: string | null
+          customer_name?: string | null
+          id?: string
+          job_code?: number | null
+          job_id: string
+          job_title?: string | null
+          reason?: string | null
+        }
+        Update: {
+          archived_at?: string
+          archived_by?: string | null
+          customer_name?: string | null
+          id?: string
+          job_code?: number | null
+          job_id?: string
+          job_title?: string | null
+          reason?: string | null
+        }
+        Relationships: []
+      }
       job_board_assignments: {
         Row: {
           assigned_at: string
