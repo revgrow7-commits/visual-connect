@@ -227,7 +227,9 @@ const JobsKanban: React.FC = () => {
     setBulkArchiving(true);
     try {
       const jobs = allVisibleJobs.filter(j => ids.includes(j.id));
-      const rows = jobs.map(j => ({
+      // Filter out already archived jobs
+      const notArchived = jobs.filter(j => !archivedIds?.has(j.id));
+      const rows = notArchived.map(j => ({
         job_id: j.id,
         job_code: j.code ?? null,
         job_title: (j.description || "").substring(0, 200),
@@ -247,7 +249,7 @@ const JobsKanban: React.FC = () => {
     } finally {
       setBulkArchiving(false);
     }
-  }, [allVisibleJobs, queryClient, clearSelection]);
+  }, [allVisibleJobs, queryClient, clearSelection, archivedIds]);
 
   const handleBulkDelete = useCallback(async (ids: string[]) => {
     setBulkDeleting(true);
