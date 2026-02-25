@@ -62,6 +62,8 @@ const JobsKanban: React.FC = () => {
   const [status, setStatus] = useState<string>("aberto");
   const [productionType, setProductionType] = useState("todos");
   const [filterResponsavel, setFilterResponsavel] = useState("todos");
+  const [filterPrazo, setFilterPrazo] = useState("todos");
+  const [filterProgresso, setFilterProgresso] = useState("todos");
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -97,9 +99,13 @@ const JobsKanban: React.FC = () => {
 
   const [localByStage, setLocalByStage] = useState<JobsByStage[] | null>(null);
 
-  // Filter by responsavel and archive status
+  // Filter by responsavel, deadline, progress, and archive status
   const filteredData = useMemo(() => {
     if (!data) return data;
+    const now = new Date();
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const weekEnd = new Date(todayEnd.getTime() + 7 * 86400000);
+
     const filterJobs = (jobs: Job[]) => {
       let result = jobs;
       // Archive filter
@@ -112,6 +118,22 @@ const JobsKanban: React.FC = () => {
       if (filterResponsavel !== "todos") {
         result = result.filter(j => j.responsible.some(r => r.name === filterResponsavel));
       }
+      // Prazo filter
+      if (filterPrazo === "hoje") {
+        result = result.filter(j => j.delivery_date && new Date(j.delivery_date) <= todayEnd);
+      } else if (filterPrazo === "semana") {
+        result = result.filter(j => j.delivery_date && new Date(j.delivery_date) <= weekEnd);
+      } else if (filterPrazo === "atrasados") {
+        result = result.filter(j => j.delivery_date && new Date(j.delivery_date) < now && j.status !== "fechado");
+      }
+      // Progresso filter
+      if (filterProgresso === "0") {
+        result = result.filter(j => j.progress_percent === 0);
+      } else if (filterProgresso === "andamento") {
+        result = result.filter(j => j.progress_percent > 0 && j.progress_percent < 100);
+      } else if (filterProgresso === "concluido") {
+        result = result.filter(j => j.progress_percent >= 100);
+      }
       return result;
     };
     return {
@@ -122,7 +144,7 @@ const JobsKanban: React.FC = () => {
         return { ...col, jobs: filtered, totalValue: filtered.reduce((s, j) => s + j.value, 0) };
       }),
     };
-  }, [data, filterResponsavel, archivedIds, showArchived]);
+  }, [data, filterResponsavel, filterPrazo, filterProgresso, archivedIds, showArchived]);
 
   const byStage = localByStage || filteredData?.byStage || [];
   React.useEffect(() => { if (data?.byStage) setLocalByStage(null); }, [data?.byStage]);
@@ -248,7 +270,27 @@ const JobsKanban: React.FC = () => {
           </SelectContent>
         </Select>
 
-        <div className="flex items-center gap-1 text-[11px] text-[#6b7280] border rounded-md px-2 h-8">
+        <Select value={filterPrazo} onValueChange={setFilterPrazo}>
+          <SelectTrigger className="w-[130px] h-8 text-xs"><Calendar className="h-3.5 w-3.5 mr-1 text-muted-foreground" /><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Prazo: Todos</SelectItem>
+            <SelectItem value="hoje">📅 Hoje</SelectItem>
+            <SelectItem value="semana">📅 Semana</SelectItem>
+            <SelectItem value="atrasados">🔴 Atrasados</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={filterProgresso} onValueChange={setFilterProgresso}>
+          <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Progresso: Todos</SelectItem>
+            <SelectItem value="0">📊 0%</SelectItem>
+            <SelectItem value="andamento">📊 Em andamento</SelectItem>
+            <SelectItem value="concluido">📊 Concluído</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <div className="flex items-center gap-1 text-[11px] text-muted-foreground border rounded-md px-2 h-8">
           <Calendar className="h-3.5 w-3.5" />
           <span>De {new Date(dateFrom).toLocaleDateString("pt-BR")} até {now.toLocaleDateString("pt-BR")}</span>
         </div>

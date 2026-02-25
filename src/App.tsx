@@ -55,6 +55,7 @@ const HoldprintConfiguracoes = lazy(() => import("./pages/holdprint/Configuracoe
 const JobsPage = lazy(() => import("./pages/JobsPage"));
 const JobsFullscreenPage = lazy(() => import("./pages/JobsFullscreenPage"));
 const AdminBoardsPage = lazy(() => import("./pages/AdminBoardsPage"));
+const AutomacoesPage = lazy(() => import("./pages/AutomacoesPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -100,6 +101,7 @@ const App = () => (
               <Route path="/perfil" element={<PerfilPage />} />
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/admin/boards" element={<AdminBoardsPage />} />
+              <Route path="/automacoes" element={<AutomacoesPage />} />
               <Route path="/rh/admissao" element={<RhAdmissaoPage />} />
               <Route path="/rh/colaboradores" element={<ColaboradoresPage />} />
               <Route path="/rh/banco-horas" element={<BancoHorasPage />} />
