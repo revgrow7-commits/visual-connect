@@ -1,7 +1,7 @@
 import React from "react";
 import type { Job } from "./types";
 import { formatBRL, formatDateBR, formatTimeMins, isOverdue } from "./types";
-import { Zap, Users, AlignLeft, Clock, Check } from "lucide-react";
+import { Zap, Users, AlignLeft, Clock, Check, Ruler } from "lucide-react";
 import type { FlexField } from "@/stores/boardsStore";
 
 interface Props {
@@ -102,7 +102,15 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
         <span className="font-mono text-[#6b7280]">{job.job_number || `J${job.code || job.id}`}</span>
       </div>
 
-      <p className="text-[12px] font-semibold text-[#1a2332]">{formatBRL(job.value)}</p>
+      <div className="flex items-center justify-between">
+        <p className="text-[12px] font-semibold text-[#1a2332]">{formatBRL(job.value)}</p>
+        {(job.total_m2 ?? 0) > 0 && (
+          <span className="flex items-center gap-0.5 text-[10px] text-[#6b7280] bg-[#f0f2f5] rounded px-1.5 py-0.5 font-medium">
+            <Ruler className="h-3 w-3" />
+            {job.total_m2?.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m²
+          </span>
+        )}
+      </div>
 
       {/* Footer */}
       <div className="flex items-center gap-2 text-[10px] text-[#6b7280] border-t border-[#e5e7eb] pt-1.5">

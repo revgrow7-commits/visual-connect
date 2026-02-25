@@ -57,6 +57,26 @@ function mapStage(stepName: string, job: HoldprintJob): Stage {
   return "revisao_comercial";
 }
 
+/** Parse m² from product descriptions: Largura × Altura × quantity */
+function calcTotalM2(raw: any): number {
+  const products = raw.products || raw.items || [];
+  let totalM2 = 0;
+  for (const p of products) {
+    const desc = String(p.description || "");
+    const larguraMatch = desc.match(/Largura:\s*(?:<[^>]*>)?\s*([\d.,]+)\s*m/i);
+    const alturaMatch = desc.match(/Altura:\s*(?:<[^>]*>)?\s*([\d.,]+)\s*m/i);
+    if (larguraMatch && alturaMatch) {
+      const largura = parseFloat(larguraMatch[1].replace(",", "."));
+      const altura = parseFloat(alturaMatch[1].replace(",", "."));
+      const qty = Number(p.quantity || 1);
+      if (!isNaN(largura) && !isNaN(altura)) {
+        totalM2 += largura * altura * qty;
+      }
+    }
+  }
+  return Math.round(totalM2 * 100) / 100;
+}
+
 function transformJob(raw: HoldprintJob): Job {
   const r = raw as any;
   const stepName = String(r.currentProductionStepName || "");
@@ -69,6 +89,8 @@ function transformJob(raw: HoldprintJob): Job {
 
   const rawTime = r.timeTracked || r.time_tracked;
   const timeStr = rawTime ? String(rawTime) : undefined;
+
+  const total_m2 = calcTotalM2(r);
 
   return {
     id: String(r.id),
@@ -99,6 +121,7 @@ function transformJob(raw: HoldprintJob): Job {
     items_done: 0,
     current_item_tag: r.currentItemTag ? String(r.currentItemTag) : (r.current_item_tag ? String(r.current_item_tag) : undefined),
     has_alert: Boolean(r.hasAlert || r.has_alert || false),
+    total_m2,
     _unit_key: r._unit_key,
     _raw: r as Record<string, unknown>,
   };

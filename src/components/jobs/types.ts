@@ -115,6 +115,7 @@ export interface Job {
   materials?: JobMaterial[];
   comments?: JobComment[];
   flexfields?: Record<string, unknown>;
+  total_m2?: number;
   _unit_key?: string;
   _raw?: Record<string, unknown>;
   // ── Local extension fields (from job_extensions table) ──
