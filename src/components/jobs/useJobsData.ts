@@ -109,30 +109,52 @@ export function useJobsData(filters?: JobsFilters, activeBoard?: Board | null) {
       const rawJobs = (data.data?.jobs || []) as HoldprintJob[];
       let jobs = rawJobs.map(transformJob);
 
-      // 2. Fetch local extensions from Supabase (CRUD)
+      // 2. Fetch local extensions, time entries, and item assignments from Supabase
       const jobIds = jobs.map(j => j.id);
       if (jobIds.length > 0) {
-        const { data: extensions } = await supabase
-          .from("job_extensions")
-          .select("*")
-          .in("holdprint_job_id", jobIds);
+        const [extRes, timeRes, assignRes] = await Promise.all([
+          supabase.from("job_extensions").select("*").in("holdprint_job_id", jobIds),
+          supabase.from("job_time_entries").select("job_id, minutes").in("job_id", jobIds),
+          supabase.from("job_item_assignments").select("job_id, collaborator_name").in("job_id", jobIds).eq("is_active", true),
+        ]);
 
-        if (extensions && extensions.length > 0) {
-          const extMap = new Map(extensions.map((e: any) => [e.holdprint_job_id, e]));
-          jobs = jobs.map(j => {
-            const ext = extMap.get(j.id);
-            if (ext) {
-              return {
-                ...j,
-                prioridade: (ext as any).prioridade || "normal",
-                tags: (ext as any).tags || [],
-                notas_internas: (ext as any).notas_internas || null,
-                times_envolvidos: (ext as any).times_envolvidos || [],
-              };
-            }
-            return j;
-          });
+        // Extensions map
+        const extMap = new Map((extRes.data || []).map((e: any) => [e.holdprint_job_id, e]));
+
+        // Sum time entries per job
+        const timeMap = new Map<string, number>();
+        for (const t of (timeRes.data || [])) {
+          timeMap.set(t.job_id, (timeMap.get(t.job_id) || 0) + (t.minutes || 0));
         }
+
+        // Unique collaborators per job (for responsible override)
+        const assignMap = new Map<string, string[]>();
+        for (const a of (assignRes.data || [])) {
+          if (!assignMap.has(a.job_id)) assignMap.set(a.job_id, []);
+          const list = assignMap.get(a.job_id)!;
+          if (!list.includes(a.collaborator_name)) list.push(a.collaborator_name);
+        }
+
+        jobs = jobs.map(j => {
+          const ext = extMap.get(j.id);
+          const totalMinutes = timeMap.get(j.id) || 0;
+          const assignedCollabs = assignMap.get(j.id);
+
+          return {
+            ...j,
+            time_spent_minutes: totalMinutes,
+            ...(ext ? {
+              prioridade: (ext as any).prioridade || "normal",
+              tags: (ext as any).tags || [],
+              notas_internas: (ext as any).notas_internas || null,
+              times_envolvidos: (ext as any).times_envolvidos || [],
+            } : {}),
+            // Override responsible with assigned collaborators if any
+            ...(assignedCollabs && assignedCollabs.length > 0 ? {
+              responsible: assignedCollabs.map((name, i) => ({ id: `assign-${i}`, name })),
+            } : {}),
+          };
+        });
       }
 
       // 3. Fetch saved board assignments to override ERP stages
