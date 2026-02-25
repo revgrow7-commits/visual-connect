@@ -139,12 +139,19 @@ export function useJobsData(filters?: JobsFilters, activeBoard?: Board | null) {
       if (activeBoard) {
         const { data: assignments } = await supabase
           .from("job_board_assignments")
-          .select("job_id, stage_id")
+          .select("job_id, stage_id, assigned_at")
           .eq("board_id", activeBoard.id)
-          .eq("is_active", true);
+          .eq("is_active", true)
+          .order("assigned_at", { ascending: false });
 
         if (assignments && assignments.length > 0) {
-          const stageMap = new Map(assignments.map(a => [a.job_id, a.stage_id]));
+          // Keep only the most recent assignment per job
+          const stageMap = new Map<string, string>();
+          for (const a of assignments) {
+            if (a.stage_id && !stageMap.has(a.job_id)) {
+              stageMap.set(a.job_id, a.stage_id);
+            }
+          }
           jobs = jobs.map(j => {
             const savedStage = stageMap.get(j.id);
             if (savedStage) return { ...j, stage: savedStage as Stage };
