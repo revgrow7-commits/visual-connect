@@ -1414,6 +1414,48 @@ export type Database = {
         }
         Relationships: []
       }
+      job_production_flows: {
+        Row: {
+          created_at: string
+          duration_minutes: number
+          finished_at: string | null
+          id: string
+          job_id: string
+          name: string
+          responsible_name: string | null
+          sort_order: number
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          duration_minutes?: number
+          finished_at?: string | null
+          id?: string
+          job_id: string
+          name: string
+          responsible_name?: string | null
+          sort_order?: number
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          duration_minutes?: number
+          finished_at?: string | null
+          id?: string
+          job_id?: string
+          name?: string
+          responsible_name?: string | null
+          sort_order?: number
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       job_stage_movements: {
         Row: {
           board_id: string
@@ -1831,6 +1873,33 @@ export type Database = {
           updated_at?: string
           urgencia?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      production_flow_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          steps: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          steps?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          steps?: Json
+          updated_at?: string
         }
         Relationships: []
       }
