@@ -86,6 +86,11 @@ export interface Job {
   flexfields?: Record<string, unknown>;
   _unit_key?: string;
   _raw?: Record<string, unknown>;
+  // ── Local extension fields (from job_extensions table) ──
+  prioridade?: string;
+  tags?: string[];
+  notas_internas?: string | null;
+  times_envolvidos?: string[];
 }
 
 export interface JobsFilters {

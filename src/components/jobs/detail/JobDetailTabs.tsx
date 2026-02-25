@@ -680,49 +680,24 @@ const TabProducao: React.FC<Props & { onStageChange?: (jobId: string, newStage: 
     if (!moveTarget) return;
     setMovingStage(true);
     try {
-      // Persist via Holdprint API
-      const unitKey = job._unit_key || "poa";
-      const { data: apiResult, error: apiError } = await supabase.functions.invoke("holdprint-erp", {
-        body: {
-          endpoint: `/api-key/jobs/${job.id}/production-step`,
-          method: "PUT",
-          payload: { stepName: moveTarget, status: "Started" },
-          unidade: unitKey,
-        },
-      });
-
-      if (apiError) {
-        console.warn("[stage-change] API error, falling back to local:", apiError.message);
-      }
-
-      // Update local UI via callback
+      // Holdprint API é READ-ONLY — alteração de etapa é apenas local
       if (onStageChange) {
         onStageChange(job.id, moveTarget);
       }
 
-      // Log to history
+      // Log to history (Supabase local)
       await logHistory(job.id, "stage_changed", `Etapa alterada para ${DEFAULT_STAGES.find(s => s.id === moveTarget)?.name || moveTarget}`, {
         from_stage: job.stage,
         to_stage: moveTarget,
-        api_synced: apiError ? "false" : "true",
       });
 
       toast({
         title: "Etapa atualizada",
-        description: apiError
-          ? "Salvo localmente (erro ao sincronizar com ERP)"
-          : `Job movido para ${DEFAULT_STAGES.find(s => s.id === moveTarget)?.name || moveTarget}`,
+        description: `Job movido para ${DEFAULT_STAGES.find(s => s.id === moveTarget)?.name || moveTarget}`,
       });
     } catch (err: any) {
       console.error("[stage-change] Error:", err);
-      // Still update locally even if API fails
-      if (onStageChange) onStageChange(job.id, moveTarget);
-      await logHistory(job.id, "stage_changed", `Etapa alterada (offline)`, {
-        from_stage: job.stage,
-        to_stage: moveTarget,
-        api_synced: "false",
-      });
-      toast({ title: "Etapa atualizada localmente", description: "Não foi possível sincronizar com o ERP" });
+      toast({ title: "Erro ao atualizar etapa", description: err.message, variant: "destructive" });
     } finally {
       setMovingStage(false);
       setMoveTarget(null);
@@ -1047,7 +1022,7 @@ const TabProducao: React.FC<Props & { onStageChange?: (jobId: string, newStage: 
             <AlertDialogDescription>
               <span className="font-medium">{stageCfg?.name || job.stage}</span> → <span className="font-medium">{DEFAULT_STAGES.find(s => s.id === moveTarget)?.name || moveTarget}</span>
               <br />
-              <span className="text-xs mt-1 block">A mudança será sincronizada com o ERP Holdprint.</span>
+              <span className="text-xs mt-1 block">A mudança será salva localmente (a integração com o ERP é somente leitura).</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
