@@ -1596,6 +1596,42 @@ export type Database = {
         }
         Relationships: []
       }
+      jobs_cache: {
+        Row: {
+          created_at: string | null
+          data: Json
+          holdprint_id: string
+          id: string
+          job_number: string
+          last_synced: string | null
+          previous_stage: string | null
+          stage: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data?: Json
+          holdprint_id: string
+          id?: string
+          job_number: string
+          last_synced?: string | null
+          previous_stage?: string | null
+          stage?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json
+          holdprint_id?: string
+          id?: string
+          job_number?: string
+          last_synced?: string | null
+          previous_stage?: string | null
+          stage?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       kanban_boards: {
         Row: {
           active: boolean

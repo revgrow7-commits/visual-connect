@@ -37,10 +37,20 @@ export type Stage =
   | "revisao_comercial"
   | "aprovacao_financeira"
   | "programacao"
+  | "compras"
   | "arte_final"
   | "impressao"
   | "acabamento"
-  | "expedicao";
+  | "serralheria"
+  | "marcenaria"
+  | "pintura"
+  | "expedicao"
+  | "instalacao"
+  | "entrega"
+  | "faturamento"
+  | "nao_gera_faturamento"
+  | "previsto_realizado"
+  | "producao_finalizada";
 
 export type JobStatus = "aberto" | "fechado" | "cancelado";
 
@@ -53,33 +63,54 @@ export interface StageConfig {
 
 export const DEFAULT_STAGES: StageConfig[] = [
   { id: "revisao_comercial", name: "Revisão Comercial", order: 1, color: "#6366F1" },
-  { id: "aprovacao_financeira", name: "Aprovação Financeira", order: 2, color: "#F59E0B" },
-  { id: "programacao", name: "Programação", order: 3, color: "#3B82F6" },
-  { id: "arte_final", name: "Arte Final", order: 4, color: "#8B5CF6" },
-  { id: "impressao", name: "Impressão", order: 5, color: "#EC4899" },
-  { id: "acabamento", name: "Acabamento", order: 6, color: "#14B8A6" },
-  { id: "expedicao", name: "Expedição", order: 7, color: "#22C55E" },
+  { id: "aprovacao_financeira", name: "Aprovação Financeira", order: 2, color: "#8B5CF6" },
+  { id: "programacao", name: "Programação", order: 3, color: "#06B6D4" },
+  { id: "compras", name: "Compras", order: 4, color: "#F59E0B" },
+  { id: "arte_final", name: "Arte Final", order: 5, color: "#EC4899" },
+  { id: "impressao", name: "Impressão", order: 6, color: "#3B82F6" },
+  { id: "acabamento", name: "Acabamento", order: 7, color: "#10B981" },
+  { id: "serralheria", name: "Serralheria", order: 8, color: "#64748B" },
+  { id: "marcenaria", name: "Marcenaria", order: 9, color: "#92400E" },
+  { id: "pintura", name: "Pintura", order: 10, color: "#DC2626" },
+  { id: "expedicao", name: "Expedição", order: 11, color: "#7C3AED" },
+  { id: "instalacao", name: "Instalação", order: 12, color: "#059669" },
+  { id: "entrega", name: "Entrega", order: 13, color: "#0EA5E9" },
+  { id: "faturamento", name: "Faturamento", order: 14, color: "#D97706" },
+  { id: "nao_gera_faturamento", name: "Não Gera Faturamento", order: 15, color: "#6B7280" },
+  { id: "previsto_realizado", name: "Previsto x Realizado", order: 16, color: "#4B5563" },
+  { id: "producao_finalizada", name: "Produção Finalizada", order: 17, color: "#16A34A" },
 ];
 
 export interface Job {
   id: string;
   code?: number;
+  job_number?: string;
   client_name: string;
   client_id?: string | number;
   description: string;
+  title?: string;
   stage: Stage;
   production_type: string;
   status: JobStatus;
   responsible: JobResponsible[];
+  commercial_responsible?: string;
+  contact_name?: string;
   value: number;
+  order_number?: string;
   delivery_date: string;
+  delivery_need?: string;
+  estimated_delivery?: string | null;
   created_at: string;
+  created_by?: string;
   updated_at?: string;
   urgent: boolean;
   progress_percent: number;
   time_spent_minutes: number;
+  time_tracked?: string;
   items_count: number;
   items_done: number;
+  current_item_tag?: string;
+  has_alert?: boolean;
   items?: JobItem[];
   materials?: JobMaterial[];
   comments?: JobComment[];

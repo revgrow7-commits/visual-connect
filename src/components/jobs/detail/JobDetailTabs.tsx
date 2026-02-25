@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   useProductionFlow, useAddFlowStep, useUpdateFlowStep, useDeleteFlowStep,
@@ -1540,4 +1541,144 @@ function renderMetadata(type: string, metadata: Record<string, string> | null): 
   return JSON.stringify(metadata);
 }
 
-export { TabItens, TabInfo, TabProducao, TabMateriais, TabHistorico };
+// ─── Tab: Faturamento ───────────────────────────────────
+const TabFaturamento: React.FC<Props> = ({ job }) => {
+  const { data: apiDetail, isLoading } = useJobDetail(job);
+  
+  if (isLoading) return <LoadingSkeleton />;
+  
+  const raw = job._raw || {};
+  const billing = (raw as any).billing || (apiDetail as any)?.billing;
+  
+  return (
+    <div className="p-5 space-y-4">
+      <h3 className="text-sm font-semibold text-foreground">Faturamento</h3>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <InfoRow label="Valor Total" value={formatBRL(job.value)} />
+        <InfoRow label="Status" value={job.status === "fechado" ? "Faturado" : "Pendente"} />
+        <InfoRow label="Número do Pedido" value={job.order_number || "—"} />
+      </div>
+      {billing ? (
+        <div className="space-y-2">
+          {Object.entries(billing).map(([key, val]) => (
+            <InfoRow key={key} label={key} value={String(val)} />
+          ))}
+        </div>
+      ) : (
+        <EmptyState icon={<Package />} message="Dados de faturamento serão carregados da API Holdprint" sub="GET /api/job/:uuid/billing" />
+      )}
+    </div>
+  );
+};
+
+// ─── Tab: Estatísticas ──────────────────────────────────
+const TabEstatisticas: React.FC<Props> = ({ job }) => {
+  const { data: apiDetail, isLoading } = useJobDetail(job);
+  
+  if (isLoading) return <LoadingSkeleton />;
+  
+  const raw = job._raw || {};
+  const stats = (raw as any).statistics || (apiDetail as any)?.statistics;
+  
+  return (
+    <div className="p-5 space-y-4">
+      <h3 className="text-sm font-semibold text-foreground">Estatísticas</h3>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-muted/50 rounded-lg p-4 text-center">
+          <p className="text-2xl font-bold text-foreground">{job.progress_percent}%</p>
+          <p className="text-xs text-muted-foreground">Progresso</p>
+        </div>
+        <div className="bg-muted/50 rounded-lg p-4 text-center">
+          <p className="text-2xl font-bold text-foreground">{job.items_count}</p>
+          <p className="text-xs text-muted-foreground">Itens</p>
+        </div>
+        <div className="bg-muted/50 rounded-lg p-4 text-center">
+          <p className="text-2xl font-bold text-foreground">{job.time_tracked || formatMins(job.time_spent_minutes)}</p>
+          <p className="text-xs text-muted-foreground">Tempo Registrado</p>
+        </div>
+        <div className="bg-muted/50 rounded-lg p-4 text-center">
+          <p className="text-2xl font-bold text-foreground">{formatBRL(job.value)}</p>
+          <p className="text-xs text-muted-foreground">Valor</p>
+        </div>
+      </div>
+      {stats ? (
+        <div className="space-y-2">
+          {Object.entries(stats).map(([key, val]) => (
+            <InfoRow key={key} label={key} value={String(val)} />
+          ))}
+        </div>
+      ) : (
+        <EmptyState icon={<CheckCircle />} message="Métricas detalhadas serão carregadas da API Holdprint" sub="GET /api/job/:uuid/statistics" />
+      )}
+    </div>
+  );
+};
+
+// ─── Tab: Acompanhamento ────────────────────────────────
+const TabAcompanhamento: React.FC<Props> = ({ job }) => {
+  const { data: movements = [], isLoading: movLoading } = useQuery({
+    queryKey: ["job-stage-movements", job.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("job_stage_movements")
+        .select("*")
+        .eq("job_id", job.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+  
+  const { data: historyData = [], isLoading: histLoading } = useJobHistory(job.id, false);
+  
+  if (movLoading || histLoading) return <LoadingSkeleton />;
+  
+  const allEvents = [
+    ...movements.map((m: any) => ({
+      id: m.id,
+      timestamp: m.created_at,
+      type: "movement" as const,
+      content: `${m.from_stage_name || "—"} → ${m.to_stage_name}`,
+      author: m.moved_by || "Sistema",
+      meta: m,
+    })),
+    ...historyData.map((h: any) => ({
+      id: h.id,
+      timestamp: h.created_at,
+      type: h.event_type as string,
+      content: h.content || "",
+      author: h.user_name || "Sistema",
+      meta: h.metadata,
+    })),
+  ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  
+  return (
+    <div className="p-5 space-y-4">
+      <h3 className="text-sm font-semibold text-foreground">Acompanhamento & Histórico</h3>
+      {allEvents.length === 0 ? (
+        <EmptyState icon={<Clock />} message="Nenhum evento registrado" sub="Movimentações e ações aparecerão aqui" />
+      ) : (
+        <div className="space-y-2">
+          {allEvents.map(ev => (
+            <div key={ev.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 border border-border">
+              <div className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${ev.type === "movement" ? "bg-blue-500" : ev.type === "comment" ? "bg-green-500" : "bg-gray-400"}`} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-foreground">{ev.content}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[10px] text-muted-foreground">{ev.author}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {new Date(ev.timestamp).toLocaleDateString("pt-BR")} {new Date(ev.timestamp).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  {ev.type === "movement" && <Badge className="text-[9px] bg-blue-100 text-blue-700 border-blue-200">Movimentação</Badge>}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export { TabItens, TabInfo, TabProducao, TabMateriais, TabHistorico, TabFaturamento, TabEstatisticas, TabAcompanhamento };
