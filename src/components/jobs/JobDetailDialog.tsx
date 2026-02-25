@@ -13,7 +13,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TabItens, TabInfo, TabProducao, TabMateriais, TabHistorico } from "./detail/JobDetailTabs";
-import { LayoutGrid, Check, Archive, ArchiveRestore, X } from "lucide-react";
+import TabEquipe from "./detail/TabEquipe";
+import TabTarefas from "./detail/TabTarefas";
+import { useJobTasks } from "@/hooks/useJobTasks";
+import { useJobHistory } from "@/hooks/useJobLocalData";
+import { LayoutGrid, Check, Archive, ArchiveRestore, X, Bell, MessageSquare, ListChecks, AlertTriangle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { logHistory } from "@/hooks/useJobLocalData";
 
@@ -33,8 +37,13 @@ const JobDetailDialog: React.FC<Props> = ({ job, open, onOpenChange, onStageChan
 
   const { data: jobAssignments = [] } = useJobAssignments(job?.id || null);
   const assignToBoard = useAssignToBoard(job?.id || "");
+  const { data: jobTasks = [] } = useJobTasks(job?.id || null);
+  const { data: jobHistoryData = [] } = useJobHistory(job?.id || null, false);
 
   if (!job) return null;
+
+  const tasksDone = jobTasks.filter(t => t.status === "concluida").length;
+  const commentsCount = jobHistoryData.filter(h => h.event_type === "comment").length;
 
   const currentAssignment = jobAssignments.find(a => a.is_active && !a.item_id);
   const currentBoard = currentAssignment ? boards.find(b => b.id === currentAssignment.board_id) : null;
@@ -106,6 +115,19 @@ const JobDetailDialog: React.FC<Props> = ({ job, open, onOpenChange, onStageChan
             <span className="text-sm text-gray-400">Progresso</span>
             <Progress value={job.progress_percent} className="flex-1 h-2 bg-[#374151]" />
             <span className="text-sm font-bold">{job.progress_percent}%</span>
+            <div className="flex items-center gap-2 ml-2">
+              <Badge className="text-[10px] bg-white/10 border-white/20 text-white gap-0.5">
+                <ListChecks className="h-2.5 w-2.5" /> {tasksDone}/{jobTasks.length}
+              </Badge>
+              <Badge className="text-[10px] bg-white/10 border-white/20 text-white gap-0.5">
+                <MessageSquare className="h-2.5 w-2.5" /> {commentsCount}
+              </Badge>
+              {overdue && (
+                <Badge className="text-[10px] bg-red-500/20 border-red-400/30 text-red-300 gap-0.5">
+                  <AlertTriangle className="h-2.5 w-2.5" /> ATRASADO
+                </Badge>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-2 pt-1 flex-wrap">
@@ -155,6 +177,8 @@ const JobDetailDialog: React.FC<Props> = ({ job, open, onOpenChange, onStageChan
               { value: "itens", label: "Itens" },
               { value: "info", label: "Informações gerais" },
               { value: "producao", label: "Produção" },
+              { value: "equipe", label: "Equipe & Distribuição" },
+              { value: "tarefas", label: "Tarefas" },
               { value: "materiais", label: "Matéria Prima" },
               { value: "historico", label: "Histórico" },
             ].map(tab => (
@@ -168,6 +192,8 @@ const JobDetailDialog: React.FC<Props> = ({ job, open, onOpenChange, onStageChan
             <TabsContent value="itens" className="mt-0"><TabItens job={job} /></TabsContent>
             <TabsContent value="info" className="mt-0"><TabInfo job={job} /></TabsContent>
             <TabsContent value="producao" className="mt-0"><TabProducao job={job} onStageChange={onStageChange} /></TabsContent>
+            <TabsContent value="equipe" className="mt-0"><TabEquipe job={job} /></TabsContent>
+            <TabsContent value="tarefas" className="mt-0"><TabTarefas job={job} /></TabsContent>
             <TabsContent value="materiais" className="mt-0"><TabMateriais job={job} /></TabsContent>
             <TabsContent value="historico" className="mt-0"><TabHistorico job={job} /></TabsContent>
           </ScrollArea>

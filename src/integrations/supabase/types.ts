@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_actions_log: {
+        Row: {
+          acao_tomada: string
+          created_at: string
+          id: string
+          job_id: string | null
+          resultado: string | null
+          tipo_rotina: string
+          tokens_usados: number | null
+        }
+        Insert: {
+          acao_tomada: string
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          resultado?: string | null
+          tipo_rotina?: string
+          tokens_usados?: number | null
+        }
+        Update: {
+          acao_tomada?: string
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          resultado?: string | null
+          tipo_rotina?: string
+          tokens_usados?: number | null
+        }
+        Relationships: []
+      }
       agent_conversations: {
         Row: {
           created_at: string | null
@@ -41,6 +71,42 @@ export type Database = {
           titulo?: string
           updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      automation_rules: {
+        Row: {
+          acoes: Json
+          ativo: boolean
+          condicoes: Json
+          created_at: string
+          criado_por: string | null
+          gatilho: string
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          acoes?: Json
+          ativo?: boolean
+          condicoes?: Json
+          created_at?: string
+          criado_por?: string | null
+          gatilho: string
+          id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          acoes?: Json
+          ativo?: boolean
+          condicoes?: Json
+          created_at?: string
+          criado_por?: string | null
+          gatilho?: string
+          id?: string
+          nome?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1321,6 +1387,62 @@ export type Database = {
         }
         Relationships: []
       }
+      job_tasks: {
+        Row: {
+          concluido_em: string | null
+          created_at: string
+          descricao: string | null
+          id: string
+          job_id: string
+          parent_task_id: string | null
+          prazo: string | null
+          prioridade: string
+          responsavel_id: string | null
+          status: string
+          template_origem: string | null
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          concluido_em?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          job_id: string
+          parent_task_id?: string | null
+          prazo?: string | null
+          prioridade?: string
+          responsavel_id?: string | null
+          status?: string
+          template_origem?: string | null
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          concluido_em?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          job_id?: string
+          parent_task_id?: string | null
+          prazo?: string | null
+          prioridade?: string
+          responsavel_id?: string | null
+          status?: string
+          template_origem?: string | null
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "job_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_time_entries: {
         Row: {
           created_at: string
@@ -1387,6 +1509,39 @@ export type Database = {
           name?: string
           stages?: Json
           updated_at?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          destinatario_id: string
+          id: string
+          job_id: string | null
+          lida: boolean
+          mensagem: string
+          prioridade: string
+          remetente_tipo: string
+        }
+        Insert: {
+          created_at?: string
+          destinatario_id: string
+          id?: string
+          job_id?: string | null
+          lida?: boolean
+          mensagem: string
+          prioridade?: string
+          remetente_tipo?: string
+        }
+        Update: {
+          created_at?: string
+          destinatario_id?: string
+          id?: string
+          job_id?: string | null
+          lida?: boolean
+          mensagem?: string
+          prioridade?: string
+          remetente_tipo?: string
         }
         Relationships: []
       }
