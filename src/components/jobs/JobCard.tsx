@@ -60,7 +60,10 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
         <p className="font-bold text-[13px] text-[#1a2332] truncate leading-tight">
           {job.client_name}
         </p>
-        <div className="flex items-center gap-0.5 flex-shrink-0">
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <span className="text-[10px] bg-[#f0f2f5] text-[#6b7280] rounded px-1.5 py-0.5 font-medium whitespace-nowrap">
+            {job.items_count} {job.items_count === 1 ? "item" : "itens"}
+          </span>
           {job.has_alert && <span className="w-2 h-2 rounded-full bg-red-500" />}
           {job.urgent && <Zap className="h-4 w-4 text-amber-500" />}
         </div>
