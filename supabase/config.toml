@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.job-movement-notify]
 verify_jwt = false
+
+[functions.sync-holdprint-jobs]
+verify_jwt = false
