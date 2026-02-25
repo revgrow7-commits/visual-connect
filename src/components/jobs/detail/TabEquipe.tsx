@@ -1,0 +1,158 @@
+import React, { useState, useEffect, useMemo } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import type { Job } from "../types";
+import { useJobDetail } from "@/hooks/useJobDetail";
+import { useJobItems } from "@/hooks/useJobLocalData";
+import { useItemAssignments, useAssignItemsToCollaborators } from "@/hooks/useJobItemAssignments";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Save, Users } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { DEFAULT_STAGES } from "../types";
+
+interface Props { job: Job }
+
+const TabEquipe: React.FC<Props> = ({ job }) => {
+  const { data: apiDetail, isLoading: apiLoading } = useJobDetail(job);
+  const { data: localItems = [], isLoading: localLoading } = useJobItems(job.id);
+  const { data: itemAssignments = [] } = useItemAssignments(job.id);
+  const assignItems = useAssignItemsToCollaborators(job.id);
+
+  const [colaboradores, setColaboradores] = useState<{ nome: string; cargo: string | null }[]>([]);
+  const [assignments, setAssignments] = useState<Record<string, Record<string, string>>>({});
+
+  useEffect(() => {
+    supabase.from("colaboradores").select("nome, cargo").eq("status", "ativo").order("nome").then(({ data }) => {
+      if (data) setColaboradores(data);
+    });
+  }, []);
+
+  // Merge items
+  const apiItems = apiDetail?.items || [];
+  const allItems = useMemo(() => {
+    const items: { id: string; name: string; source: string }[] = [];
+    const seenNames = new Set<string>();
+    for (const li of localItems) {
+      items.push({ id: li.id, name: li.name, source: "local" });
+      seenNames.add(li.name.toLowerCase().trim());
+    }
+    for (const ai of apiItems) {
+      if (!seenNames.has(ai.name.toLowerCase().trim())) {
+        items.push({ id: ai.id, name: ai.name, source: "api" });
+      }
+    }
+    return items;
+  }, [apiItems, localItems]);
+
+  // Production stages as teams
+  const teams = DEFAULT_STAGES.map(s => ({ id: s.id, name: s.name, color: s.color }));
+
+  // Init assignments from existing data
+  useEffect(() => {
+    if (itemAssignments.length === 0) return;
+    const map: Record<string, Record<string, string>> = {};
+    for (const a of itemAssignments) {
+      if (!a.is_active) continue;
+      const key = a.item_name.toLowerCase().trim();
+      if (!map[key]) map[key] = {};
+      // We don't have team info in assignments, so just track collaborator
+      map[key]["_collab"] = a.collaborator_name;
+    }
+    setAssignments(map);
+  }, [itemAssignments]);
+
+  const handleAssign = (itemName: string, teamId: string, colabName: string) => {
+    setAssignments(prev => ({
+      ...prev,
+      [itemName.toLowerCase().trim()]: {
+        ...(prev[itemName.toLowerCase().trim()] || {}),
+        [teamId]: colabName,
+      },
+    }));
+  };
+
+  const handleSave = async () => {
+    try {
+      for (const item of allItems) {
+        const itemAssigns = assignments[item.name.toLowerCase().trim()];
+        if (!itemAssigns) continue;
+        const collabs = Object.values(itemAssigns).filter(Boolean);
+        if (collabs.length === 0) continue;
+        await assignItems.mutateAsync({
+          items: [{ item_id: item.source === "local" ? item.id : undefined, item_name: item.name }],
+          collaborators: collabs,
+          deadline: null,
+        });
+      }
+      toast({ title: "Distribuição salva" });
+    } catch (err: any) {
+      toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
+    }
+  };
+
+  if (apiLoading || localLoading) return <div className="p-5 flex justify-center"><Loader2 className="h-5 w-5 animate-spin" /></div>;
+
+  return (
+    <div className="p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold flex items-center gap-1.5"><Users className="h-4 w-4" /> Distribuição de Itens por Equipe</h3>
+        <Button size="sm" onClick={handleSave} disabled={assignItems.isPending} className="gap-1.5 text-xs">
+          {assignItems.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+          Salvar distribuição
+        </Button>
+      </div>
+
+      <div className="border rounded-lg overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-muted/50">
+              <th className="text-left p-2.5 font-semibold min-w-[180px] sticky left-0 bg-muted/50 z-10">Item</th>
+              {teams.map(t => (
+                <th key={t.id} className="text-center p-2 min-w-[140px]">
+                  <Badge className="text-[9px] text-white" style={{ backgroundColor: t.color }}>{t.name}</Badge>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {allItems.map(item => (
+              <tr key={item.id} className="border-t hover:bg-muted/20">
+                <td className="p-2.5 font-medium sticky left-0 bg-background z-10">{item.name}</td>
+                {teams.map(team => {
+                  const key = item.name.toLowerCase().trim();
+                  const current = assignments[key]?.[team.id] || "";
+                  return (
+                    <td key={team.id} className="p-1.5">
+                      <Select value={current} onValueChange={v => handleAssign(item.name, team.id, v)}>
+                        <SelectTrigger className="h-7 text-[10px] w-full">
+                          <SelectValue placeholder="—" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="—">—</SelectItem>
+                          {colaboradores.map(c => (
+                            <SelectItem key={c.nome} value={c.nome}>
+                              {c.nome} {c.cargo ? `(${c.cargo})` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {allItems.length === 0 && (
+        <div className="text-center py-8 text-muted-foreground text-sm">
+          Nenhum item disponível. Adicione itens na aba "Itens" primeiro.
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default TabEquipe;
