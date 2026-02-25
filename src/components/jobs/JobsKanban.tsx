@@ -7,6 +7,7 @@ import { getActiveBoards, type Board } from "@/stores/boardsStore";
 import JobCard from "./JobCard";
 import JobDetailDialog from "./JobDetailDialog";
 import BulkActionBar from "./BulkActionBar";
+import MovementsFeed from "./MovementsFeed";
 import DrillDownBreadcrumb, { type DrillDownLevel } from "./DrillDownBreadcrumb";
 import StageDrillDown from "./StageDrillDown";
 import ItemDrillDown from "./ItemDrillDown";
@@ -474,6 +475,11 @@ const JobsKanban: React.FC = () => {
             <Settings2 className="h-3.5 w-3.5" /> Configurar Boards
           </Button>
         </Link>
+      </div>
+
+      {/* Movements Feed */}
+      <div className="px-6 pb-2">
+        <MovementsFeed maxItems={6} />
       </div>
 
       {/* Filters */}
