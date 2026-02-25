@@ -35,3 +35,24 @@ verify_jwt = false
 
 [functions.holdprint-import-chunk]
 verify_jwt = false
+
+[functions.pcp-agent]
+verify_jwt = false
+
+[functions.gateway-auth]
+verify_jwt = false
+
+[functions.evolution-api]
+verify_jwt = false
+
+[functions.whatsapp-send]
+verify_jwt = false
+
+[functions.banco-horas-notify]
+verify_jwt = false
+
+[functions.ticket-notify]
+verify_jwt = false
+
+[functions.job-movement-notify]
+verify_jwt = false
