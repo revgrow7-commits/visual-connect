@@ -92,7 +92,7 @@ export function useJobsData(filters?: JobsFilters, activeBoard?: Board | null) {
   return useQuery({
     queryKey: ["holdprint-jobs-kanban", filters, activeBoard?.id],
     queryFn: async () => {
-      // Fetch jobs from ERP
+      // 1. Fetch jobs from ERP (GET — readonly)
       const { data, error } = await supabase.functions.invoke("cs-holdprint-data", {
         body: {
           endpoints: ["jobs"],
@@ -109,7 +109,33 @@ export function useJobsData(filters?: JobsFilters, activeBoard?: Board | null) {
       const rawJobs = (data.data?.jobs || []) as HoldprintJob[];
       let jobs = rawJobs.map(transformJob);
 
-      // Fetch saved board assignments to override ERP stages
+      // 2. Fetch local extensions from Supabase (CRUD)
+      const jobIds = jobs.map(j => j.id);
+      if (jobIds.length > 0) {
+        const { data: extensions } = await supabase
+          .from("job_extensions")
+          .select("*")
+          .in("holdprint_job_id", jobIds);
+
+        if (extensions && extensions.length > 0) {
+          const extMap = new Map(extensions.map((e: any) => [e.holdprint_job_id, e]));
+          jobs = jobs.map(j => {
+            const ext = extMap.get(j.id);
+            if (ext) {
+              return {
+                ...j,
+                prioridade: (ext as any).prioridade || "normal",
+                tags: (ext as any).tags || [],
+                notas_internas: (ext as any).notas_internas || null,
+                times_envolvidos: (ext as any).times_envolvidos || [],
+              };
+            }
+            return j;
+          });
+        }
+      }
+
+      // 3. Fetch saved board assignments to override ERP stages
       if (activeBoard) {
         const { data: assignments } = await supabase
           .from("job_board_assignments")

@@ -1127,6 +1127,87 @@ export type Database = {
         }
         Relationships: []
       }
+      job_comments: {
+        Row: {
+          anexos: Json | null
+          autor_nome: string
+          autor_tipo: string
+          created_at: string
+          editado: boolean | null
+          editado_em: string | null
+          holdprint_job_id: string
+          id: string
+          mencoes: string[] | null
+          mensagem: string
+        }
+        Insert: {
+          anexos?: Json | null
+          autor_nome?: string
+          autor_tipo?: string
+          created_at?: string
+          editado?: boolean | null
+          editado_em?: string | null
+          holdprint_job_id: string
+          id?: string
+          mencoes?: string[] | null
+          mensagem: string
+        }
+        Update: {
+          anexos?: Json | null
+          autor_nome?: string
+          autor_tipo?: string
+          created_at?: string
+          editado?: boolean | null
+          editado_em?: string | null
+          holdprint_job_id?: string
+          id?: string
+          mencoes?: string[] | null
+          mensagem?: string
+        }
+        Relationships: []
+      }
+      job_extensions: {
+        Row: {
+          arquivado_em: string | null
+          arquivado_localmente: boolean | null
+          arquivado_por: string | null
+          created_at: string
+          holdprint_job_id: string
+          id: string
+          notas_internas: string | null
+          prioridade: string
+          tags: string[] | null
+          times_envolvidos: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          arquivado_em?: string | null
+          arquivado_localmente?: boolean | null
+          arquivado_por?: string | null
+          created_at?: string
+          holdprint_job_id: string
+          id?: string
+          notas_internas?: string | null
+          prioridade?: string
+          tags?: string[] | null
+          times_envolvidos?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          arquivado_em?: string | null
+          arquivado_localmente?: boolean | null
+          arquivado_por?: string | null
+          created_at?: string
+          holdprint_job_id?: string
+          id?: string
+          notas_internas?: string | null
+          prioridade?: string
+          tags?: string[] | null
+          times_envolvidos?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       job_files: {
         Row: {
           created_at: string
@@ -1951,6 +2032,51 @@ export type Database = {
           data?: Json
           expires_at?: string
           id?: string
+        }
+        Relationships: []
+      }
+      team_pipeline_status: {
+        Row: {
+          concluido_em: string | null
+          created_at: string
+          etapa: string
+          holdprint_item_id: string
+          holdprint_job_id: string
+          id: string
+          iniciado_em: string | null
+          pendencia_descricao: string | null
+          responsavel_nome: string | null
+          sub_status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          concluido_em?: string | null
+          created_at?: string
+          etapa: string
+          holdprint_item_id: string
+          holdprint_job_id: string
+          id?: string
+          iniciado_em?: string | null
+          pendencia_descricao?: string | null
+          responsavel_nome?: string | null
+          sub_status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          concluido_em?: string | null
+          created_at?: string
+          etapa?: string
+          holdprint_item_id?: string
+          holdprint_job_id?: string
+          id?: string
+          iniciado_em?: string | null
+          pendencia_descricao?: string | null
+          responsavel_nome?: string | null
+          sub_status?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
