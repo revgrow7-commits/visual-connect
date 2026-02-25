@@ -78,6 +78,7 @@ export function useAssignToBoard(jobId: string) {
         .from("job_board_assignments")
         .update({ is_active: false })
         .eq("job_id", jobId)
+        .eq("is_active", true)
         .in("item_name", itemNames);
 
       // Insert new assignments
