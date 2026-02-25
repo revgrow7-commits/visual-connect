@@ -7,6 +7,9 @@ import { getActiveBoards, type Board } from "@/stores/boardsStore";
 import JobCard from "./JobCard";
 import JobDetailDialog from "./JobDetailDialog";
 import BulkActionBar from "./BulkActionBar";
+import DrillDownBreadcrumb, { type DrillDownLevel } from "./DrillDownBreadcrumb";
+import StageDrillDown from "./StageDrillDown";
+import ItemDrillDown from "./ItemDrillDown";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +29,14 @@ import { Link } from "react-router-dom";
 import { useRecordMovement } from "@/hooks/useJobStageMovements";
 import { useQueryClient } from "@tanstack/react-query";
 import { useArchivedJobIds, useArchiveJob } from "@/hooks/useJobArchives";
+
+// Drill-down state types
+interface DrillDownState {
+  level: "board" | "stage" | "job" | "item";
+  stageId?: string;
+  job?: Job;
+  itemId?: string;
+}
 
 const JobsKanban: React.FC = () => {
   const boards = useMemo(() => getActiveBoards(), []);
@@ -87,6 +98,7 @@ const JobsKanban: React.FC = () => {
   const [filterPrazo, setFilterPrazo] = useState("todos");
   const [filterProgresso, setFilterProgresso] = useState("todos");
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [drillDown, setDrillDown] = useState<DrillDownState>({ level: "board" });
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -314,6 +326,53 @@ const JobsKanban: React.FC = () => {
   const stageConfigs = activeBoard?.stages || DEFAULT_STAGES;
   const selectedIsArchived = selectedJob ? (archivedIds?.has(selectedJob.id) || false) : false;
 
+  // ── Drill-down navigation ──
+  const drillDownToStage = useCallback((stageId: string) => {
+    setDrillDown({ level: "stage", stageId });
+  }, []);
+
+  const drillDownToJob = useCallback((job: Job) => {
+    setDrillDown(prev => ({ ...prev, level: "job", job }));
+    setSelectedJob(job);
+  }, []);
+
+  const drillDownToItem = useCallback((job: Job, itemId: string) => {
+    setDrillDown(prev => ({ ...prev, level: "item", job, itemId }));
+  }, []);
+
+  const breadcrumbLevels = useMemo((): DrillDownLevel[] => {
+    const boardName = activeBoard?.name || "Jobs";
+    const levels: DrillDownLevel[] = [{ type: "board", label: boardName, color: activeBoard?.color }];
+
+    if (drillDown.level !== "board" && drillDown.stageId) {
+      const stage = byStage.find(s => s.stage.id === drillDown.stageId)?.stage;
+      levels.push({ type: "stage", label: stage?.name || drillDown.stageId, id: drillDown.stageId, color: stage?.color });
+    }
+    if ((drillDown.level === "job" || drillDown.level === "item") && drillDown.job) {
+      levels.push({ type: "job", label: `J${drillDown.job.code || drillDown.job.id} – ${drillDown.job.client_name}`, id: drillDown.job.id });
+    }
+    if (drillDown.level === "item" && drillDown.itemId) {
+      levels.push({ type: "item", label: `Item ${drillDown.itemId.substring(0, 8)}...`, id: drillDown.itemId });
+    }
+    return levels;
+  }, [drillDown, activeBoard, byStage]);
+
+  const handleBreadcrumbNavigate = useCallback((index: number) => {
+    const level = breadcrumbLevels[index];
+    if (level.type === "board") {
+      setDrillDown({ level: "board" });
+      setSelectedJob(null);
+    } else if (level.type === "stage") {
+      setDrillDown({ level: "stage", stageId: level.id });
+      setSelectedJob(null);
+    } else if (level.type === "job") {
+      const job = drillDown.job;
+      if (job) setDrillDown({ level: "job", stageId: drillDown.stageId, job });
+    }
+  }, [breadcrumbLevels, drillDown]);
+
+  const isDrilledDown = drillDown.level !== "board";
+
   return (
     <div className="flex flex-col h-full min-h-[calc(100vh-120px)]">
       {/* Header */}
@@ -437,13 +496,29 @@ const JobsKanban: React.FC = () => {
         </div>
       </div>
 
-      {/* Kanban */}
-      {isLoading ? (
+      {/* Breadcrumb - shown when drilled down */}
+      {isDrilledDown && (
+        <DrillDownBreadcrumb levels={breadcrumbLevels} onNavigate={handleBreadcrumbNavigate} />
+      )}
+
+      {/* Drill-down views */}
+      {isDrilledDown && drillDown.level === "stage" && drillDown.stageId ? (
+        (() => {
+          const stageData = byStage.find(s => s.stage.id === drillDown.stageId);
+          if (!stageData) return <div className="flex-1 flex items-center justify-center text-muted-foreground">Etapa não encontrada</div>;
+          return <StageDrillDown stageData={stageData} onSelectJob={(job) => drillDownToJob(job)} />;
+        })()
+      ) : isDrilledDown && drillDown.level === "item" && drillDown.job && drillDown.itemId ? (
+        <ItemDrillDown job={drillDown.job} itemId={drillDown.itemId} />
+      ) : isDrilledDown && drillDown.level === "job" && drillDown.job ? (
+        // Job-level drill-down uses the dialog (already open via selectedJob)
+        null
+      ) : isLoading ? (
         <BoardSkeleton count={stageConfigs.length} />
       ) : isError ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <p className="text-red-500 font-medium">Erro ao carregar jobs</p>
+            <p className="text-destructive font-medium">Erro ao carregar jobs</p>
             <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-2">Tentar novamente</Button>
           </div>
         </div>
@@ -470,22 +545,26 @@ const JobsKanban: React.FC = () => {
               <div className="flex gap-2.5 min-h-[calc(100vh-300px)]">
                 {byStage.map(col => (
                   <div key={col.stage.id} className="min-w-[200px] flex-1 max-w-[250px] flex flex-col">
-                    <div className="bg-white rounded-t-lg p-2.5 border border-[#e5e7eb] border-b-0" style={{ borderTopWidth: 3, borderTopColor: col.stage.color }}>
-                      <p className="font-bold text-[13px] text-[#1a2332]">{col.stage.name}</p>
-                      <p className="text-[11px] text-[#6b7280]">{formatBRL(col.totalValue)}</p>
-                      <p className="text-[11px] text-[#6b7280]">{col.jobs.length} Jobs</p>
+                    <div
+                      onClick={() => drillDownToStage(col.stage.id)}
+                      className="bg-card rounded-t-lg p-2.5 border border-border border-b-0 cursor-pointer hover:bg-accent/50 transition-colors group"
+                      style={{ borderTopWidth: 3, borderTopColor: col.stage.color }}
+                    >
+                      <p className="font-bold text-[13px] text-foreground group-hover:text-primary transition-colors">{col.stage.name}</p>
+                      <p className="text-[11px] text-muted-foreground">{formatBRL(col.totalValue)}</p>
+                      <p className="text-[11px] text-muted-foreground">{col.jobs.length} Jobs</p>
                     </div>
                     <Droppable droppableId={col.stage.id} isDropDisabled={selectionMode}>
                       {(provided, snapshot) => (
                         <div ref={provided.innerRef} {...provided.droppableProps}
-                          className={`flex-1 bg-[#f0f2f5] border border-[#e5e7eb] border-t-0 rounded-b-lg p-1.5 space-y-1.5 transition-colors ${snapshot.isDraggingOver ? "bg-[#d1fae5]" : ""}`}>
+                          className={`flex-1 bg-muted/50 border border-border border-t-0 rounded-b-lg p-1.5 space-y-1.5 transition-colors ${snapshot.isDraggingOver ? "bg-emerald-100/50" : ""}`}>
                           {col.jobs.map((job, idx) => (
                             <Draggable key={job.id} draggableId={job.id} index={idx} isDragDisabled={selectionMode}>
                               {(prov, snap) => (
                                 <div ref={prov.innerRef} {...prov.draggableProps} {...prov.dragHandleProps}>
                                   <JobCard
                                     job={job}
-                                    onClick={() => { if (!selectionMode) setSelectedJob(job); }}
+                                    onClick={() => { if (!selectionMode) { drillDownToJob(job); } }}
                                     isDragging={snap.isDragging}
                                     visibleFlexfields={visibleFlexfields}
                                     selectionMode={selectionMode}
@@ -559,16 +638,16 @@ const JobsKanban: React.FC = () => {
                           </div>
                         </td>
                       )}
-                      <td className="p-2.5 font-mono text-xs" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : setSelectedJob(job)}>J{job.code || job.id}</td>
-                      <td className="p-2.5 font-medium text-xs" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : setSelectedJob(job)}>{job.client_name}</td>
-                      <td className="p-2.5 text-[#6b7280] text-xs max-w-[180px] truncate" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : setSelectedJob(job)}>{job.description}</td>
-                      <td className="p-2.5" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : setSelectedJob(job)}><Badge className="text-[9px] text-white" style={{ backgroundColor: stageCfg?.color }}>{stageCfg?.name}</Badge></td>
-                      <td className="p-2.5 text-xs" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : setSelectedJob(job)}>{job.responsible[0]?.name || "—"}</td>
-                      <td className="p-2.5 text-right text-xs font-medium" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : setSelectedJob(job)}>{formatBRL(job.value)}</td>
-                      <td className={`p-2.5 text-xs ${overdue ? "text-red-600 font-semibold" : ""}`} onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : setSelectedJob(job)}>
+                      <td className="p-2.5 font-mono text-xs" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>J{job.code || job.id}</td>
+                      <td className="p-2.5 font-medium text-xs" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>{job.client_name}</td>
+                      <td className="p-2.5 text-muted-foreground text-xs max-w-[180px] truncate" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>{job.description}</td>
+                      <td className="p-2.5" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}><Badge className="text-[9px] text-white" style={{ backgroundColor: stageCfg?.color }}>{stageCfg?.name}</Badge></td>
+                      <td className="p-2.5 text-xs" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>{job.responsible[0]?.name || "—"}</td>
+                      <td className="p-2.5 text-right text-xs font-medium" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>{formatBRL(job.value)}</td>
+                      <td className={`p-2.5 text-xs ${overdue ? "text-destructive font-semibold" : ""}`} onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>
                         {job.delivery_date ? new Date(job.delivery_date).toLocaleDateString("pt-BR") : "—"}
                       </td>
-                      <td className="p-2.5 text-right text-xs" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : setSelectedJob(job)}>{job.progress_percent}%</td>
+                      <td className="p-2.5 text-right text-xs" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>{job.progress_percent}%</td>
                       <td className="p-2.5 text-center">
                         <Button variant="ghost" size="sm" className="h-6 w-6 p-0"
                           onClick={() => archiveJob.mutate({ job_id: job.id, job_code: job.code, job_title: job.description, customer_name: job.client_name })}>
@@ -604,7 +683,7 @@ const JobsKanban: React.FC = () => {
       <JobDetailDialog
         job={selectedJob}
         open={!!selectedJob}
-        onOpenChange={o => { if (!o) setSelectedJob(null); }}
+        onOpenChange={o => { if (!o) { setSelectedJob(null); if (drillDown.level === "job") setDrillDown(prev => prev.stageId ? { level: "stage", stageId: prev.stageId } : { level: "board" }); } }}
         isArchived={selectedIsArchived}
         onStageChange={(jobId, newStage) => {
           let fromStageId = "";
