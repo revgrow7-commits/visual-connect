@@ -76,21 +76,36 @@ const JobsKanban: React.FC = () => {
 
   const persistStageChange = useCallback(async (job: Job, boardId: string, boardName: string, stageId: string, stageName: string, fromStageName?: string) => {
     try {
+      // Deactivate ALL previous assignments for this job on this board
       await supabase.from("job_board_assignments").update({ is_active: false }).eq("job_id", job.id).eq("board_id", boardId);
+
+      // Insert new active assignment
       const { error: insertError } = await supabase.from("job_board_assignments").insert({
         job_id: job.id, job_code: job.code || null, job_title: job.description || null,
         customer_name: job.client_name || null, board_id: boardId, board_name: boardName,
         stage_id: stageId, stage_name: stageName, assigned_by: "Sistema", is_active: true,
       });
-      if (insertError) { console.error("Erro ao inserir assignment:", insertError); return; }
+
+      if (insertError) {
+        console.error("Erro ao inserir assignment:", insertError);
+        toast({ title: "Erro ao salvar posição", description: insertError.message, variant: "destructive" });
+        return;
+      }
+
+      // Only invalidate after successful write
       queryClient.invalidateQueries({ queryKey: ["holdprint-jobs-kanban"] });
+
+      // Fire-and-forget notification
       supabase.functions.invoke("job-movement-notify", {
         body: { job_id: job.id, job_code: job.code, job_title: job.description, customer_name: job.client_name,
           board_id: boardId, board_name: boardName, from_stage_name: fromStageName || "—", to_stage_name: stageName, moved_by: "Sistema" },
       }).then(({ data }) => {
         if (data?.notified > 0) toast({ title: "📧 Notificação enviada", description: `${data.notified} membro(s) notificado(s)` });
       }).catch(err => console.warn("Erro ao notificar:", err));
-    } catch (err) { console.error("Erro ao persistir movimentação:", err); }
+    } catch (err) {
+      console.error("Erro ao persistir movimentação:", err);
+      toast({ title: "Erro ao salvar", description: "A posição do job pode não ter sido salva.", variant: "destructive" });
+    }
   }, [queryClient]);
 
   const visibleFlexfields = useMemo(() => activeBoard?.flexfields.filter(f => f.show_on_card) || [], [activeBoard]);
