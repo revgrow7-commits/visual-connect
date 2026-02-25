@@ -115,8 +115,11 @@ const JobsKanban: React.FC = () => {
   }, []);
 
   const now = new Date();
-  const dateFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-  const filters: JobsFilters = { search, status: status as JobsFilters["status"], productionType, dateFrom, dateTo: "" };
+  const defaultFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  const defaultTo = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const [dateFrom, setDateFrom] = useState(defaultFrom);
+  const [dateTo, setDateTo] = useState(defaultTo);
+  const filters: JobsFilters = { search, status: status as JobsFilters["status"], productionType, dateFrom, dateTo };
   const { data, isLoading, isFetching, refetch, isError } = useJobsData(filters, activeBoard);
 
   const [localByStage, setLocalByStage] = useState<JobsByStage[] | null>(null);
@@ -398,9 +401,13 @@ const JobsKanban: React.FC = () => {
           </SelectContent>
         </Select>
 
-        <div className="flex items-center gap-1 text-[11px] text-muted-foreground border rounded-md px-2 h-8">
-          <Calendar className="h-3.5 w-3.5" />
-          <span>De {new Date(dateFrom).toLocaleDateString("pt-BR")} até {now.toLocaleDateString("pt-BR")}</span>
+        <div className="flex items-center gap-1.5 border rounded-md px-2 h-8">
+          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+            className="bg-transparent text-[11px] text-muted-foreground border-none outline-none w-[105px]" />
+          <span className="text-[11px] text-muted-foreground">até</span>
+          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+            className="bg-transparent text-[11px] text-muted-foreground border-none outline-none w-[105px]" />
         </div>
 
         <div className="ml-auto flex items-center gap-1.5">
