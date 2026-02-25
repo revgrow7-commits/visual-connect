@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  useProductionFlow, useAddFlowStep, useUpdateFlowStep, useDeleteFlowStep,
+  useBulkInsertFlow, useFlowTemplates, useSaveFlowTemplate, useDeleteFlowTemplate,
+  type ProductionFlowStep,
+} from "@/hooks/useJobProductionFlow";
 import { toast } from "@/hooks/use-toast";
 import type { Job } from "../types";
 import { Popover as PopoverUI, PopoverContent as PopContentUI, PopoverTrigger as PopTriggerUI } from "@/components/ui/popover";
@@ -613,6 +618,25 @@ const TabProducao: React.FC<Props & { onStageChange?: (jobId: string, newStage: 
   const deleteFile = useDeleteJobFile(job.id);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Production Flow (local DB) ──
+  const { data: flowSteps = [] } = useProductionFlow(job.id);
+  const addFlowStep = useAddFlowStep(job.id);
+  const updateFlowStep = useUpdateFlowStep(job.id);
+  const deleteFlowStep = useDeleteFlowStep(job.id);
+  const bulkInsertFlow = useBulkInsertFlow(job.id);
+  const { data: flowTemplates = [] } = useFlowTemplates();
+  const saveTemplate = useSaveFlowTemplate();
+  const deleteTemplate = useDeleteFlowTemplate();
+
+  const [showFlowEditor, setShowFlowEditor] = useState(false);
+  const [newStepName, setNewStepName] = useState("");
+  const [newStepDuration, setNewStepDuration] = useState("");
+  const [templateName, setTemplateName] = useState("");
+  const [showTemplateSave, setShowTemplateSave] = useState(false);
+  const [editingStepId, setEditingStepId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDuration, setEditDuration] = useState("");
+
   const [moveTarget, setMoveTarget] = useState<string | null>(null);
   const [movingStage, setMovingStage] = useState(false);
   const [newTask, setNewTask] = useState("");
@@ -721,39 +745,167 @@ const TabProducao: React.FC<Props & { onStageChange?: (jobId: string, newStage: 
         </div>
       </div>
 
-      {/* Pipeline */}
-      <div className="border rounded-lg p-4">
-        <p className="text-sm font-semibold mb-3">Fluxo de Produção</p>
+      {/* Pipeline — Editable Production Flow */}
+      <div className="border rounded-lg p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold">Fluxo de Produção</p>
+          <div className="flex items-center gap-1.5">
+            {flowSteps.length > 0 && (
+              <Button size="sm" variant="ghost" className="h-7 text-[10px] gap-1" onClick={() => setShowTemplateSave(!showTemplateSave)}>
+                💾 Salvar Template
+              </Button>
+            )}
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setShowFlowEditor(!showFlowEditor)}>
+              {showFlowEditor ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+              {showFlowEditor ? "Fechar" : "Editar Fluxo"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Save as template */}
+        {showTemplateSave && (
+          <div className="flex gap-2 items-center bg-muted/30 p-2 rounded-md">
+            <Input placeholder="Nome do template..." value={templateName} onChange={e => setTemplateName(e.target.value)} className="h-8 text-xs flex-1" />
+            <Button size="sm" className="h-8 text-xs" disabled={!templateName.trim() || saveTemplate.isPending} onClick={() => {
+              saveTemplate.mutate({ name: templateName.trim(), steps: flowSteps.map(s => ({ name: s.name, duration_minutes: s.duration_minutes })) });
+              setTemplateName("");
+              setShowTemplateSave(false);
+            }}>Salvar</Button>
+          </div>
+        )}
+
+        {/* Load from template */}
+        {showFlowEditor && flowTemplates.length > 0 && (
+          <div className="bg-muted/20 p-2 rounded-md space-y-1">
+            <span className="text-[10px] font-semibold text-muted-foreground">Carregar Template:</span>
+            <div className="flex flex-wrap gap-1">
+              {flowTemplates.map(t => (
+                <div key={t.id} className="flex items-center gap-0.5">
+                  <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => {
+                    bulkInsertFlow.mutate(t.steps.map((s, i) => ({ name: s.name, duration_minutes: s.duration_minutes, sort_order: i })));
+                    setShowFlowEditor(false);
+                  }}>
+                    {t.name} ({t.steps.length})
+                  </Button>
+                  <button onClick={() => deleteTemplate.mutate(t.id)} className="text-destructive/40 hover:text-destructive"><X className="h-3 w-3" /></button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Visual flow */}
         <div className="flex items-center gap-1 overflow-x-auto pb-2">
-          {(tasks.length > 0 ? tasks : DEFAULT_STAGES).map((step: any, i: number, arr: any[]) => {
-            const isTask = 'productionStatus' in step;
-            const isFinalized = isTask ? step.productionStatus === "Finalized" : step.order < (stageCfg?.order || 0);
-            const isCurrent = isTask ? (step.productionStatus === "Started" || step.productionStatus === "Ready") && i > 0 && arr[i - 1]?.productionStatus === "Finalized" : step.id === job.stage;
-            const stageId = isTask ? step.name : step.id;
-            const stageName = isTask ? step.name : step.name;
-            const stageColor = isTask ? (isCurrent ? stageCfg?.color : undefined) : step.color;
+          {(flowSteps.length > 0 ? flowSteps : (tasks.length > 0 ? tasks : DEFAULT_STAGES)).map((step: any, i: number, arr: any[]) => {
+            const isLocal = 'status' in step && 'sort_order' in step;
+            const isTask = !isLocal && 'productionStatus' in step;
+
+            let isDone: boolean, isCurrent: boolean, stepName: string, duration: number;
+
+            if (isLocal) {
+              const s = step as ProductionFlowStep;
+              isDone = s.status === "done";
+              isCurrent = s.status === "in_progress";
+              stepName = s.name;
+              duration = s.duration_minutes;
+            } else if (isTask) {
+              isDone = step.productionStatus === "Finalized";
+              isCurrent = (step.productionStatus === "Started" || step.productionStatus === "Ready") && i > 0 && arr[i - 1]?.productionStatus === "Finalized";
+              stepName = step.name;
+              duration = step.duration || 0;
+            } else {
+              isDone = step.order < (stageCfg?.order || 0);
+              isCurrent = step.id === job.stage;
+              stepName = step.name;
+              duration = 0;
+            }
 
             return (
-              <div key={i} className="flex items-center gap-1">
-                <button
-                  onClick={() => {
-                    if (!isFinalized && !isCurrent) setMoveTarget(stageId);
-                  }}
-                  disabled={isFinalized || isCurrent || movingStage}
-                  className={`px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-all ${
-                    isCurrent ? "text-white shadow-md" : isFinalized ? "bg-muted text-muted-foreground" : "bg-muted/50 text-muted-foreground/60 hover:bg-muted"
-                  }`}
-                  style={isCurrent ? { backgroundColor: stageColor || "#6366F1" } : undefined}
-                >
-                  {isFinalized && <CheckCircle className="h-3 w-3 inline mr-1 text-green-600" />}
-                  {stageName}
-                  {isTask && step.duration > 0 && <span className="ml-1 opacity-60">({step.duration}min)</span>}
-                </button>
+              <div key={step.id || i} className="flex items-center gap-1">
+                {editingStepId === step.id && isLocal ? (
+                  <div className="flex items-center gap-1 bg-muted p-1 rounded">
+                    <Input value={editName} onChange={e => setEditName(e.target.value)} className="h-6 text-[10px] w-28" />
+                    <Input type="number" value={editDuration} onChange={e => setEditDuration(e.target.value)} className="h-6 text-[10px] w-14" placeholder="min" />
+                    <Button size="sm" className="h-6 px-1.5 text-[10px]" onClick={() => {
+                      updateFlowStep.mutate({ stepId: step.id, updates: { name: editName, duration_minutes: parseInt(editDuration) || 0 } });
+                      setEditingStepId(null);
+                    }}><Check className="h-3 w-3" /></Button>
+                    <button onClick={() => setEditingStepId(null)} className="text-muted-foreground"><X className="h-3 w-3" /></button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      if (isLocal) {
+                        const s = step as ProductionFlowStep;
+                        const nextStatus = s.status === "pending" ? "in_progress" : s.status === "in_progress" ? "done" : "pending";
+                        updateFlowStep.mutate({
+                          stepId: s.id,
+                          updates: {
+                            status: nextStatus,
+                            started_at: nextStatus === "in_progress" ? new Date().toISOString() : s.started_at,
+                            finished_at: nextStatus === "done" ? new Date().toISOString() : null,
+                          },
+                        });
+                      } else if (!isDone && !isCurrent) {
+                        const stageId = isTask ? step.name : step.id;
+                        setMoveTarget(stageId);
+                      }
+                    }}
+                    onDoubleClick={() => {
+                      if (isLocal) {
+                        setEditingStepId(step.id);
+                        setEditName((step as ProductionFlowStep).name);
+                        setEditDuration(String((step as ProductionFlowStep).duration_minutes));
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-all ${
+                      isCurrent ? "text-white shadow-md bg-primary" : isDone ? "bg-muted text-muted-foreground" : "bg-muted/50 text-muted-foreground/60 hover:bg-muted"
+                    }`}
+                    style={isCurrent && !isLocal ? { backgroundColor: stageCfg?.color || undefined } : undefined}
+                  >
+                    {isDone && <CheckCircle className="h-3 w-3 inline mr-1 text-emerald-600" />}
+                    {isCurrent && isLocal && <Play className="h-3 w-3 inline mr-1" />}
+                    {stepName}
+                    {duration > 0 && <span className="ml-1 opacity-60">({duration}min)</span>}
+                  </button>
+                )}
+                {isLocal && showFlowEditor && (
+                  <button onClick={() => deleteFlowStep.mutate(step.id)} className="text-destructive/40 hover:text-destructive">
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                )}
                 {i < arr.length - 1 && <span className="text-muted-foreground/40">→</span>}
               </div>
             );
           })}
+          {flowSteps.length === 0 && tasks.length === 0 && (
+            <span className="text-xs text-muted-foreground italic ml-2">Nenhum fluxo customizado — usando etapas padrão</span>
+          )}
         </div>
+
+        {/* Add step form */}
+        {showFlowEditor && (
+          <div className="flex gap-2 items-center pt-1">
+            <Input placeholder="Nome da etapa..." value={newStepName} onChange={e => setNewStepName(e.target.value)} className="h-8 text-xs flex-1" />
+            <Input type="number" placeholder="Min" value={newStepDuration} onChange={e => setNewStepDuration(e.target.value)} className="h-8 text-xs w-20" />
+            <Button size="sm" className="h-8 text-xs gap-1" disabled={!newStepName.trim() || addFlowStep.isPending} onClick={() => {
+              addFlowStep.mutate({ name: newStepName.trim(), duration_minutes: parseInt(newStepDuration) || 0, sort_order: flowSteps.length });
+              setNewStepName("");
+              setNewStepDuration("");
+            }}>
+              <Plus className="h-3 w-3" /> Etapa
+            </Button>
+          </div>
+        )}
+
+        {/* Flow progress */}
+        {flowSteps.length > 0 && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>{flowSteps.filter(s => s.status === "done").length}/{flowSteps.length} concluídas</span>
+            <Progress value={(flowSteps.filter(s => s.status === "done").length / flowSteps.length) * 100} className="flex-1 h-1.5" />
+            <span>{Math.round((flowSteps.filter(s => s.status === "done").length / flowSteps.length) * 100)}%</span>
+          </div>
+        )}
       </div>
 
       {/* Time */}
