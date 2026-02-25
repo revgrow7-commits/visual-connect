@@ -74,10 +74,20 @@ const JobsKanban: React.FC = () => {
     setSelectionMode(false);
   }, []);
 
+  // Track pending moves so we don't clear optimistic state until DB reflects the change
+  const pendingMovesRef = useRef<Map<string, string>>(new Map()); // jobId -> targetStageId
+
   const persistStageChange = useCallback(async (job: Job, boardId: string, boardName: string, stageId: string, stageName: string, fromStageName?: string) => {
+    pendingMovesRef.current.set(job.id, stageId);
+
     try {
       // Deactivate ALL previous assignments for this job on this board
-      await supabase.from("job_board_assignments").update({ is_active: false }).eq("job_id", job.id).eq("board_id", boardId);
+      await supabase
+        .from("job_board_assignments")
+        .update({ is_active: false })
+        .eq("job_id", job.id)
+        .eq("board_id", boardId)
+        .eq("is_active", true);
 
       // Insert new active assignment
       const { error: insertError } = await supabase.from("job_board_assignments").insert({
@@ -89,10 +99,13 @@ const JobsKanban: React.FC = () => {
       if (insertError) {
         console.error("Erro ao inserir assignment:", insertError);
         toast({ title: "Erro ao salvar posição", description: insertError.message, variant: "destructive" });
+        pendingMovesRef.current.delete(job.id);
+        queryClient.invalidateQueries({ queryKey: ["holdprint-jobs-kanban"] });
         return;
       }
 
-      // Only invalidate after successful write
+      // Clear pending and refetch
+      pendingMovesRef.current.delete(job.id);
       queryClient.invalidateQueries({ queryKey: ["holdprint-jobs-kanban"] });
 
       // Fire-and-forget notification
@@ -104,7 +117,9 @@ const JobsKanban: React.FC = () => {
       }).catch(err => console.warn("Erro ao notificar:", err));
     } catch (err) {
       console.error("Erro ao persistir movimentação:", err);
+      pendingMovesRef.current.delete(job.id);
       toast({ title: "Erro ao salvar", description: "A posição do job pode não ter sido salva.", variant: "destructive" });
+      queryClient.invalidateQueries({ queryKey: ["holdprint-jobs-kanban"] });
     }
   }, [queryClient]);
 
@@ -200,7 +215,34 @@ const JobsKanban: React.FC = () => {
     };
   }, [data, filterResponsavel, filterPrazo, filterProgresso, archivedIds, showArchived]);
 
-  const byStage = localByStage || filteredData?.byStage || [];
+  // When server data arrives, apply any pending moves over it before clearing optimistic state
+  const byStage = useMemo(() => {
+    const base = localByStage || filteredData?.byStage || [];
+    if (pendingMovesRef.current.size === 0 || localByStage) return base;
+    // Apply pending moves to server data to prevent visual revert
+    const adjusted = base.map(col => ({ ...col, jobs: [...col.jobs] }));
+    for (const [jobId, targetStage] of pendingMovesRef.current) {
+      // Remove from wrong columns
+      for (const col of adjusted) {
+        const idx = col.jobs.findIndex(j => j.id === jobId);
+        if (idx !== -1 && col.stage.id !== targetStage) {
+          const [job] = col.jobs.splice(idx, 1);
+          // Add to target column
+          const target = adjusted.find(c => c.stage.id === targetStage);
+          if (target) {
+            job.stage = targetStage as Job["stage"];
+            target.jobs.unshift(job);
+          }
+        }
+      }
+    }
+    // Recalc totals
+    for (const col of adjusted) {
+      col.totalValue = col.jobs.reduce((s, j) => s + j.value, 0);
+    }
+    return adjusted;
+  }, [localByStage, filteredData?.byStage]);
+
   React.useEffect(() => { if (data?.byStage) setLocalByStage(null); }, [data?.byStage]);
 
   // All visible jobs for bulk operations
