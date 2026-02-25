@@ -25,7 +25,7 @@ import {
   Calendar, Settings2, Users, ChevronLeft, ChevronRight, Archive, MousePointerClick,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useRecordMovement } from "@/hooks/useJobStageMovements";
 import { useQueryClient } from "@tanstack/react-query";
 import { useArchivedJobIds, useArchiveJob } from "@/hooks/useJobArchives";
@@ -39,8 +39,13 @@ interface DrillDownState {
 }
 
 const JobsKanban: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const boards = useMemo(() => getActiveBoards(), []);
-  const [activeBoardId, setActiveBoardId] = useState(boards[0]?.id || "");
+  const [activeBoardId, setActiveBoardId] = useState(() => {
+    const paramBoard = searchParams.get("board");
+    if (paramBoard && boards.some(b => b.id === paramBoard)) return paramBoard;
+    return boards[0]?.id || "";
+  });
   const activeBoard = useMemo(() => boards.find(b => b.id === activeBoardId) || boards[0] || null, [boards, activeBoardId]);
   const recordMovement = useRecordMovement();
   const queryClient = useQueryClient();
@@ -99,6 +104,7 @@ const JobsKanban: React.FC = () => {
   const [filterProgresso, setFilterProgresso] = useState("todos");
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [drillDown, setDrillDown] = useState<DrillDownState>({ level: "board" });
+  const deepLinkProcessed = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -184,6 +190,31 @@ const JobsKanban: React.FC = () => {
 
   // All visible jobs for bulk operations
   const allVisibleJobs = useMemo(() => filteredData?.jobs || [], [filteredData]);
+
+  // Deep link auto-navigation from email notifications
+  useEffect(() => {
+    if (deepLinkProcessed.current || !data?.jobs.length) return;
+    const paramStage = searchParams.get("stage");
+    const paramJob = searchParams.get("job");
+    if (!paramStage && !paramJob) return;
+
+    deepLinkProcessed.current = true;
+
+    if (paramJob) {
+      const job = data.jobs.find(j => j.id === paramJob);
+      if (job) {
+        setDrillDown({ level: "job", stageId: paramStage || undefined, job });
+        setSelectedJob(job);
+      } else if (paramStage) {
+        setDrillDown({ level: "stage", stageId: paramStage });
+      }
+    } else if (paramStage) {
+      setDrillDown({ level: "stage", stageId: paramStage });
+    }
+
+    // Clean URL params without reload
+    setSearchParams({}, { replace: true });
+  }, [data, searchParams, setSearchParams]);
 
   useEffect(() => {
     const el = scrollRef.current;

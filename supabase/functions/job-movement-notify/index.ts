@@ -5,6 +5,75 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const APP_URL = "https://rh-visual.lovable.app";
+
+function buildDeepLink(params: { board_id?: string; stage_id?: string; job_id?: string }) {
+  const q = new URLSearchParams();
+  if (params.board_id) q.set("board", params.board_id);
+  if (params.stage_id) q.set("stage", params.stage_id);
+  if (params.job_id) q.set("job", params.job_id);
+  return `${APP_URL}/jobs?${q.toString()}`;
+}
+
+function timestamp() {
+  return new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}
+
+function emailWrapper(content: string) {
+  return `
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+  <!-- Header -->
+  <tr><td style="background:#1a2332;padding:28px 32px;text-align:center;">
+    <h1 style="color:#fff;font-size:20px;margin:0;letter-spacing:0.5px;">Indústria Visual</h1>
+    <p style="color:#8ba3c7;font-size:12px;margin:6px 0 0;">Sistema de Gestão de Jobs</p>
+  </td></tr>
+  <!-- Body -->
+  <tr><td style="padding:32px;">
+    ${content}
+  </td></tr>
+  <!-- Footer -->
+  <tr><td style="background:#f8fafc;padding:20px 32px;border-top:1px solid #e5e7eb;text-align:center;">
+    <p style="color:#9ca3af;font-size:11px;margin:0;">
+      Notificação automática — ${timestamp()}<br/>
+      © ${new Date().getFullYear()} Indústria Visual
+    </p>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body></html>`;
+}
+
+function buildCtaButton(url: string, label: string) {
+  return `
+  <div style="text-align:center;margin:28px 0 8px;">
+    <a href="${url}" target="_blank" style="display:inline-block;background:#1DB899;color:#fff;padding:14px 36px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;letter-spacing:0.3px;">
+      ${label}
+    </a>
+    <p style="color:#9ca3af;font-size:11px;margin:8px 0 0;">Clique para acessar diretamente a etapa no sistema</p>
+  </div>`;
+}
+
+async function sendEmail(apiKey: string, to: string, subject: string, html: string) {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: "Jobs - Indústria Visual <mayara@industriavisual.com.br>",
+      to: [to],
+      subject,
+      html,
+    }),
+  });
+  const data = await res.json();
+  return { success: res.ok, id: data.id, error: data.message };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -29,9 +98,8 @@ Deno.serve(async (req) => {
 
     // ─── Action: Item assigned to collaborator ───
     if (action === "item_assignment") {
-      const { job_id, job_code, job_title, customer_name, item_names, collaborators, assigned_by } = body;
+      const { job_id, job_code, job_title, customer_name, item_names, collaborators, assigned_by, board_id, stage_id } = body;
 
-      // Get collaborator emails
       const { data: colaboradores } = await adminClient
         .from("colaboradores")
         .select("id, nome, email_pessoal")
@@ -48,59 +116,40 @@ Deno.serve(async (req) => {
       }
 
       const jobLabel = job_code ? `Job #${job_code}` : `Job ${job_id}`;
-      const itemList = (item_names || []).join(", ");
+      const deepLink = buildDeepLink({ board_id, stage_id, job_id });
       const subject = `📌 ${jobLabel} — Itens atribuídos a você`;
 
-      const htmlBody = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 24px;">
-            <h1 style="color: #1a2332; font-size: 22px; margin: 0;">Indústria Visual</h1>
-            <p style="color: #6b7280; font-size: 13px;">Notificação de Atribuição de Itens</p>
-          </div>
-          <div style="background: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-            <h2 style="color: #1a2332; font-size: 18px; margin: 0 0 12px 0;">📋 ${jobLabel} — ${job_title || "Sem título"}</h2>
-            <table style="font-size: 14px; color: #374151; line-height: 1.8;">
-              <tr><td style="font-weight: 600; padding-right: 12px;">Cliente:</td><td>${customer_name || "—"}</td></tr>
-              <tr><td style="font-weight: 600; padding-right: 12px;">Atribuído por:</td><td>${assigned_by || "Sistema"}</td></tr>
-              <tr><td style="font-weight: 600; padding-right: 12px;">Data/Hora:</td><td>${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</td></tr>
-            </table>
-            <div style="margin-top: 16px;">
-              <p style="font-weight: 600; font-size: 14px; margin: 0 0 8px 0;">Itens atribuídos:</p>
-              <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #374151;">
-                ${(item_names || []).map((n: string) => `<li style="margin-bottom: 4px;">${n}</li>`).join("")}
-              </ul>
-            </div>
-          </div>
-          <div style="text-align: center; margin: 20px 0;">
-            <a href="https://rh-visual.lovable.app/jobs" style="display: inline-block; background: #1a2332; color: #fff; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">
-              Ver no Kanban →
-            </a>
-          </div>
-          <p style="color: #9ca3af; font-size: 11px; text-align: center;">
-            Você recebe esta notificação porque itens foram atribuídos a você.<br/>
-            © ${new Date().getFullYear()} Indústria Visual
-          </p>
+      const htmlContent = emailWrapper(`
+        <div style="margin-bottom:20px;">
+          <span style="display:inline-block;background:#eff6ff;color:#2563eb;font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:0.5px;">Atribuição de Itens</span>
         </div>
-      `;
+        <h2 style="color:#1a2332;font-size:20px;margin:0 0 6px;">📋 ${jobLabel}</h2>
+        <p style="color:#6b7280;font-size:14px;margin:0 0 20px;">${job_title || "Sem título"}</p>
+
+        <table style="width:100%;font-size:14px;color:#374151;margin-bottom:20px;">
+          <tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-weight:600;width:130px;">Cliente</td><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;">${customer_name || "—"}</td></tr>
+          <tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-weight:600;">Atribuído por</td><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;">${assigned_by || "Sistema"}</td></tr>
+        </table>
+
+        <div style="background:#f0f9ff;border-radius:8px;padding:16px;margin-bottom:8px;">
+          <p style="font-weight:600;font-size:13px;color:#1e40af;margin:0 0 10px;">Itens atribuídos a você:</p>
+          <ul style="margin:0;padding-left:20px;font-size:14px;color:#374151;">
+            ${(item_names || []).map((n: string) => `<li style="margin-bottom:6px;">${n}</li>`).join("")}
+          </ul>
+        </div>
+
+        <div style="background:#fefce8;border-left:3px solid #eab308;border-radius:0 6px 6px 0;padding:12px 16px;margin:20px 0;">
+          <p style="color:#854d0e;font-size:13px;margin:0;"><strong>Ação necessária:</strong> Acesse o sistema para verificar os detalhes e iniciar o trabalho nos itens atribuídos.</p>
+        </div>
+
+        ${buildCtaButton(deepLink, "Acessar Meus Itens →")}
+      `);
 
       const results = [];
       for (const recipient of emails) {
         try {
-          const res = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${RESEND_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              from: "Jobs - Indústria Visual <mayara@industriavisual.com.br>",
-              to: [recipient.email],
-              subject,
-              html: htmlBody,
-            }),
-          });
-          const data = await res.json();
-          results.push({ email: recipient.email, success: res.ok, id: data.id });
+          const r = await sendEmail(RESEND_API_KEY, recipient.email, subject, htmlContent);
+          results.push({ email: recipient.email, ...r });
         } catch (err) {
           results.push({ email: recipient.email, success: false, error: String(err) });
         }
@@ -112,22 +161,12 @@ Deno.serve(async (req) => {
     }
 
     // ─── Action: Stage movement (default) ───
-    const {
-      job_id,
-      job_code,
-      job_title,
-      customer_name,
-      board_id,
-      board_name,
-      from_stage_name,
-      to_stage_name,
-      moved_by,
-    } = body;
+    const { job_id, job_code, job_title, customer_name, board_id, board_name, from_stage_name, to_stage_name, moved_by } = body;
 
-    // Get board members to notify
+    // Find to_stage_id from board stages
     const { data: board } = await adminClient
       .from("kanban_boards")
-      .select("members, name")
+      .select("members, name, stages")
       .eq("id", board_id)
       .maybeSingle();
 
@@ -137,14 +176,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    const members = board.members as Array<{ id: string; nome: string; cargo?: string }>;
+    const members = board.members as Array<{ id: string; nome: string }>;
     if (members.length === 0) {
       return new Response(JSON.stringify({ success: true, notified: 0, reason: "empty_members" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Get emails of member collaborators
     const memberIds = members.map(m => m.id);
     const { data: colaboradores } = await adminClient
       .from("colaboradores")
@@ -161,57 +199,51 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Find stage_id for the deep link
+    const stages = (board.stages || []) as Array<{ id: string; name: string }>;
+    const toStage = stages.find(s => s.name === to_stage_name);
+    const deepLink = buildDeepLink({ board_id, stage_id: toStage?.id, job_id });
+
     const jobLabel = job_code ? `Job #${job_code}` : `Job ${job_id}`;
-    const subject = `🔄 ${jobLabel} movido para "${to_stage_name}" — ${board_name}`;
+    const subject = `🔄 ${jobLabel} movido para "${to_stage_name}"`;
 
-    const htmlBody = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="text-align: center; margin-bottom: 24px;">
-          <h1 style="color: #1a2332; font-size: 22px; margin: 0;">Indústria Visual</h1>
-          <p style="color: #6b7280; font-size: 13px;">Notificação de Movimentação</p>
-        </div>
-        <div style="background: #f0fdf4; border-left: 4px solid #1DB899; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-          <h2 style="color: #1a2332; font-size: 18px; margin: 0 0 12px 0;">📋 ${jobLabel} — ${job_title || "Sem título"}</h2>
-          <table style="font-size: 14px; color: #374151; line-height: 1.8;">
-            <tr><td style="font-weight: 600; padding-right: 12px;">Cliente:</td><td>${customer_name || "—"}</td></tr>
-            <tr><td style="font-weight: 600; padding-right: 12px;">Board:</td><td>${board_name}</td></tr>
-            <tr><td style="font-weight: 600; padding-right: 12px;">De:</td><td><span style="background:#fee2e2;padding:2px 8px;border-radius:4px;">${from_stage_name || "—"}</span></td></tr>
-            <tr><td style="font-weight: 600; padding-right: 12px;">Para:</td><td><span style="background:#d1fae5;padding:2px 8px;border-radius:4px;font-weight:600;">${to_stage_name}</span></td></tr>
-            <tr><td style="font-weight: 600; padding-right: 12px;">Movido por:</td><td>${moved_by || "Sistema"}</td></tr>
-            <tr><td style="font-weight: 600; padding-right: 12px;">Data/Hora:</td><td>${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</td></tr>
-          </table>
-        </div>
-        <div style="text-align: center; margin: 20px 0;">
-          <a href="https://rh-visual.lovable.app/jobs" style="display: inline-block; background: #1a2332; color: #fff; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">
-            Ver no Kanban →
-          </a>
-        </div>
-        <p style="color: #9ca3af; font-size: 11px; text-align: center;">
-          Você recebe esta notificação por ser membro do board "${board_name}".<br/>
-          © ${new Date().getFullYear()} Indústria Visual
-        </p>
+    const htmlContent = emailWrapper(`
+      <div style="margin-bottom:20px;">
+        <span style="display:inline-block;background:#f0fdf4;color:#16a34a;font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:0.5px;">Movimentação de Etapa</span>
       </div>
-    `;
+      <h2 style="color:#1a2332;font-size:20px;margin:0 0 6px;">📋 ${jobLabel}</h2>
+      <p style="color:#6b7280;font-size:14px;margin:0 0 20px;">${job_title || "Sem título"}</p>
 
-    // Send emails to all board members
+      <table style="width:100%;font-size:14px;color:#374151;margin-bottom:20px;">
+        <tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-weight:600;width:130px;">Cliente</td><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;">${customer_name || "—"}</td></tr>
+        <tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-weight:600;">Board</td><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;">${board_name}</td></tr>
+        <tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-weight:600;">Movido por</td><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;">${moved_by || "Sistema"}</td></tr>
+      </table>
+
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+        <div style="flex:1;background:#fef2f2;border-radius:8px;padding:14px;text-align:center;">
+          <p style="color:#9ca3af;font-size:11px;margin:0 0 4px;text-transform:uppercase;">De</p>
+          <p style="color:#dc2626;font-size:15px;font-weight:600;margin:0;">${from_stage_name || "—"}</p>
+        </div>
+        <div style="font-size:20px;color:#9ca3af;">→</div>
+        <div style="flex:1;background:#f0fdf4;border-radius:8px;padding:14px;text-align:center;">
+          <p style="color:#9ca3af;font-size:11px;margin:0 0 4px;text-transform:uppercase;">Para</p>
+          <p style="color:#16a34a;font-size:15px;font-weight:600;margin:0;">${to_stage_name}</p>
+        </div>
+      </div>
+
+      <div style="background:#fefce8;border-left:3px solid #eab308;border-radius:0 6px 6px 0;padding:12px 16px;margin:20px 0;">
+        <p style="color:#854d0e;font-size:13px;margin:0;"><strong>Ação necessária:</strong> Verifique o job na nova etapa e execute os procedimentos correspondentes.</p>
+      </div>
+
+      ${buildCtaButton(deepLink, `Acessar Etapa "${to_stage_name}" →`)}
+    `);
+
     const results = [];
     for (const recipient of emails) {
       try {
-        const res = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${RESEND_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            from: "Jobs - Indústria Visual <mayara@industriavisual.com.br>",
-            to: [recipient.email],
-            subject,
-            html: htmlBody,
-          }),
-        });
-        const data = await res.json();
-        results.push({ email: recipient.email, success: res.ok, id: data.id });
+        const r = await sendEmail(RESEND_API_KEY, recipient.email, subject, htmlContent);
+        results.push({ email: recipient.email, ...r });
       } catch (err) {
         results.push({ email: recipient.email, success: false, error: String(err) });
       }
