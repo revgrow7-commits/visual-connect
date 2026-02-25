@@ -55,13 +55,23 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
         </div>
       )}
 
-      {/* Client name + urgent */}
+      {/* Client name + urgent + alert */}
       <div className="flex items-center justify-between gap-1">
         <p className="font-bold text-[13px] text-[#1a2332] truncate leading-tight">
           {job.client_name}
         </p>
-        {job.urgent && <Zap className="h-4 w-4 text-amber-500 flex-shrink-0" />}
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          {job.has_alert && <span className="w-2 h-2 rounded-full bg-red-500" />}
+          {job.urgent && <Zap className="h-4 w-4 text-amber-500" />}
+        </div>
       </div>
+
+      {/* Current item tag (green badge) */}
+      {job.current_item_tag && (
+        <span className="inline-block text-[10px] bg-emerald-100 text-emerald-700 rounded px-1.5 py-0.5 truncate max-w-full">
+          {job.current_item_tag} ({job.items_count})
+        </span>
+      )}
 
       {/* Description */}
       <p className="text-[11px] text-[#6b7280] leading-tight line-clamp-1">{job.description}</p>
@@ -86,7 +96,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
         <span className={overdue ? "text-red-600 font-semibold" : "text-[#6b7280]"}>
           {formatDateBR(job.delivery_date)}
         </span>
-        <span className="font-mono text-[#6b7280]">J{job.code || job.id}</span>
+        <span className="font-mono text-[#6b7280]">{job.job_number || `J${job.code || job.id}`}</span>
       </div>
 
       <p className="text-[12px] font-semibold text-[#1a2332]">{formatBRL(job.value)}</p>
@@ -101,7 +111,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
           <Clock className="h-3 w-3" />
           {job.progress_percent}%
           <span className={`w-2 h-2 rounded-full ${job.progress_percent > 0 ? "bg-emerald-500" : "bg-red-500"}`} />
-          {formatTimeMins(job.time_spent_minutes)}
+          {job.time_tracked || formatTimeMins(job.time_spent_minutes)}
         </span>
       </div>
     </div>

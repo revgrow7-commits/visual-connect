@@ -11,10 +11,12 @@ const STEP_TO_STAGE: Record<string, Stage> = {
   "aguardando aprovação": "revisao_comercial",
   "aprovação": "aprovacao_financeira",
   "aprovação financeira": "aprovacao_financeira",
+  "aprovação finance": "aprovacao_financeira",
   "orçamento": "revisao_comercial",
   "aguardando": "revisao_comercial",
   "programação": "programacao",
   "planejamento": "programacao",
+  "compras": "compras",
   "arte final": "arte_final",
   "fechamento": "arte_final",
   "arte": "arte_final",
@@ -23,15 +25,24 @@ const STEP_TO_STAGE: Record<string, Stage> = {
   "criação": "arte_final",
   "design": "arte_final",
   "impressão": "impressao",
+  "impressão flexível": "impressao",
   "produção": "impressao",
   "nina cut": "impressao",
   "corte": "impressao",
   "laminação": "impressao",
   "acabamento": "acabamento",
   "montagem": "acabamento",
+  "serralheria": "serralheria",
+  "marcenaria": "marcenaria",
+  "pintura": "pintura",
   "expedição": "expedicao",
-  "entrega": "expedicao",
-  "finalizado": "expedicao",
+  "instalação": "instalacao",
+  "entrega": "entrega",
+  "faturamento": "faturamento",
+  "não gera faturamento": "nao_gera_faturamento",
+  "previsto x realizado": "previsto_realizado",
+  "produção finalizada": "producao_finalizada",
+  "finalizado": "producao_finalizada",
 };
 
 function mapStage(stepName: string, job: HoldprintJob): Stage {
@@ -41,40 +52,55 @@ function mapStage(stepName: string, job: HoldprintJob): Stage {
     if (lower.includes(key) || key.includes(lower)) return stageId;
   }
   const status = String(job.productionStatus || job.status || "").toLowerCase();
-  if (job.isFinalized || status.includes("final")) return "expedicao";
+  if (job.isFinalized || status.includes("final")) return "producao_finalizada";
   if (status.includes("progress")) return "impressao";
   return "revisao_comercial";
 }
 
 function transformJob(raw: HoldprintJob): Job {
-  const stepName = String(raw.currentProductionStepName || "");
+  const r = raw as any;
+  const stepName = String(r.currentProductionStepName || "");
   const stage = mapStage(stepName, raw);
-  const status = raw.isFinalized ? "fechado" : "aberto";
-  const customerName = raw.customerName || raw.customer?.name || raw.customer?.fantasyName || "Sem cliente";
-  const responsible = raw.responsibleName
-    ? [{ id: "r1", name: String(raw.responsibleName) }]
+  const status = r.isFinalized ? "fechado" : "aberto";
+  const customerName = r.customerName || r.customer?.name || r.customer?.fantasyName || "Sem cliente";
+  const responsible = r.responsibleName
+    ? [{ id: "r1", name: String(r.responsibleName) }]
     : [];
 
+  const rawTime = r.timeTracked || r.time_tracked;
+  const timeStr = rawTime ? String(rawTime) : undefined;
+
   return {
-    id: String(raw.id),
-    code: raw.code,
+    id: String(r.id),
+    code: r.code,
+    job_number: String(r.jobNumber || (r.code ? `J${r.code}` : r.id)),
     client_name: customerName,
-    client_id: raw.customer?.id,
-    description: raw.title || raw.description || "",
+    client_id: r.customer?.id,
+    description: String(r.title || r.description || ""),
+    title: String(r.title || r.description || ""),
     stage,
     production_type: stepName || "Produção Completa",
     status: status as Job["status"],
     responsible,
-    value: raw.totalPrice || 0,
-    delivery_date: raw.deliveryNeeded || raw.deliveryExpected || raw.deliveryDate || "",
-    created_at: raw.createdAt || raw.creationTime || "",
+    commercial_responsible: r.commercialResponsibleName ? String(r.commercialResponsibleName) : (r.commercial_responsible ? String(r.commercial_responsible) : undefined),
+    contact_name: r.contactName ? String(r.contactName) : (r.contact_name ? String(r.contact_name) : undefined),
+    value: Number(r.totalPrice || 0),
+    order_number: r.orderNumber ? String(r.orderNumber) : (r.order_number ? String(r.order_number) : undefined),
+    delivery_date: String(r.deliveryNeeded || r.deliveryExpected || r.deliveryDate || ""),
+    delivery_need: r.deliveryNeeded ? String(r.deliveryNeeded) : (r.delivery_need ? String(r.delivery_need) : undefined),
+    estimated_delivery: r.deliveryExpected ? String(r.deliveryExpected) : (r.estimated_delivery ? String(r.estimated_delivery) : null),
+    created_at: String(r.createdAt || r.creationTime || ""),
+    created_by: r.createdByName ? String(r.createdByName) : (r.created_by ? String(r.created_by) : undefined),
     urgent: false,
-    progress_percent: raw.progressPercentage || 0,
+    progress_percent: Number(r.progressPercentage || 0),
     time_spent_minutes: 0,
-    items_count: 0,
+    time_tracked: timeStr,
+    items_count: Number(r.itemsCount || 0),
     items_done: 0,
-    _unit_key: raw._unit_key,
-    _raw: raw as Record<string, unknown>,
+    current_item_tag: r.currentItemTag ? String(r.currentItemTag) : (r.current_item_tag ? String(r.current_item_tag) : undefined),
+    has_alert: Boolean(r.hasAlert || r.has_alert || false),
+    _unit_key: r._unit_key,
+    _raw: r as Record<string, unknown>,
   };
 }
 

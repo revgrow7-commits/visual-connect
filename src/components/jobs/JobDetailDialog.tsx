@@ -14,9 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { TabItens, TabInfo, TabProducao, TabMateriais, TabHistorico } from "./detail/JobDetailTabs";
-import TabEquipe from "./detail/TabEquipe";
-import TabTarefas from "./detail/TabTarefas";
+import { TabItens, TabInfo, TabProducao, TabFaturamento, TabEstatisticas, TabAcompanhamento } from "./detail/JobDetailTabs";
 import { useJobTasks } from "@/hooks/useJobTasks";
 import { useJobHistory } from "@/hooks/useJobLocalData";
 import { LayoutGrid, Check, Archive, ArchiveRestore, X, Bell, MessageSquare, ListChecks, AlertTriangle } from "lucide-react";
@@ -114,21 +112,39 @@ const JobDetailDialog: React.FC<Props> = ({ job, open, onOpenChange, onStageChan
           </button>
 
           <div className="flex items-start justify-between gap-4 pr-8">
-            <h2 className="text-xl font-bold leading-tight">{job.description || job.client_name}</h2>
+            <h2 className="text-xl font-bold leading-tight">{job.title || job.description || job.client_name}</h2>
             <Badge className="text-white font-mono text-xs flex-shrink-0 bg-white/10 border-white/20">
-              J{job.code || job.id}
+              {job.job_number || `J${job.code || job.id}`}
             </Badge>
+          </div>
+
+          <div className="flex items-center gap-3 text-sm flex-wrap">
+            <span className="font-semibold">{formatBRL(job.value)}</span>
+            {job.order_number && <span className="text-gray-400">{job.order_number}</span>}
+            <Badge className="text-[10px] bg-white/10 border-white/20 text-white">{job.production_type || job.stage}</Badge>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-1 text-sm">
             <div><span className="text-gray-400 font-semibold">Cliente:</span> {job.client_name}</div>
-            <div><span className="text-gray-400 font-semibold">Criado:</span> {formatDateBR(job.created_at)}</div>
+            {job.contact_name && <div><span className="text-gray-400 font-semibold">Contato:</span> {job.contact_name}</div>}
             {job.responsible.length > 0 && (
               <div><span className="text-gray-400 font-semibold">Responsável:</span> {job.responsible.map(r => r.name).join(", ")}</div>
             )}
+            {job.commercial_responsible && (
+              <div><span className="text-gray-400 font-semibold">Resp. Comercial:</span> {job.commercial_responsible}</div>
+            )}
             <div>
-              <span className="text-gray-400 font-semibold">Entrega:</span>{" "}
-              <span className={overdue ? "text-red-400 font-semibold" : ""}>{formatDateBR(job.delivery_date)}</span>
+              <span className="text-gray-400 font-semibold">Criado:</span> {formatDateBR(job.created_at)}
+              {job.created_by && <span className="text-gray-400"> por {job.created_by}</span>}
+            </div>
+            {job.delivery_need && (
+              <div><span className="text-gray-400 font-semibold">Necessidade de entrega:</span> {formatDateBR(job.delivery_need)}</div>
+            )}
+            <div>
+              <span className="text-gray-400 font-semibold">Entrega Prevista:</span>{" "}
+              <span className={overdue ? "text-red-400 font-semibold" : ""}>
+                {job.estimated_delivery ? formatDateBR(job.estimated_delivery) : "Não calculado"}
+              </span>
             </div>
           </div>
 
@@ -177,7 +193,10 @@ const JobDetailDialog: React.FC<Props> = ({ job, open, onOpenChange, onStageChan
               </Badge>
             )}
 
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs border-white/20 text-white hover:bg-white/10 hover:text-white">
+                ✅ {job.production_type || job.stage} Ok
+              </Button>
               {isArchived ? (
                 <Button size="sm" variant="outline" onClick={handleUnarchive} className="gap-1.5 text-xs border-white/20 text-white hover:bg-white/10 hover:text-white">
                   <ArchiveRestore className="h-3.5 w-3.5" /> Desarquivar
@@ -191,17 +210,16 @@ const JobDetailDialog: React.FC<Props> = ({ job, open, onOpenChange, onStageChan
           </div>
         </div>
 
-        {/* Tabs */}
-        <Tabs defaultValue="producao" className="flex-1 flex flex-col overflow-hidden">
+        {/* Tabs — 6 abas do Holdprint */}
+        <Tabs defaultValue="itens" className="flex-1 flex flex-col overflow-hidden">
           <TabsList className="px-5 pt-3 bg-background border-b rounded-none h-auto justify-start gap-1 flex-shrink-0">
             {[
               { value: "itens", label: "Itens" },
               { value: "info", label: "Informações gerais" },
               { value: "producao", label: "Produção" },
-              { value: "equipe", label: "Equipe & Distribuição" },
-              { value: "tarefas", label: "Tarefas" },
-              { value: "materiais", label: "Matéria Prima" },
-              { value: "historico", label: "Histórico" },
+              { value: "faturamento_tab", label: "Faturamento" },
+              { value: "estatisticas", label: "Estatísticas" },
+              { value: "acompanhamento", label: "Acompanhamento" },
             ].map(tab => (
               <TabsTrigger key={tab.value} value={tab.value} className="data-[state=active]:text-[#1DB899] data-[state=active]:border-b-2 data-[state=active]:border-[#1DB899] rounded-none">
                 {tab.label}
@@ -213,10 +231,9 @@ const JobDetailDialog: React.FC<Props> = ({ job, open, onOpenChange, onStageChan
             <TabsContent value="itens" className="mt-0"><TabItens job={job} /></TabsContent>
             <TabsContent value="info" className="mt-0"><TabInfo job={job} /></TabsContent>
             <TabsContent value="producao" className="mt-0"><TabProducao job={job} onStageChange={onStageChange} /></TabsContent>
-            <TabsContent value="equipe" className="mt-0"><TabEquipe job={job} /></TabsContent>
-            <TabsContent value="tarefas" className="mt-0"><TabTarefas job={job} /></TabsContent>
-            <TabsContent value="materiais" className="mt-0"><TabMateriais job={job} /></TabsContent>
-            <TabsContent value="historico" className="mt-0"><TabHistorico job={job} /></TabsContent>
+            <TabsContent value="faturamento_tab" className="mt-0"><TabFaturamento job={job} /></TabsContent>
+            <TabsContent value="estatisticas" className="mt-0"><TabEstatisticas job={job} /></TabsContent>
+            <TabsContent value="acompanhamento" className="mt-0"><TabAcompanhamento job={job} /></TabsContent>
           </ScrollArea>
         </Tabs>
       </DialogContent>
