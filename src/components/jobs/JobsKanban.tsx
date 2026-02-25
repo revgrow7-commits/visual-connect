@@ -478,17 +478,16 @@ const JobsKanban: React.FC = () => {
 
       {/* Filters */}
       <div className="px-6 pb-3 flex flex-wrap items-center gap-2">
-        {boards.length > 1 && (
-          <div className="flex border rounded-md overflow-hidden mr-1">
-            {boards.map(b => (
-              <button key={b.id} onClick={() => { setActiveBoardId(b.id); setLocalByStage(null); }}
-                className={`px-3 py-1.5 text-xs font-medium transition-colors ${activeBoardId === b.id ? "text-white" : "bg-white text-[#6b7280] hover:bg-gray-50"}`}
-                style={activeBoardId === b.id ? { backgroundColor: b.color } : undefined}>
-                {b.name}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Board navigation - always visible */}
+        <div className="flex border rounded-md overflow-hidden mr-1">
+          {boards.map(b => (
+            <button key={b.id} onClick={() => { setActiveBoardId(b.id); setLocalByStage(null); setDrillDown({ level: "board" }); setSelectedJob(null); }}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${activeBoardId === b.id ? "text-white" : "bg-white text-[#6b7280] hover:bg-gray-50"}`}
+              style={activeBoardId === b.id ? { backgroundColor: b.color } : undefined}>
+              {b.name}
+            </button>
+          ))}
+        </div>
 
         <div className="relative flex-1 min-w-[160px] max-w-[220px]">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-[#6b7280]" />

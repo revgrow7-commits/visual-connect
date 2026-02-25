@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Job } from "./types";
 import { formatBRL, formatDateBR, isOverdue } from "./types";
 import { DEFAULT_STAGES } from "./types";
@@ -32,6 +34,7 @@ interface Props {
 const JobDetailDialog: React.FC<Props> = ({ job, open, onOpenChange, onStageChange, isArchived }) => {
   const boards = useMemo(() => getActiveBoards(), []);
   const [boardPopoverOpen, setBoardPopoverOpen] = useState(false);
+  const queryClient = useQueryClient();
   const archiveJob = useArchiveJob();
   const unarchiveJob = useUnarchiveJob();
 
@@ -53,18 +56,36 @@ const JobDetailDialog: React.FC<Props> = ({ job, open, onOpenChange, onStageChan
     setBoardPopoverOpen(false);
     const firstStage = board.stages[0];
     try {
-      await assignToBoard.mutateAsync({
-        items: [{ item_name: `Job #${job.code || job.id}` }],
-        job_code: job.code,
-        job_title: job.description || job.client_name,
-        customer_name: job.client_name,
+      // Deactivate ALL previous job-level assignments for this job on ANY board
+      await supabase
+        .from("job_board_assignments")
+        .update({ is_active: false })
+        .eq("job_id", job.id)
+        .eq("is_active", true);
+
+      // Insert clean job-level assignment (no item_name for job-level)
+      await supabase.from("job_board_assignments").insert({
+        job_id: job.id,
+        job_code: job.code || null,
+        job_title: job.description || job.client_name || null,
+        customer_name: job.client_name || null,
         board_id: board.id,
         board_name: board.name,
-        stage_id: firstStage?.id,
-        stage_name: firstStage?.name,
+        stage_id: firstStage?.id || null,
+        stage_name: firstStage?.name || null,
+        assigned_by: "Sistema",
+        is_active: true,
       });
-    } catch (err) {
+
+      // Invalidate queries
+      assignToBoard.reset?.();
+      queryClient.invalidateQueries({ queryKey: ["job-assignments", job.id] });
+      queryClient.invalidateQueries({ queryKey: ["board-assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["holdprint-jobs-kanban"] });
+    } catch (err: any) {
       console.error("[assign-board] error:", err);
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+      return;
     }
     if (firstStage && onStageChange) onStageChange(job.id, firstStage.id);
     await logHistory(job.id, "job_assigned_to_board", `Job atribuído à board "${board.name}" → ${firstStage?.name || "primeira etapa"}`, {
