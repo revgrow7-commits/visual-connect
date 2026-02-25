@@ -53,6 +53,7 @@ const HoldprintRelatorios = lazy(() => import("./pages/holdprint/RelatoriosPage"
 const HoldprintRelatorioDetalhe = lazy(() => import("./pages/holdprint/RelatorioDetalhePage"));
 const HoldprintConfiguracoes = lazy(() => import("./pages/holdprint/ConfiguracoesPage"));
 const JobsPage = lazy(() => import("./pages/JobsPage"));
+const JobsFullscreenPage = lazy(() => import("./pages/JobsFullscreenPage"));
 const AdminBoardsPage = lazy(() => import("./pages/AdminBoardsPage"));
 
 const queryClient = new QueryClient({
@@ -81,6 +82,7 @@ const App = () => (
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/gateway-login" element={<GatewayLogin />} />
+            <Route path="/jobs-fullscreen" element={<JobsFullscreenPage />} />
             <Route path="/pesquisa/:token" element={<PesquisaSatisfacao />} />
             <Route path="/formulario/:token" element={<FormularioCandidato />} />
             <Route element={<AppLayout />}>
