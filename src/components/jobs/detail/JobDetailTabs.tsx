@@ -561,6 +561,21 @@ const TabItens: React.FC<Props> = ({ job }) => {
               })()}
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              {(() => {
+                const desc = item.description || "";
+                const lm = desc.match(/Largura:\s*(?:<[^>]*>)?\s*([\d.,]+)\s*m/i);
+                const am = desc.match(/Altura:\s*(?:<[^>]*>)?\s*([\d.,]+)\s*m/i);
+                if (lm && am) {
+                  const l = parseFloat(lm[1].replace(",", "."));
+                  const a = parseFloat(am[1].replace(",", "."));
+                  return (
+                    <span className="text-[11px] bg-muted rounded px-1.5 py-0.5 font-medium">
+                      {l.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} × {a.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} m
+                    </span>
+                  );
+                }
+                return null;
+              })()}
               <span>Qtd: <strong>{item.quantity}</strong></span>
               {item.format && <span>Formato: <strong>{item.format}</strong></span>}
               <span>{formatBRL(item.subtotal || 0)}</span>
