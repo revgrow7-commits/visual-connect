@@ -1,7 +1,7 @@
 import React from "react";
 import type { Job } from "./types";
 import { formatBRL, formatDateBR, formatTimeMins, isOverdue } from "./types";
-import { Zap, Users, AlignLeft, Clock } from "lucide-react";
+import { Zap, Users, AlignLeft, Clock, Check } from "lucide-react";
 import type { FlexField } from "@/stores/boardsStore";
 
 interface Props {
@@ -9,21 +9,52 @@ interface Props {
   onClick: () => void;
   isDragging?: boolean;
   visibleFlexfields?: FlexField[];
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (jobId: string, e: React.MouseEvent) => void;
 }
 
-const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visibleFlexfields }) => {
+const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visibleFlexfields, selectionMode, isSelected, onToggleSelect }) => {
   const overdue = isOverdue(job.delivery_date);
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (selectionMode && onToggleSelect) {
+      e.stopPropagation();
+      onToggleSelect(job.id, e);
+    } else if (e.ctrlKey || e.metaKey) {
+      e.stopPropagation();
+      onToggleSelect?.(job.id, e);
+    } else {
+      onClick();
+    }
+  };
 
   return (
     <div
-      onClick={onClick}
-      className={`bg-white rounded-lg border border-[#e5e7eb] p-3 cursor-pointer transition-all space-y-2 ${
+      onClick={handleClick}
+      className={`bg-white rounded-lg border p-3 cursor-pointer transition-all space-y-2 relative ${
         isDragging
           ? "shadow-xl ring-2 ring-[#1DB899] rotate-1 scale-[1.02]"
+          : isSelected
+          ? "shadow-md ring-2 ring-[#1DB899] bg-emerald-50/50"
           : "hover:shadow-md hover:-translate-y-0.5"
-      }`}
-      style={{ borderLeftWidth: 4, borderLeftColor: overdue ? "#ef4444" : "transparent" }}
+      } ${isSelected ? "border-[#1DB899]" : "border-[#e5e7eb]"}`}
+      style={{ borderLeftWidth: 4, borderLeftColor: isSelected ? "#1DB899" : overdue ? "#ef4444" : "transparent" }}
     >
+      {/* Selection checkbox */}
+      {(selectionMode || isSelected) && (
+        <div
+          className={`absolute -top-1.5 -left-1.5 z-10 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-colors ${
+            isSelected
+              ? "bg-[#1DB899] border-[#1DB899] text-white"
+              : "bg-white border-[#d1d5db] hover:border-[#1DB899]"
+          }`}
+          onClick={(e) => { e.stopPropagation(); onToggleSelect?.(job.id, e); }}
+        >
+          {isSelected && <Check className="h-3 w-3" />}
+        </div>
+      )}
+
       {/* Client name + urgent */}
       <div className="flex items-center justify-between gap-1">
         <p className="font-bold text-[13px] text-[#1a2332] truncate leading-tight">

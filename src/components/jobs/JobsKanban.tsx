@@ -6,6 +6,7 @@ import { formatBRL, DEFAULT_STAGES } from "./types";
 import { getActiveBoards, type Board } from "@/stores/boardsStore";
 import JobCard from "./JobCard";
 import JobDetailDialog from "./JobDetailDialog";
+import BulkActionBar from "./BulkActionBar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ import {
 } from "@hello-pangea/dnd";
 import {
   Search, RefreshCw, Loader2, Plus, LayoutGrid, List,
-  Calendar, Settings2, Users, ChevronLeft, ChevronRight, Archive,
+  Calendar, Settings2, Users, ChevronLeft, ChevronRight, Archive, MousePointerClick,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
@@ -35,6 +36,27 @@ const JobsKanban: React.FC = () => {
   const { data: archivedIds, isLoading: archivesLoading } = useArchivedJobIds();
   const archiveJob = useArchiveJob();
   const [showArchived, setShowArchived] = useState(false);
+
+  // Multi-select state
+  const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [bulkArchiving, setBulkArchiving] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const toggleSelectJob = useCallback((jobId: string, e: React.MouseEvent) => {
+    setSelectedJobIds(prev => {
+      const next = new Set(prev);
+      if (next.has(jobId)) next.delete(jobId);
+      else next.add(jobId);
+      return next;
+    });
+    if (!selectionMode) setSelectionMode(true);
+  }, [selectionMode]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedJobIds(new Set());
+    setSelectionMode(false);
+  }, []);
 
   const persistStageChange = useCallback(async (job: Job, boardId: string, boardName: string, stageId: string, stageName: string, fromStageName?: string) => {
     try {
@@ -108,17 +130,14 @@ const JobsKanban: React.FC = () => {
 
     const filterJobs = (jobs: Job[]) => {
       let result = jobs;
-      // Archive filter
       if (archivedIds && !showArchived) {
         result = result.filter(j => !archivedIds.has(j.id));
       } else if (archivedIds && showArchived) {
         result = result.filter(j => archivedIds.has(j.id));
       }
-      // Responsavel filter
       if (filterResponsavel !== "todos") {
         result = result.filter(j => j.responsible.some(r => r.name === filterResponsavel));
       }
-      // Prazo filter
       if (filterPrazo === "hoje") {
         result = result.filter(j => j.delivery_date && new Date(j.delivery_date) <= todayEnd);
       } else if (filterPrazo === "semana") {
@@ -126,7 +145,6 @@ const JobsKanban: React.FC = () => {
       } else if (filterPrazo === "atrasados") {
         result = result.filter(j => j.delivery_date && new Date(j.delivery_date) < now && j.status !== "fechado");
       }
-      // Progresso filter
       if (filterProgresso === "0") {
         result = result.filter(j => j.progress_percent === 0);
       } else if (filterProgresso === "andamento") {
@@ -149,6 +167,9 @@ const JobsKanban: React.FC = () => {
   const byStage = localByStage || filteredData?.byStage || [];
   React.useEffect(() => { if (data?.byStage) setLocalByStage(null); }, [data?.byStage]);
 
+  // All visible jobs for bulk operations
+  const allVisibleJobs = useMemo(() => filteredData?.jobs || [], [filteredData]);
+
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -160,6 +181,7 @@ const JobsKanban: React.FC = () => {
   }, [updateScrollButtons, byStage]);
 
   const onDragEnd = useCallback((result: DropResult) => {
+    if (selectionMode) return; // Disable drag during selection mode
     const { source, destination } = result;
     if (!destination || !data) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
@@ -198,7 +220,91 @@ const JobsKanban: React.FC = () => {
     }
     if (activeBoard && movedJob) persistStageChange(movedJob, activeBoard.id, activeBoard.name, dstStage, dstStageName, srcStageObj?.name);
     toast({ title: "Job movido", description: `Job movido para ${dstStageName}` });
-  }, [data, byStage, activeBoard, recordMovement, persistStageChange]);
+  }, [data, byStage, activeBoard, recordMovement, persistStageChange, selectionMode]);
+
+  // Bulk actions
+  const handleBulkArchive = useCallback(async (ids: string[]) => {
+    setBulkArchiving(true);
+    try {
+      const jobs = allVisibleJobs.filter(j => ids.includes(j.id));
+      const rows = jobs.map(j => ({
+        job_id: j.id,
+        job_code: j.code ?? null,
+        job_title: (j.description || "").substring(0, 200),
+        customer_name: (j.client_name || "").substring(0, 200),
+        reason: "Arquivamento manual em lote",
+        archived_by: "Usuário",
+      }));
+      if (rows.length > 0) {
+        const { error } = await supabase.from("job_archives").insert(rows as any);
+        if (error) throw error;
+      }
+      queryClient.invalidateQueries({ queryKey: ["job-archives"] });
+      toast({ title: "Jobs arquivados", description: `${rows.length} job(s) arquivado(s) com sucesso.` });
+      clearSelection();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setBulkArchiving(false);
+    }
+  }, [allVisibleJobs, queryClient, clearSelection]);
+
+  const handleBulkDelete = useCallback(async (ids: string[]) => {
+    setBulkDeleting(true);
+    try {
+      // Find record_ids in holdprint_cache that match these job ids
+      for (const id of ids) {
+        await supabase.from("holdprint_cache").delete().eq("endpoint", "jobs").or(`record_id.eq.${id},record_id.eq.poa_${id},record_id.eq.sp_${id}`);
+      }
+      queryClient.invalidateQueries({ queryKey: ["holdprint-jobs-kanban"] });
+      toast({ title: "Jobs deletados", description: `${ids.length} job(s) removido(s) do cache local.` });
+      clearSelection();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setBulkDeleting(false);
+    }
+  }, [queryClient, clearSelection]);
+
+  const handleRename = useCallback(async (jobId: string, newTitle: string) => {
+    try {
+      // Update the title in holdprint_cache raw_data
+      const { data: rows } = await supabase.from("holdprint_cache")
+        .select("id, raw_data, record_id")
+        .eq("endpoint", "jobs")
+        .or(`record_id.eq.${jobId},record_id.eq.poa_${jobId},record_id.eq.sp_${jobId}`)
+        .limit(1);
+
+      if (rows && rows.length > 0) {
+        const row = rows[0];
+        const updated = { ...(row.raw_data as any), title: newTitle };
+        await supabase.from("holdprint_cache").update({ raw_data: updated }).eq("id", row.id);
+      }
+
+      // Also log rename in job_history
+      await supabase.from("job_history").insert({
+        job_id: jobId,
+        event_type: "rename",
+        content: `Título alterado para: ${newTitle}`,
+        user_name: "Usuário",
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["holdprint-jobs-kanban"] });
+      toast({ title: "Job renomeado", description: `Título alterado para "${newTitle}"` });
+      clearSelection();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+  }, [queryClient, clearSelection]);
+
+  const handleSelectAll = useCallback(() => {
+    if (selectedJobIds.size === allVisibleJobs.length) {
+      clearSelection();
+    } else {
+      setSelectedJobIds(new Set(allVisibleJobs.map(j => j.id)));
+      setSelectionMode(true);
+    }
+  }, [allVisibleJobs, selectedJobIds.size, clearSelection]);
 
   const stageConfigs = activeBoard?.stages || DEFAULT_STAGES;
   const selectedIsArchived = selectedJob ? (archivedIds?.has(selectedJob.id) || false) : false;
@@ -297,6 +403,16 @@ const JobsKanban: React.FC = () => {
 
         <div className="ml-auto flex items-center gap-1.5">
           <Button
+            variant={selectionMode ? "default" : "outline"}
+            size="sm"
+            onClick={() => { if (selectionMode) clearSelection(); else setSelectionMode(true); }}
+            className={`h-8 gap-1 text-xs ${selectionMode ? "bg-[#1DB899] hover:bg-[#17a085] text-white" : ""}`}
+          >
+            <MousePointerClick className="h-3.5 w-3.5" />
+            {selectionMode ? "Cancelar seleção" : "Selecionar"}
+          </Button>
+
+          <Button
             variant={showArchived ? "default" : "outline"}
             size="sm"
             onClick={() => setShowArchived(!showArchived)}
@@ -350,15 +466,23 @@ const JobsKanban: React.FC = () => {
                       <p className="text-[11px] text-[#6b7280]">{formatBRL(col.totalValue)}</p>
                       <p className="text-[11px] text-[#6b7280]">{col.jobs.length} Jobs</p>
                     </div>
-                    <Droppable droppableId={col.stage.id}>
+                    <Droppable droppableId={col.stage.id} isDropDisabled={selectionMode}>
                       {(provided, snapshot) => (
                         <div ref={provided.innerRef} {...provided.droppableProps}
                           className={`flex-1 bg-[#f0f2f5] border border-[#e5e7eb] border-t-0 rounded-b-lg p-1.5 space-y-1.5 transition-colors ${snapshot.isDraggingOver ? "bg-[#d1fae5]" : ""}`}>
                           {col.jobs.map((job, idx) => (
-                            <Draggable key={job.id} draggableId={job.id} index={idx}>
+                            <Draggable key={job.id} draggableId={job.id} index={idx} isDragDisabled={selectionMode}>
                               {(prov, snap) => (
                                 <div ref={prov.innerRef} {...prov.draggableProps} {...prov.dragHandleProps}>
-                                  <JobCard job={job} onClick={() => setSelectedJob(job)} isDragging={snap.isDragging} visibleFlexfields={visibleFlexfields} />
+                                  <JobCard
+                                    job={job}
+                                    onClick={() => { if (!selectionMode) setSelectedJob(job); }}
+                                    isDragging={snap.isDragging}
+                                    visibleFlexfields={visibleFlexfields}
+                                    selectionMode={selectionMode}
+                                    isSelected={selectedJobIds.has(job.id)}
+                                    onToggleSelect={toggleSelectJob}
+                                  />
                                 </div>
                               )}
                             </Draggable>
@@ -396,6 +520,7 @@ const JobsKanban: React.FC = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b text-[#6b7280] text-xs">
+                  {selectionMode && <th className="w-8 p-2.5"></th>}
                   <th className="text-left p-2.5">#</th>
                   <th className="text-left p-2.5">Cliente</th>
                   <th className="text-left p-2.5">Descrição</th>
@@ -412,18 +537,29 @@ const JobsKanban: React.FC = () => {
                   const stageCfg = byStage.find(s => s.stage.id === job.stage)?.stage;
                   const overdue = job.delivery_date && new Date(job.delivery_date) < new Date();
                   const isArch = archivedIds?.has(job.id);
+                  const isSel = selectedJobIds.has(job.id);
                   return (
-                    <tr key={job.id} className={`border-b cursor-pointer hover:bg-gray-50 ${overdue ? "bg-red-50/50" : ""} ${isArch ? "opacity-50" : ""}`}>
-                      <td className="p-2.5 font-mono text-xs" onClick={() => setSelectedJob(job)}>J{job.code || job.id}</td>
-                      <td className="p-2.5 font-medium text-xs" onClick={() => setSelectedJob(job)}>{job.client_name}</td>
-                      <td className="p-2.5 text-[#6b7280] text-xs max-w-[180px] truncate" onClick={() => setSelectedJob(job)}>{job.description}</td>
-                      <td className="p-2.5" onClick={() => setSelectedJob(job)}><Badge className="text-[9px] text-white" style={{ backgroundColor: stageCfg?.color }}>{stageCfg?.name}</Badge></td>
-                      <td className="p-2.5 text-xs" onClick={() => setSelectedJob(job)}>{job.responsible[0]?.name || "—"}</td>
-                      <td className="p-2.5 text-right text-xs font-medium" onClick={() => setSelectedJob(job)}>{formatBRL(job.value)}</td>
-                      <td className={`p-2.5 text-xs ${overdue ? "text-red-600 font-semibold" : ""}`} onClick={() => setSelectedJob(job)}>
+                    <tr key={job.id} className={`border-b cursor-pointer hover:bg-gray-50 ${overdue ? "bg-red-50/50" : ""} ${isArch ? "opacity-50" : ""} ${isSel ? "bg-emerald-50 ring-1 ring-inset ring-[#1DB899]" : ""}`}>
+                      {selectionMode && (
+                        <td className="p-2.5">
+                          <div
+                            className={`w-4 h-4 rounded border-2 flex items-center justify-center cursor-pointer ${isSel ? "bg-[#1DB899] border-[#1DB899] text-white" : "border-gray-300"}`}
+                            onClick={(e) => toggleSelectJob(job.id, e)}
+                          >
+                            {isSel && <span className="text-[10px]">✓</span>}
+                          </div>
+                        </td>
+                      )}
+                      <td className="p-2.5 font-mono text-xs" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : setSelectedJob(job)}>J{job.code || job.id}</td>
+                      <td className="p-2.5 font-medium text-xs" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : setSelectedJob(job)}>{job.client_name}</td>
+                      <td className="p-2.5 text-[#6b7280] text-xs max-w-[180px] truncate" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : setSelectedJob(job)}>{job.description}</td>
+                      <td className="p-2.5" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : setSelectedJob(job)}><Badge className="text-[9px] text-white" style={{ backgroundColor: stageCfg?.color }}>{stageCfg?.name}</Badge></td>
+                      <td className="p-2.5 text-xs" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : setSelectedJob(job)}>{job.responsible[0]?.name || "—"}</td>
+                      <td className="p-2.5 text-right text-xs font-medium" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : setSelectedJob(job)}>{formatBRL(job.value)}</td>
+                      <td className={`p-2.5 text-xs ${overdue ? "text-red-600 font-semibold" : ""}`} onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : setSelectedJob(job)}>
                         {job.delivery_date ? new Date(job.delivery_date).toLocaleDateString("pt-BR") : "—"}
                       </td>
-                      <td className="p-2.5 text-right text-xs" onClick={() => setSelectedJob(job)}>{job.progress_percent}%</td>
+                      <td className="p-2.5 text-right text-xs" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : setSelectedJob(job)}>{job.progress_percent}%</td>
                       <td className="p-2.5 text-center">
                         <Button variant="ghost" size="sm" className="h-6 w-6 p-0"
                           onClick={() => archiveJob.mutate({ job_id: job.id, job_code: job.code, job_title: job.description, customer_name: job.client_name })}>
@@ -441,6 +577,20 @@ const JobsKanban: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Bulk Action Bar */}
+      <BulkActionBar
+        selectedIds={selectedJobIds}
+        allJobs={allVisibleJobs}
+        onClearSelection={clearSelection}
+        onSelectAll={handleSelectAll}
+        totalVisible={allVisibleJobs.length}
+        onBulkArchive={handleBulkArchive}
+        onBulkDelete={handleBulkDelete}
+        onRename={handleRename}
+        isArchiving={bulkArchiving}
+        isDeleting={bulkDeleting}
+      />
 
       <JobDetailDialog
         job={selectedJob}
