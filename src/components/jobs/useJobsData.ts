@@ -223,9 +223,21 @@ export function useJobsData(filters?: JobsFilters, activeBoard?: Board | null) {
               stageMap.set(a.job_id, a.stage_id);
             }
           }
+          // Build stage index map for progress calculation
+          const stageIndexMap = new Map<string, number>();
+          const boardStages = activeBoard.stages;
+          boardStages.forEach((s, i) => stageIndexMap.set(s.id, i));
+          const totalColumns = boardStages.length;
+
           jobs = jobs.map(j => {
             const savedStage = stageMap.get(j.id);
-            if (savedStage) return { ...j, stage: savedStage as Stage };
+            if (savedStage) {
+              const stageIdx = stageIndexMap.get(savedStage);
+              const progress = totalColumns > 1 && stageIdx !== undefined
+                ? Math.round(((stageIdx + 1) / totalColumns) * 100)
+                : j.progress_percent;
+              return { ...j, stage: savedStage as Stage, progress_percent: progress };
+            }
             return j;
           });
         }
