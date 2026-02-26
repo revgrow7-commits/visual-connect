@@ -3,7 +3,8 @@ import { useJobsData } from "./useJobsData";
 import { supabase } from "@/integrations/supabase/client";
 import type { Job, JobsFilters, JobsByStage } from "./types";
 import { formatBRL, DEFAULT_STAGES } from "./types";
-import { getActiveBoards, type Board } from "@/stores/boardsStore";
+import { getActiveBoards, getActiveMicroBoards, type Board } from "@/stores/boardsStore";
+import MicroBoardKanban from "./MicroBoardKanban";
 import JobCard from "./JobCard";
 import JobDetailDialog from "./JobDetailDialog";
 import BulkActionBar from "./BulkActionBar";
@@ -48,6 +49,9 @@ const JobsKanban: React.FC = () => {
     return boards[0]?.id || "";
   });
   const activeBoard = useMemo(() => boards.find(b => b.id === activeBoardId) || boards[0] || null, [boards, activeBoardId]);
+  const microBoards = useMemo(() => getActiveMicroBoards(activeBoardId), [activeBoardId]);
+  const [activeMicroBoardId, setActiveMicroBoardId] = useState<string | null>(null);
+  const activeMicroBoard = useMemo(() => microBoards.find(b => b.id === activeMicroBoardId) || null, [microBoards, activeMicroBoardId]);
   const recordMovement = useRecordMovement();
   const queryClient = useQueryClient();
   const { data: archivedIds, isLoading: archivesLoading } = useArchivedJobIds();
@@ -495,13 +499,27 @@ const JobsKanban: React.FC = () => {
         {/* Board navigation - always visible */}
         <div className="flex border rounded-md overflow-hidden mr-1">
           {boards.map(b => (
-            <button key={b.id} onClick={() => { setActiveBoardId(b.id); setLocalByStage(null); setDrillDown({ level: "board" }); setSelectedJob(null); }}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${activeBoardId === b.id ? "text-white" : "bg-white text-[#6b7280] hover:bg-gray-50"}`}
-              style={activeBoardId === b.id ? { backgroundColor: b.color } : undefined}>
+            <button key={b.id} onClick={() => { setActiveBoardId(b.id); setLocalByStage(null); setDrillDown({ level: "board" }); setSelectedJob(null); setActiveMicroBoardId(null); }}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${activeBoardId === b.id && !activeMicroBoardId ? "text-white" : "bg-white text-[#6b7280] hover:bg-gray-50"}`}
+              style={activeBoardId === b.id && !activeMicroBoardId ? { backgroundColor: b.color } : undefined}>
               {b.name}
             </button>
           ))}
         </div>
+
+        {/* Micro board sub-tabs */}
+        {microBoards.length > 0 && (
+          <div className="flex border rounded-md overflow-hidden mr-1">
+            {microBoards.map(mb => (
+              <button key={mb.id} onClick={() => { setActiveMicroBoardId(mb.id); setDrillDown({ level: "board" }); setSelectedJob(null); }}
+                className={`px-2.5 py-1.5 text-[11px] font-medium transition-colors flex items-center gap-1.5 ${activeMicroBoardId === mb.id ? "text-white" : "bg-white text-[#6b7280] hover:bg-gray-50"}`}
+                style={activeMicroBoardId === mb.id ? { backgroundColor: mb.color } : undefined}>
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: mb.color }} />
+                {mb.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="relative flex-1 min-w-[160px] max-w-[220px]">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-[#6b7280]" />
@@ -602,8 +620,10 @@ const JobsKanban: React.FC = () => {
         <DrillDownBreadcrumb levels={breadcrumbLevels} onNavigate={handleBreadcrumbNavigate} />
       )}
 
-      {/* Drill-down views */}
-      {isDrilledDown && drillDown.level === "stage" && drillDown.stageId ? (
+      {/* Micro Board View */}
+      {activeMicroBoard && !isDrilledDown ? (
+        <MicroBoardKanban board={activeMicroBoard} />
+      ) : isDrilledDown && drillDown.level === "stage" && drillDown.stageId ? (
         (() => {
           const stageData = byStage.find(s => s.stage.id === drillDown.stageId);
           if (!stageData) return <div className="flex-1 flex items-center justify-center text-muted-foreground">Etapa não encontrada</div>;
