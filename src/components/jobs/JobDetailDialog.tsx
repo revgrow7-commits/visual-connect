@@ -15,6 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TabItens, TabInfo, TabProducao, TabFaturamento, TabEstatisticas, TabAcompanhamento } from "./detail/JobDetailTabs";
+import JobSidebarActions from "./detail/JobSidebarActions";
 import { useJobTasks } from "@/hooks/useJobTasks";
 import { useJobHistory } from "@/hooks/useJobLocalData";
 import { LayoutGrid, Check, Archive, ArchiveRestore, X, Bell, MessageSquare, ListChecks, AlertTriangle } from "lucide-react";
@@ -210,32 +211,37 @@ const JobDetailDialog: React.FC<Props> = ({ job, open, onOpenChange, onStageChan
           </div>
         </div>
 
-        {/* Tabs — 6 abas do Holdprint */}
-        <Tabs defaultValue="itens" className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="px-5 pt-3 bg-background border-b rounded-none h-auto justify-start gap-1 flex-shrink-0">
-            {[
-              { value: "itens", label: "Itens" },
-              { value: "info", label: "Informações gerais" },
-              { value: "producao", label: "Produção" },
-              { value: "faturamento_tab", label: "Faturamento" },
-              { value: "estatisticas", label: "Estatísticas" },
-              { value: "acompanhamento", label: "Acompanhamento" },
-            ].map(tab => (
-              <TabsTrigger key={tab.value} value={tab.value} className="data-[state=active]:text-[#1DB899] data-[state=active]:border-b-2 data-[state=active]:border-[#1DB899] rounded-none">
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        {/* Body: Tabs + Sidebar */}
+        <div className="flex-1 flex overflow-hidden">
+          <Tabs defaultValue="itens" className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="px-5 pt-3 bg-background border-b rounded-none h-auto justify-start gap-1 flex-shrink-0">
+              {[
+                { value: "itens", label: "Itens" },
+                { value: "info", label: "Informações gerais" },
+                { value: "producao", label: "Produção" },
+                { value: "faturamento_tab", label: "Faturamento" },
+                { value: "estatisticas", label: "Estatísticas" },
+                { value: "acompanhamento", label: "Acompanhamento" },
+              ].map(tab => (
+                <TabsTrigger key={tab.value} value={tab.value} className="data-[state=active]:text-[#1DB899] data-[state=active]:border-b-2 data-[state=active]:border-[#1DB899] rounded-none">
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
 
-          <ScrollArea className="flex-1">
-            <TabsContent value="itens" className="mt-0"><TabItens job={job} /></TabsContent>
-            <TabsContent value="info" className="mt-0"><TabInfo job={job} /></TabsContent>
-            <TabsContent value="producao" className="mt-0"><TabProducao job={job} onStageChange={onStageChange} /></TabsContent>
-            <TabsContent value="faturamento_tab" className="mt-0"><TabFaturamento job={job} /></TabsContent>
-            <TabsContent value="estatisticas" className="mt-0"><TabEstatisticas job={job} /></TabsContent>
-            <TabsContent value="acompanhamento" className="mt-0"><TabAcompanhamento job={job} /></TabsContent>
-          </ScrollArea>
-        </Tabs>
+            <ScrollArea className="flex-1">
+              <TabsContent value="itens" className="mt-0"><TabItens job={job} /></TabsContent>
+              <TabsContent value="info" className="mt-0"><TabInfo job={job} /></TabsContent>
+              <TabsContent value="producao" className="mt-0"><TabProducao job={job} onStageChange={onStageChange} /></TabsContent>
+              <TabsContent value="faturamento_tab" className="mt-0"><TabFaturamento job={job} /></TabsContent>
+              <TabsContent value="estatisticas" className="mt-0"><TabEstatisticas job={job} /></TabsContent>
+              <TabsContent value="acompanhamento" className="mt-0"><TabAcompanhamento job={job} /></TabsContent>
+            </ScrollArea>
+          </Tabs>
+
+          {/* Sidebar estilo Trello */}
+          <JobSidebarActions job={job} />
+        </div>
       </DialogContent>
     </Dialog>
   );
