@@ -32,14 +32,20 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
   return (
     <div
       onClick={handleClick}
-      className={`bg-white rounded-lg border p-3 cursor-pointer transition-all space-y-2 relative ${
+      className={`rounded-xl border p-4 cursor-pointer transition-all space-y-2.5 relative ${
         isDragging
           ? "shadow-xl ring-2 ring-[#1DB899] rotate-1 scale-[1.02]"
           : isSelected
-          ? "shadow-md ring-2 ring-[#1DB899] bg-emerald-50/50"
-          : "hover:shadow-md hover:-translate-y-0.5"
-      } ${isSelected ? "border-[#1DB899]" : "border-[#e5e7eb]"}`}
-      style={{ borderLeftWidth: 4, borderLeftColor: isSelected ? "#1DB899" : overdue ? "#ef4444" : "transparent" }}
+          ? "shadow-md ring-2 ring-[#1DB899]"
+          : "hover:shadow-lg hover:-translate-y-0.5"
+      } ${isSelected ? "border-[#1DB899]" : "border-[#e2e5ea]"}`}
+      style={{
+        borderLeftWidth: 4,
+        borderLeftColor: isSelected ? "#1DB899" : overdue ? "#ef4444" : "transparent",
+        background: isSelected
+          ? "linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%)"
+          : "linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%)",
+      }}
     >
       {/* Selection checkbox */}
       {(selectionMode || isSelected) && (
@@ -105,8 +111,8 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
       <div className="flex items-center justify-between">
         <p className="text-[12px] font-semibold text-[#1a2332]">{formatBRL(job.value)}</p>
         {(job.total_m2 ?? 0) > 0 && (
-          <span className="flex items-center gap-0.5 text-[10px] text-[#6b7280] bg-[#f0f2f5] rounded px-1.5 py-0.5 font-medium">
-            <Ruler className="h-3 w-3" />
+          <span className="flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-0.5 font-semibold">
+            <Ruler className="h-3.5 w-3.5 text-emerald-600" />
             {job.total_m2?.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m²
           </span>
         )}
