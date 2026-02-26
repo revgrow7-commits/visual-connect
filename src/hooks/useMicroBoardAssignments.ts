@@ -139,12 +139,22 @@ export function useCompleteMicroAssignment() {
         metadata: { micro_board_id: payload.micro_board_id, assignment_id: payload.assignmentId },
       });
 
-      // Fire notification (fire-and-forget)
+      // Fire notification
+      const card = await supabase
+        .from("micro_board_assignments")
+        .select("job_code, job_title, customer_name, micro_stage_name")
+        .eq("id", payload.assignmentId)
+        .maybeSingle();
+
       supabase.functions.invoke("job-movement-notify", {
         body: {
           action: "micro_board_completed",
           job_id: payload.job_id,
+          job_code: card.data?.job_code,
+          job_title: card.data?.job_title,
+          customer_name: card.data?.customer_name,
           micro_board_id: payload.micro_board_id,
+          micro_stage_name: card.data?.micro_stage_name,
         },
       }).catch(() => {});
     },
