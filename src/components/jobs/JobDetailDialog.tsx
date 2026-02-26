@@ -195,7 +195,60 @@ const JobDetailDialog: React.FC<Props> = ({ job, open, onOpenChange, onStageChan
             )}
 
             <div className="ml-auto flex items-center gap-2">
-              <Button size="sm" variant="outline" className="gap-1.5 text-xs border-white/20 text-white hover:bg-white/10 hover:text-white">
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs border-white/20 text-white hover:bg-white/10 hover:text-white"
+                onClick={async () => {
+                  try {
+                    // Log the stage confirmation in job_history
+                    await logHistory(
+                      job.id,
+                      "stage_confirmed",
+                      `Etapa "${job.production_type || job.stage}" confirmada como OK`,
+                      { stage: job.stage, production_type: job.production_type || "" }
+                    );
+
+                    // If assigned to a board, move to next stage
+                    if (currentBoard && currentAssignment) {
+                      const stages = currentBoard.stages;
+                      const currentIdx = stages.findIndex(s => s.id === currentAssignment.stage_id);
+                      if (currentIdx >= 0 && currentIdx < stages.length - 1) {
+                        const nextStage = stages[currentIdx + 1];
+                        await supabase
+                          .from("job_board_assignments")
+                          .update({ stage_id: nextStage.id, stage_name: nextStage.name })
+                          .eq("id", currentAssignment.id);
+
+                        // Record stage movement
+                        await supabase.from("job_stage_movements").insert({
+                          job_id: job.id,
+                          job_code: job.code || null,
+                          job_title: job.description || job.client_name || null,
+                          customer_name: job.client_name || null,
+                          board_id: currentBoard.id,
+                          board_name: currentBoard.name,
+                          from_stage_id: currentAssignment.stage_id || currentBoard.stages[0]?.id,
+                          from_stage_name: currentAssignment.stage_name || currentBoard.stages[0]?.name,
+                          to_stage_id: nextStage.id,
+                          to_stage_name: nextStage.name,
+                          moved_by: "Sistema",
+                          movement_type: "stage_confirmed",
+                        });
+
+                        queryClient.invalidateQueries({ queryKey: ["job-assignments", job.id] });
+                        queryClient.invalidateQueries({ queryKey: ["board-assignments"] });
+                        queryClient.invalidateQueries({ queryKey: ["holdprint-jobs-kanban"] });
+
+                        toast({ title: "✅ Etapa confirmada", description: `Movido para "${nextStage.name}"` });
+                      } else {
+                        toast({ title: "✅ Etapa confirmada", description: `"${currentAssignment.stage_name}" — última etapa` });
+                      }
+                    } else {
+                      toast({ title: "✅ Etapa confirmada", description: `"${job.production_type || job.stage}" registrado` });
+                    }
+                  } catch (err: any) {
+                    toast({ title: "Erro", description: err.message, variant: "destructive" });
+                  }
+                }}
+              >
                 ✅ {job.production_type || job.stage} Ok
               </Button>
               {isArchived ? (
