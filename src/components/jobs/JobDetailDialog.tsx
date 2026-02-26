@@ -257,7 +257,7 @@ const JobDetailDialog: React.FC<Props> = ({ job, open, onOpenChange, onStageChan
                   }
                 }}
               >
-                ✅ {job.production_type || job.stage} Ok
+                ✅ {currentAssignment?.stage_name || job.production_type || job.stage} Ok
               </Button>
               {isArchived ? (
                 <Button size="sm" variant="outline" onClick={handleUnarchive} className="gap-1.5 text-xs border-white/20 text-white hover:bg-white/10 hover:text-white">
