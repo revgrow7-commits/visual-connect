@@ -1671,38 +1671,107 @@ export type Database = {
       kanban_boards: {
         Row: {
           active: boolean
+          board_type: string
           color: string
           created_at: string
           created_by: string | null
           flexfields: Json
           id: string
+          linked_stage_id: string | null
           members: Json
           name: string
+          parent_board_id: string | null
           stages: Json
           updated_at: string
         }
         Insert: {
           active?: boolean
+          board_type?: string
           color?: string
           created_at?: string
           created_by?: string | null
           flexfields?: Json
           id: string
+          linked_stage_id?: string | null
           members?: Json
           name: string
+          parent_board_id?: string | null
           stages?: Json
           updated_at?: string
         }
         Update: {
           active?: boolean
+          board_type?: string
           color?: string
           created_at?: string
           created_by?: string | null
           flexfields?: Json
           id?: string
+          linked_stage_id?: string | null
           members?: Json
           name?: string
+          parent_board_id?: string | null
           stages?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      micro_board_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          completed_at: string | null
+          customer_name: string | null
+          id: string
+          job_code: number | null
+          job_id: string
+          job_title: string | null
+          micro_board_id: string
+          micro_stage_id: string | null
+          micro_stage_name: string | null
+          notified_at: string | null
+          parent_board_id: string
+          parent_stage_id: string | null
+          parent_stage_name: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          completed_at?: string | null
+          customer_name?: string | null
+          id?: string
+          job_code?: number | null
+          job_id: string
+          job_title?: string | null
+          micro_board_id: string
+          micro_stage_id?: string | null
+          micro_stage_name?: string | null
+          notified_at?: string | null
+          parent_board_id: string
+          parent_stage_id?: string | null
+          parent_stage_name?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          completed_at?: string | null
+          customer_name?: string | null
+          id?: string
+          job_code?: number | null
+          job_id?: string
+          job_title?: string | null
+          micro_board_id?: string
+          micro_stage_id?: string | null
+          micro_stage_name?: string | null
+          notified_at?: string | null
+          parent_board_id?: string
+          parent_stage_id?: string | null
+          parent_stage_name?: string | null
+          status?: string
           updated_at?: string
         }
         Relationships: []
