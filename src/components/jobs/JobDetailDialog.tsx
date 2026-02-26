@@ -16,6 +16,7 @@ import { Progress } from "@/components/ui/progress";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TabItens, TabInfo, TabProducao, TabFaturamento, TabEstatisticas, TabAcompanhamento } from "./detail/JobDetailTabs";
 import JobSidebarActions from "./detail/JobSidebarActions";
+import MicroBoardButton from "./MicroBoardButton";
 import { useJobTasks } from "@/hooks/useJobTasks";
 import { useJobHistory } from "@/hooks/useJobLocalData";
 import { LayoutGrid, Check, Archive, ArchiveRestore, X, Bell, MessageSquare, ListChecks, AlertTriangle } from "lucide-react";
@@ -193,6 +194,13 @@ const JobDetailDialog: React.FC<Props> = ({ job, open, onOpenChange, onStageChan
                 {currentAssignment.stage_name || currentBoard.stages[0]?.name}
               </Badge>
             )}
+
+            <MicroBoardButton
+              job={job}
+              parentBoardId={currentBoard?.id || boards[0]?.id || ""}
+              parentStageId={currentAssignment?.stage_id || undefined}
+              parentStageName={currentAssignment?.stage_name || undefined}
+            />
 
             <div className="ml-auto flex items-center gap-2">
               <Button size="sm" variant="outline" className="gap-1.5 text-xs border-white/20 text-white hover:bg-white/10 hover:text-white"

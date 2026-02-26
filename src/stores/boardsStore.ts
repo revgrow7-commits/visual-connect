@@ -33,6 +33,9 @@ export interface Board {
   flexfields: FlexField[];
   members: BoardMember[];
   active: boolean;
+  board_type?: "main" | "micro";
+  parent_board_id?: string | null;
+  linked_stage_id?: string | null;
 }
 
 const STORAGE_KEY = "kanban-boards-config";
@@ -126,7 +129,13 @@ export function saveBoards(boards: Board[]) {
 }
 
 export function getActiveBoards(): Board[] {
-  return loadBoards().filter((b) => b.active);
+  return loadBoards().filter((b) => b.active && b.board_type !== "micro");
+}
+
+export function getActiveMicroBoards(parentBoardId?: string): Board[] {
+  const all = loadBoards().filter((b) => b.active && b.board_type === "micro");
+  if (parentBoardId) return all.filter(b => b.parent_board_id === parentBoardId);
+  return all;
 }
 
 export function getBoardById(id: string): Board | undefined {
@@ -144,6 +153,9 @@ function rowToBoard(row: Record<string, unknown>): Board {
     stages: (row.stages || []) as BoardStage[],
     flexfields: (row.flexfields || []) as FlexField[],
     members: (row.members || []) as BoardMember[],
+    board_type: (row.board_type as "main" | "micro") || "main",
+    parent_board_id: (row.parent_board_id as string) || null,
+    linked_stage_id: (row.linked_stage_id as string) || null,
   };
 }
 
