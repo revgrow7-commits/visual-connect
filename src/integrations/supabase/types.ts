@@ -1172,10 +1172,14 @@ export type Database = {
           arquivado_localmente: boolean | null
           arquivado_por: string | null
           created_at: string
+          data_entrega: string | null
+          data_inicio: string | null
           holdprint_job_id: string
           id: string
+          lembrete: string | null
           notas_internas: string | null
           prioridade: string
+          recorrente: string | null
           tags: string[] | null
           times_envolvidos: string[] | null
           updated_at: string
@@ -1185,10 +1189,14 @@ export type Database = {
           arquivado_localmente?: boolean | null
           arquivado_por?: string | null
           created_at?: string
+          data_entrega?: string | null
+          data_inicio?: string | null
           holdprint_job_id: string
           id?: string
+          lembrete?: string | null
           notas_internas?: string | null
           prioridade?: string
+          recorrente?: string | null
           tags?: string[] | null
           times_envolvidos?: string[] | null
           updated_at?: string
@@ -1198,10 +1206,14 @@ export type Database = {
           arquivado_localmente?: boolean | null
           arquivado_por?: string | null
           created_at?: string
+          data_entrega?: string | null
+          data_inicio?: string | null
           holdprint_job_id?: string
           id?: string
+          lembrete?: string | null
           notas_internas?: string | null
           prioridade?: string
+          recorrente?: string | null
           tags?: string[] | null
           times_envolvidos?: string[] | null
           updated_at?: string
@@ -1369,6 +1381,30 @@ export type Database = {
           unit?: string
           unit_value?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      job_links: {
+        Row: {
+          created_at: string
+          display_text: string | null
+          id: string
+          job_id: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          display_text?: string | null
+          id?: string
+          job_id: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          display_text?: string | null
+          id?: string
+          job_id?: string
+          url?: string
         }
         Relationships: []
       }

@@ -12,6 +12,10 @@ export interface JobExtension {
   arquivado_localmente: boolean;
   arquivado_em: string | null;
   arquivado_por: string | null;
+  data_inicio: string | null;
+  data_entrega: string | null;
+  lembrete: string;
+  recorrente: string;
   created_at: string;
   updated_at: string;
 }
