@@ -308,6 +308,12 @@ const JobsKanban: React.FC = () => {
       const [moved] = srcCol.jobs.splice(source.index, 1);
       movedJob = moved;
       moved.stage = dstStage as Job["stage"];
+      // Auto-adjust progress based on destination column position
+      const totalColumns = next.length;
+      const dstIndex = next.findIndex(c => c.stage.id === dstStage);
+      if (totalColumns > 1 && dstIndex >= 0) {
+        moved.progress_percent = Math.round(((dstIndex + 1) / totalColumns) * 100);
+      }
       dstCol.jobs.splice(destination.index, 0, moved);
       srcCol.totalValue = srcCol.jobs.reduce((s, j) => s + j.value, 0);
       dstCol.totalValue = dstCol.jobs.reduce((s, j) => s + j.value, 0);
