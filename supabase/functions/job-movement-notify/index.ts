@@ -96,6 +96,90 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // ─── Action: Micro board assignment notification ───
+    if (action === "micro_board_assigned" || action === "micro_board_completed") {
+      const { job_id, job_code, job_title, customer_name, micro_board_name, micro_stage_name, assigned_by, board_id, stage_id } = body;
+
+      // Lookup board members from kanban_boards
+      const microBoardId = body.micro_board_id;
+      const { data: microBoard } = await adminClient
+        .from("kanban_boards")
+        .select("members, name")
+        .eq("id", microBoardId)
+        .maybeSingle();
+
+      const members = (microBoard?.members || []) as Array<{ id: string; nome: string }>;
+      const memberIds = members.map(m => m.id);
+
+      // Also try to find by assigned_by name
+      const lookupNames = [...members.map(m => m.nome)];
+      if (assigned_by && assigned_by !== "Sistema") lookupNames.push(assigned_by);
+
+      // Lookup emails from colaboradores
+      const { data: colaboradores } = memberIds.length > 0
+        ? await adminClient.from("colaboradores").select("id, nome, email_pessoal").in("id", memberIds)
+        : await adminClient.from("colaboradores").select("id, nome, email_pessoal").in("nome", lookupNames);
+
+      const emails = (colaboradores || [])
+        .filter(c => c.email_pessoal && c.email_pessoal.includes("@"))
+        .map(c => ({ name: c.nome, email: c.email_pessoal! }));
+
+      if (emails.length === 0) {
+        return new Response(JSON.stringify({ success: true, notified: 0, reason: "no_emails", searched_members: memberIds.length, searched_names: lookupNames }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const jobLabel = job_code ? `Job #${job_code}` : `Job ${job_id}`;
+      const deepLink = buildDeepLink({ board_id, stage_id, job_id });
+      const isCompleted = action === "micro_board_completed";
+      const subject = isCompleted
+        ? `✅ ${jobLabel} — Sub-processo "${micro_board_name || microBoard?.name}" concluído`
+        : `📋 ${jobLabel} — Enviado ao sub-processo "${micro_board_name || microBoard?.name}"`;
+
+      const badgeColor = isCompleted ? "#16a34a" : "#2563eb";
+      const badgeBg = isCompleted ? "#f0fdf4" : "#eff6ff";
+      const badgeLabel = isCompleted ? "Sub-processo Concluído" : "Novo Sub-processo";
+      const actionMsg = isCompleted
+        ? "O sub-processo foi finalizado. Verifique se o job pode avançar para a próxima etapa."
+        : "Um job foi enviado ao seu sub-processo. Acesse o sistema para iniciar o trabalho.";
+
+      const htmlContent = emailWrapper(`
+        <div style="margin-bottom:20px;">
+          <span style="display:inline-block;background:${badgeBg};color:${badgeColor};font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:0.5px;">${badgeLabel}</span>
+        </div>
+        <h2 style="color:#1a2332;font-size:20px;margin:0 0 6px;">📋 ${jobLabel}</h2>
+        <p style="color:#6b7280;font-size:14px;margin:0 0 20px;">${job_title || "Sem título"}</p>
+
+        <table style="width:100%;font-size:14px;color:#374151;margin-bottom:20px;">
+          <tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-weight:600;width:130px;">Cliente</td><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;">${customer_name || "—"}</td></tr>
+          <tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-weight:600;">Micro Board</td><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;">${micro_board_name || microBoard?.name || "—"}</td></tr>
+          ${micro_stage_name ? `<tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-weight:600;">Etapa</td><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;">${micro_stage_name}</td></tr>` : ""}
+          <tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-weight:600;">Enviado por</td><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;">${assigned_by || "Sistema"}</td></tr>
+        </table>
+
+        <div style="background:#fefce8;border-left:3px solid #eab308;border-radius:0 6px 6px 0;padding:12px 16px;margin:20px 0;">
+          <p style="color:#854d0e;font-size:13px;margin:0;"><strong>Ação necessária:</strong> ${actionMsg}</p>
+        </div>
+
+        ${buildCtaButton(deepLink, "Acessar no Sistema →")}
+      `);
+
+      const results = [];
+      for (const recipient of emails) {
+        try {
+          const r = await sendEmail(RESEND_API_KEY, recipient.email, subject, htmlContent);
+          results.push({ email: recipient.email, ...r });
+        } catch (err) {
+          results.push({ email: recipient.email, success: false, error: String(err) });
+        }
+      }
+
+      return new Response(JSON.stringify({ success: true, notified: results.filter(r => r.success).length, results, emails_found: emails.map(e => e.email) }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ─── Action: Item assigned to collaborator ───
     if (action === "item_assignment") {
       const { job_id, job_code, job_title, customer_name, item_names, collaborators, assigned_by, board_id, stage_id } = body;

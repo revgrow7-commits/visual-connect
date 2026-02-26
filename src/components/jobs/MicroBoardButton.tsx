@@ -55,6 +55,33 @@ const MicroBoardButton: React.FC<Props> = ({ job, parentBoardId, parentStageId, 
         { micro_board_id: board.id, micro_board_name: board.name, stage: firstStage?.id || "" }
       );
 
+      // Fire email notification to micro board members
+      const { supabase } = await import("@/integrations/supabase/client");
+      supabase.functions.invoke("job-movement-notify", {
+        body: {
+          action: "micro_board_assigned",
+          job_id: job.id,
+          job_code: job.code,
+          job_title: job.description || job.client_name,
+          customer_name: job.client_name,
+          micro_board_id: board.id,
+          micro_board_name: board.name,
+          micro_stage_name: firstStage?.name,
+          assigned_by: "Sistema",
+          board_id: parentBoardId,
+          stage_id: parentStageId,
+        },
+      }).then(({ data, error }) => {
+        if (error) {
+          console.error("Notify error:", error);
+        } else {
+          console.log("Notification result:", data);
+          if (data?.notified > 0) {
+            toast({ title: "📧 E-mail enviado", description: `${data.notified} membro(s) notificado(s)` });
+          }
+        }
+      }).catch(console.error);
+
       toast({ title: "📋 Enviado ao Micro Board", description: `"${board.name}" → ${firstStage?.name || "primeira etapa"}` });
       setOpen(false);
     } catch (err: any) {
