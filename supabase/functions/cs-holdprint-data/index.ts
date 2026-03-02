@@ -29,6 +29,19 @@ const UNITS = [
   { key: "sp",  label: "São Paulo",    envVar: "HOLDPRINT_TOKEN_SP" },
 ];
 
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 15000): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timeout);
+    return res;
+  } catch (e) {
+    clearTimeout(timeout);
+    throw e;
+  }
+}
+
 async function fetchAllPages(apiKey: string, endpoint: string, startDate?: string, endDate?: string, maxPages = 50): Promise<Record<string, unknown>[]> {
   const config = ENDPOINTS[endpoint];
   if (!config) return [];
@@ -36,6 +49,7 @@ async function fetchAllPages(apiKey: string, endpoint: string, startDate?: strin
   const allItems: Record<string, unknown>[] = [];
   let page = 1;
   const limit = 100;
+  let consecutiveErrors = 0;
 
   while (page <= maxPages) {
     const url = new URL(`${HOLDPRINT_BASE}${config.path}`);
@@ -45,7 +59,6 @@ async function fetchAllPages(apiKey: string, endpoint: string, startDate?: strin
 
     if (config.dateFilters) {
       const now = new Date();
-      // Default: fetch from 2023 for good historical coverage
       const start = startDate || "2023-01-01";
       const end = endDate || new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
       const sk = endpoint === "incomes" ? "start_date" : "startDate";
@@ -55,13 +68,17 @@ async function fetchAllPages(apiKey: string, endpoint: string, startDate?: strin
     }
 
     try {
-      const res = await fetch(url.toString(), {
+      const res = await fetchWithTimeout(url.toString(), {
         headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
       });
       if (!res.ok) {
         console.error(`[cs-holdprint-data] ${endpoint} page ${page}: HTTP ${res.status}`);
-        break;
+        consecutiveErrors++;
+        if (consecutiveErrors >= 2) break;
+        page++;
+        continue;
       }
+      consecutiveErrors = 0;
       const json = await res.json();
       const items = Array.isArray(json) ? json : json?.data || json?.items || json?.results || [];
       if (!Array.isArray(items) || items.length === 0) break;
@@ -69,12 +86,28 @@ async function fetchAllPages(apiKey: string, endpoint: string, startDate?: strin
       if (items.length < limit) break;
       page++;
     } catch (e) {
-      console.error(`[cs-holdprint-data] ${endpoint} error:`, e);
-      break;
+      console.error(`[cs-holdprint-data] ${endpoint} error:`, (e as Error).message);
+      consecutiveErrors++;
+      if (consecutiveErrors >= 2) break;
+      page++;
     }
   }
   console.log(`[cs-holdprint-data] ${endpoint}: fetched ${allItems.length} items (${page} pages)`);
   return allItems;
+}
+
+async function getCachedFallback(sb: any, endpoint: string, unitKey: string): Promise<Record<string, unknown>[]> {
+  try {
+    const { data } = await sb
+      .from("holdprint_cache")
+      .select("raw_data")
+      .eq("endpoint", endpoint)
+      .like("record_id", `${unitKey}_%`)
+      .limit(500);
+    return (data || []).map((r: any) => r.raw_data);
+  } catch {
+    return [];
+  }
 }
 
 Deno.serve(async (req) => {
@@ -103,6 +136,11 @@ Deno.serve(async (req) => {
     const results: Record<string, Record<string, unknown>[]> = {};
     const unitsToFetch = unit ? UNITS.filter(u => u.key === unit) : UNITS;
 
+    const sb = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
     for (const u of unitsToFetch) {
       const token = Deno.env.get(u.envVar);
       if (!token) {
@@ -112,8 +150,18 @@ Deno.serve(async (req) => {
 
       const endpointResults = await Promise.all(
         requestedEndpoints.map(async (ep) => {
-          const items = await fetchAllPages(token, ep, startDate, endDate, maxPages);
-          // Strip heavy fields to reduce payload size
+          let items = await fetchAllPages(token, ep, startDate, endDate, maxPages);
+          
+          // Fallback to cache if API returned empty
+          if (items.length === 0) {
+            console.log(`[cs-holdprint-data] ${ep}/${u.key}: API empty, trying cache fallback`);
+            const cached = await getCachedFallback(sb, ep, u.key);
+            if (cached.length > 0) {
+              console.log(`[cs-holdprint-data] ${ep}/${u.key}: using ${cached.length} cached records`);
+              items = cached;
+            }
+          }
+          
           const processed = items.map(item => {
             const rec = item as Record<string, unknown>;
             if (ep === "jobs" && !fullDetail) {
@@ -135,12 +183,6 @@ Deno.serve(async (req) => {
         results[endpoint].push(...items);
       }
     }
-
-    // Also try to read from holdprint_cache as fallback/supplement
-    const sb = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
 
     // Get last sync time
     const { data: lastSync } = await sb
