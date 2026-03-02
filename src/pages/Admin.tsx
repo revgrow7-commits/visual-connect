@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Settings, Upload, Newspaper, Users, Heart, ShieldCheck, GraduationCap, ShieldAlert, Globe } from "lucide-react";
+import { Settings, Upload, Newspaper, Users, Heart, ShieldCheck, GraduationCap, ShieldAlert, Globe, Database } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import AdminComunicados from "@/components/admin/AdminComunicados";
@@ -9,6 +9,7 @@ import AdminUsuarios from "@/components/admin/AdminUsuarios";
 import AdminTrilhas from "@/components/admin/AdminTrilhas";
 import AdminOuvidoria from "@/components/admin/AdminOuvidoria";
 import AdminGatewayUsers from "@/components/admin/AdminGatewayUsers";
+import AdminHoldprintSync from "@/components/admin/AdminHoldprintSync";
 
 const AdminPage = () => {
   const [tab, setTab] = useState("comunicados");
@@ -48,6 +49,9 @@ const AdminPage = () => {
           <TabsTrigger value="gateway" className="gap-1.5">
             <Globe className="h-4 w-4" /> Gateway SSO
           </TabsTrigger>
+          <TabsTrigger value="holdprint" className="gap-1.5">
+            <Database className="h-4 w-4" /> Holdprint Sync
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="comunicados">
@@ -70,6 +74,9 @@ const AdminPage = () => {
         </TabsContent>
         <TabsContent value="gateway">
           <AdminGatewayUsers />
+        </TabsContent>
+        <TabsContent value="holdprint">
+          <AdminHoldprintSync />
         </TabsContent>
       </Tabs>
     </div>

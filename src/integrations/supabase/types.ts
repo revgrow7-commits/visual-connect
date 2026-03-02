@@ -948,6 +948,48 @@ export type Database = {
         }
         Relationships: []
       }
+      holdprint_sync_log: {
+        Row: {
+          details: Json | null
+          endpoints_synced: string[] | null
+          errors: string[] | null
+          finished_at: string | null
+          id: string
+          inserted: number | null
+          started_at: string
+          status: string
+          total_records: number | null
+          trigger_type: string
+          updated: number | null
+        }
+        Insert: {
+          details?: Json | null
+          endpoints_synced?: string[] | null
+          errors?: string[] | null
+          finished_at?: string | null
+          id?: string
+          inserted?: number | null
+          started_at?: string
+          status?: string
+          total_records?: number | null
+          trigger_type?: string
+          updated?: number | null
+        }
+        Update: {
+          details?: Json | null
+          endpoints_synced?: string[] | null
+          errors?: string[] | null
+          finished_at?: string | null
+          id?: string
+          inserted?: number | null
+          started_at?: string
+          status?: string
+          total_records?: number | null
+          trigger_type?: string
+          updated?: number | null
+        }
+        Relationships: []
+      }
       improvement_suggestions: {
         Row: {
           acao_sugerida: string | null
