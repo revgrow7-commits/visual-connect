@@ -1208,6 +1208,54 @@ export type Database = {
         }
         Relationships: []
       }
+      job_equipment_assignments: {
+        Row: {
+          assigned_by: string | null
+          created_at: string
+          customer_name: string | null
+          duration_seconds: number | null
+          ended_at: string | null
+          equipment: string
+          id: string
+          is_active: boolean
+          job_code: number | null
+          job_id: string
+          job_title: string | null
+          started_at: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_by?: string | null
+          created_at?: string
+          customer_name?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          equipment: string
+          id?: string
+          is_active?: boolean
+          job_code?: number | null
+          job_id: string
+          job_title?: string | null
+          started_at?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_by?: string | null
+          created_at?: string
+          customer_name?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          equipment?: string
+          id?: string
+          is_active?: boolean
+          job_code?: number | null
+          job_id?: string
+          job_title?: string | null
+          started_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       job_extensions: {
         Row: {
           arquivado_em: string | null
