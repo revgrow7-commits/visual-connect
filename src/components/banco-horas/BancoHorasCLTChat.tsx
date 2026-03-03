@@ -10,7 +10,7 @@ import LLMModelSelector, { type LLMProvider } from "@/components/ai-agent/LLMMod
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sector-agent`;
+const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/banco-horas-agent`;
 
 const SUGGESTIONS = [
   "Relatório de conformidade CCT com passivo detalhado",
@@ -38,7 +38,7 @@ const BancoHorasCLTChat = () => {
         "Content-Type": "application/json",
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ messages: allMessages, sector: "banco-horas-clt", provider: llmProvider }),
+      body: JSON.stringify({ messages: allMessages, provider: llmProvider }),
     });
 
     if (resp.status === 429) {
