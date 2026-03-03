@@ -106,15 +106,15 @@ const BancoHorasAIReport = ({ data, competencia }: BancoHorasAIReportProps) => {
     setLoading(true);
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const { data: { session } } = await (await import("@/integrations/supabase/client")).supabase.auth.getSession();
-      const authToken = session?.access_token;
-      if (!authToken) throw new Error("Sessão expirada.");
+      const authToken = session?.access_token || anonKey;
 
       const userMessage = `Analise o banco de horas da competência ${competencia} para todos os colaboradores disponíveis no contexto. Use a tool generate_report para retornar o relatório estruturado completo com resumo_executivo, colaboradores, alertas_criticos, checklist_conformidade, base_legal_aplicada e recomendacoes_gerais. Aplique todas as regras da CCT EAA × SESCON-SP 2025/2026.`;
 
       const res = await fetch(`${supabaseUrl}/functions/v1/banco-horas-agent`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}`, apikey: anonKey },
         body: JSON.stringify({
           messages: [{ role: "user", content: userMessage }],
           provider: "gemini",
