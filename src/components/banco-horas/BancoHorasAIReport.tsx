@@ -125,6 +125,7 @@ const BancoHorasAIReport = ({ data, competencia }: BancoHorasAIReportProps) => {
         body: JSON.stringify({
           messages: [{ role: "user", content: userMessage }],
           provider: "gemini",
+          stream: false,
         }),
       });
 
@@ -133,67 +134,86 @@ const BancoHorasAIReport = ({ data, competencia }: BancoHorasAIReportProps) => {
         throw new Error(err.error || `HTTP ${res.status}`);
       }
 
-      // Read streaming response and collect full text
-      const reader = res.body?.getReader();
-      if (!reader) throw new Error("Sem resposta do agente");
-      const decoder = new TextDecoder();
-      let fullText = "";
-      let textBuffer = "";
+      // Handle response - may be JSON or SSE stream
+      const contentType = res.headers.get("content-type") || "";
+      let result: any;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        textBuffer += decoder.decode(value, { stream: true });
+      if (contentType.includes("text/event-stream")) {
+        // SSE streaming response
+        const reader = res.body?.getReader();
+        if (!reader) throw new Error("Sem resposta do agente");
+        const decoder = new TextDecoder();
+        let fullText = "";
+        let textBuffer = "";
 
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (!line.startsWith("data: ")) continue;
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") continue;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) fullText += content;
-          } catch {
-            // partial JSON, put back
-            textBuffer = line + "\n" + textBuffer;
-            break;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          textBuffer += decoder.decode(value, { stream: true });
+
+          let newlineIndex: number;
+          while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+            let line = textBuffer.slice(0, newlineIndex);
+            textBuffer = textBuffer.slice(newlineIndex + 1);
+            if (line.endsWith("\r")) line = line.slice(0, -1);
+            if (!line.startsWith("data: ")) continue;
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr === "[DONE]") continue;
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const content = parsed.choices?.[0]?.delta?.content || (parsed.type === "content_block_delta" ? parsed.delta?.text : undefined);
+              if (content) fullText += content;
+            } catch {
+              textBuffer = line + "\n" + textBuffer;
+              break;
+            }
           }
         }
-      }
 
-      // Flush remaining buffer
-      if (textBuffer.trim()) {
-        for (let raw of textBuffer.split("\n")) {
-          if (!raw) continue;
-          if (raw.endsWith("\r")) raw = raw.slice(0, -1);
-          if (!raw.startsWith("data: ")) continue;
-          const jsonStr = raw.slice(6).trim();
-          if (jsonStr === "[DONE]") continue;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) fullText += content;
-          } catch {}
+        // Flush remaining buffer
+        if (textBuffer.trim()) {
+          for (let raw of textBuffer.split("\n")) {
+            if (!raw) continue;
+            if (raw.endsWith("\r")) raw = raw.slice(0, -1);
+            if (!raw.startsWith("data: ")) continue;
+            const jsonStr = raw.slice(6).trim();
+            if (jsonStr === "[DONE]") continue;
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const content = parsed.choices?.[0]?.delta?.content || (parsed.type === "content_block_delta" ? parsed.delta?.text : undefined);
+              if (content) fullText += content;
+            } catch {}
+          }
+        }
+
+        if (!fullText.trim()) throw new Error("Resposta vazia do agente");
+
+        let cleaned = fullText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+        const jsonStart = cleaned.indexOf("{");
+        const jsonEnd = cleaned.lastIndexOf("}");
+        if (jsonStart === -1 || jsonEnd === -1) throw new Error("Resposta sem JSON válido");
+        cleaned = cleaned.substring(jsonStart, jsonEnd + 1)
+          .replace(/,\s*}/g, "}").replace(/,\s*]/g, "]").replace(/[\x00-\x1F\x7F]/g, "");
+        result = JSON.parse(cleaned);
+      } else {
+        // Direct JSON response - content may be in choices[0].message.content
+        const json = await res.json();
+        const rawContent = json.choices?.[0]?.message?.content;
+        if (rawContent && typeof rawContent === "string") {
+          let cleaned = rawContent.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+          const jsonStart = cleaned.indexOf("{");
+          const jsonEnd = cleaned.lastIndexOf("}");
+          if (jsonStart === -1 || jsonEnd === -1) throw new Error("Resposta sem JSON válido");
+          cleaned = cleaned.substring(jsonStart, jsonEnd + 1)
+            .replace(/,\s*}/g, "}").replace(/,\s*]/g, "]").replace(/[\x00-\x1F\x7F]/g, "");
+          result = JSON.parse(cleaned);
+        } else if (json.resumo_executivo) {
+          // Already structured
+          result = json;
+        } else {
+          throw new Error("Formato de resposta inesperado");
         }
       }
-
-      console.log("[BancoHorasAIReport] fullText length:", fullText.length, "preview:", fullText.slice(0, 200));
-
-      if (!fullText.trim()) throw new Error("Resposta vazia do agente");
-
-      // Extract JSON from the full response
-      let cleaned = fullText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
-      const jsonStart = cleaned.indexOf("{");
-      const jsonEnd = cleaned.lastIndexOf("}");
-      if (jsonStart === -1 || jsonEnd === -1) throw new Error("Resposta sem JSON válido");
-      cleaned = cleaned.substring(jsonStart, jsonEnd + 1)
-        .replace(/,\s*}/g, "}").replace(/,\s*]/g, "]").replace(/[\x00-\x1F\x7F]/g, "");
-
-      const result = JSON.parse(cleaned);
       setAnalise(result);
       toast({ title: "Análise concluída", description: "Relatório gerado com base na CCT EAA × SESCON-SP." });
     } catch (e: any) {

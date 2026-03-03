@@ -175,11 +175,13 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { messages, provider: reqProvider } = await req.json();
+    const { messages, provider: reqProvider, stream: reqStream } = await req.json();
     if (!messages || !Array.isArray(messages)) {
       return jsonResponse({ error: "Campo 'messages' é obrigatório" }, 400);
     }
 
+    // Default: stream for chat, no stream if explicitly disabled
+    const shouldStream = reqStream !== false;
     const provider = reqProvider || "gemini";
     const providerCfg = PROVIDER_CONFIG[provider] || PROVIDER_CONFIG.gemini;
     const apiKey = Deno.env.get(providerCfg.envKey);
@@ -206,7 +208,7 @@ Deno.serve(async (req) => {
           max_tokens: 8192,
           system: systemContent,
           messages: claudeMsgs,
-          stream: true,
+          stream: shouldStream,
         }),
       });
 
@@ -217,9 +219,14 @@ Deno.serve(async (req) => {
         throw new Error("Erro ao comunicar com Claude");
       }
 
-      return new Response(response.body, {
-        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-      });
+      if (shouldStream) {
+        return new Response(response.body, {
+          headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+        });
+      }
+      const claudeResult = await response.json();
+      const claudeText = claudeResult.content?.[0]?.text || "";
+      return jsonResponse({ choices: [{ message: { content: claudeText } }] });
     }
 
     // Gemini (OpenAI-compatible)
@@ -238,7 +245,7 @@ Deno.serve(async (req) => {
         model: providerCfg.model,
         max_tokens: 8192,
         messages: apiMessages,
-        stream: true,
+        stream: shouldStream,
       }),
     });
 
@@ -249,8 +256,13 @@ Deno.serve(async (req) => {
       throw new Error(`Erro ao comunicar com ${provider}`);
     }
 
+    if (shouldStream) {
+      return new Response(response.body, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      });
+    }
     return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: unknown) {
     const err = e as { message?: string };
