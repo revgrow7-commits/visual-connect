@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import type { BancoHorasRow } from "./BancoHorasTable";
+import BancoHorasCLTChat from "./BancoHorasCLTChat";
 
 interface CLTDashboardProps {
   data: BancoHorasRow[];
@@ -383,6 +384,9 @@ const BancoHorasCLTDashboard = ({ data, competencia }: CLTDashboardProps) => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Agente IA CLT/CCT */}
+      <BancoHorasCLTChat />
 
       {/* Legislação Aplicada */}
       <Card>
