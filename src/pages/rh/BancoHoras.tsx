@@ -12,6 +12,7 @@ import BancoHorasTable, { type BancoHorasRow } from "@/components/banco-horas/Ba
 import BancoHorasEmptyState from "@/components/banco-horas/BancoHorasEmptyState";
 import BancoHorasAIReport from "@/components/banco-horas/BancoHorasAIReport";
 import BancoHorasCLTDashboard from "@/components/banco-horas/BancoHorasCLTDashboard";
+import BancoHorasCLTChat from "@/components/banco-horas/BancoHorasCLTChat";
 
 async function fetchFromDatabase(competencia: string) {
   console.log("[banco-horas] Fetching data for", competencia);
@@ -223,7 +224,7 @@ const BancoHorasPage = () => {
             <p className="text-muted-foreground text-xs mt-0.5">Dados sincronizados do Secullum</p>
           </div>
           <button
-            onClick={() => setTab("analise")}
+            onClick={() => setTab("agente")}
             className="relative group flex items-center gap-1.5 ml-2 px-3 py-1.5 rounded-full border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-all duration-200"
             title="Agente CLT/CCT — Banco de Horas"
           >
@@ -270,6 +271,7 @@ const BancoHorasPage = () => {
             <TabsTrigger value="clt" className="text-xs h-7 gap-1"><Scale className="h-3.5 w-3.5" /> CLT</TabsTrigger>
             <TabsTrigger value="meu" className="text-xs h-7">Meu Banco</TabsTrigger>
             <TabsTrigger value="analise" className="text-xs h-7 gap-1"><Brain className="h-3.5 w-3.5" /> Análise IA</TabsTrigger>
+            <TabsTrigger value="agente" className="text-xs h-7 gap-1"><Bot className="h-3.5 w-3.5" /> Agente IA</TabsTrigger>
           </TabsList>
 
           <TabsContent value="equipe" className="space-y-3 mt-3">
@@ -305,6 +307,10 @@ const BancoHorasPage = () => {
                 <p className="text-xs mt-1">Disponível após autenticação individual.</p>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="agente" className="mt-3">
+            <BancoHorasCLTChat />
           </TabsContent>
         </Tabs>
       )}
