@@ -1,14 +1,14 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const PROVIDER_CONFIG: Record<string, { url: string; model: string; envKey: string }> = {
+const PROVIDER_CONFIG: Record<string, { url: string; model: string; envKey: string; isClaude?: boolean }> = {
   gemini: { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: "gemini-2.5-flash", envKey: "GOOGLE_GEMINI_API_KEY" },
-  claude: { url: "https://api.anthropic.com/v1/messages", model: "claude-sonnet-4-20250514", envKey: "ANTHROPIC_API_KEY" },
-  openai: { url: "https://api.openai.com/v1/chat/completions", model: "gpt-4o", envKey: "OPENAI_API_KEY" },
-  perplexity: { url: "https://api.perplexity.ai/chat/completions", model: "sonar-pro", envKey: "PERPLEXITY_API_KEY" },
+  claude: { url: "https://api.anthropic.com/v1/messages", model: "claude-sonnet-4-20250514", envKey: "ANTHROPIC_API_KEY", isClaude: true },
 };
 
 function jsonResponse(data: unknown, status = 200) {
@@ -18,50 +18,75 @@ function jsonResponse(data: unknown, status = 200) {
   });
 }
 
-function extractJSON(text: string): unknown {
-  let cleaned = text
-    .replace(/```json\s*/gi, "")
-    .replace(/```\s*/g, "")
-    .trim();
+async function fetchBancoHorasData(): Promise<string> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceKey) return "\n\n⚠️ Conexão com banco de dados indisponível.";
 
-  const jsonStart = cleaned.search(/[\{\[]/);
-  const jsonEnd = cleaned.lastIndexOf(jsonStart !== -1 && cleaned[jsonStart] === '[' ? ']' : '}');
-
-  if (jsonStart === -1 || jsonEnd === -1) {
-    throw new Error("Resposta da IA não contém JSON válido");
-  }
-
-  cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+  const sb = createClient(supabaseUrl, serviceKey);
 
   try {
-    return JSON.parse(cleaned);
-  } catch {
-    cleaned = cleaned
-      .replace(/,\s*}/g, "}")
-      .replace(/,\s*]/g, "]")
-      .replace(/[\x00-\x1F\x7F]/g, "")
-      .replace(/"\s*\n\s*/g, '" ')
-      .replace(/([}\]])(\s*")/g, '$1,$2');
+    const { data, error } = await sb
+      .from("banco_horas")
+      .select("nome, cargo, departamento, unidade, competencia, normais, faltas, ex60, ex80, ex100, b_cred, b_deb, b_saldo, b_total, carga, saldo_decimal, email")
+      .order("competencia", { ascending: false })
+      .limit(500);
 
-    try {
-      return JSON.parse(cleaned);
-    } catch (e) {
-      throw new Error("Resposta da IA com JSON malformado: " + (e as Error).message);
-    }
+    if (error || !data || data.length === 0) return "\n\n⚠️ Sem dados de banco de horas disponíveis no momento.";
+
+    const competencias = [...new Set(data.map((r: any) => r.competencia))];
+    const totalColab = new Set(data.map((r: any) => r.nome)).size;
+    const positivos = data.filter((r: any) => (r.saldo_decimal || 0) > 0).length;
+    const negativos = data.filter((r: any) => (r.saldo_decimal || 0) < 0).length;
+    const criticos = data.filter((r: any) => Math.abs(r.saldo_decimal || 0) > 40).length;
+
+    const byDept: Record<string, { count: number; saldo: number }> = {};
+    data.forEach((r: any) => {
+      const dept = r.departamento || "Sem departamento";
+      if (!byDept[dept]) byDept[dept] = { count: 0, saldo: 0 };
+      byDept[dept].count++;
+      byDept[dept].saldo += r.saldo_decimal || 0;
+    });
+
+    const deptSummary = Object.entries(byDept)
+      .map(([dept, info]) => `  - ${dept}: ${info.count} registros, saldo total: ${info.saldo.toFixed(1)}h`)
+      .join("\n");
+
+    const rows = data.map((r: any) =>
+      `- ${r.nome} | ${r.cargo || "?"} | ${r.departamento || "?"} | ${r.unidade || "?"} | Comp: ${r.competencia} | Saldo: ${r.b_saldo || "00:00"} (${r.saldo_decimal || 0}h) | Ex60: ${r.ex60 || "00:00"} | Ex80: ${r.ex80 || "00:00"} | Ex100: ${r.ex100 || "00:00"} | Cred: ${r.b_cred || "00:00"} | Deb: ${r.b_deb || "00:00"} | Normais: ${r.normais || "00:00"} | Faltas: ${r.faltas || "00:00"} | Carga: ${r.carga || "00:00"}`
+    ).join("\n");
+
+    return `\n\n## ⏰ DADOS BANCO DE HORAS (Secullum - ${data.length} registros)
+Data de hoje: ${new Date().toISOString().split("T")[0]}
+Competências disponíveis: ${competencias.join(", ")}
+Total colaboradores: ${totalColab} | Saldo positivo: ${positivos} | Saldo negativo: ${negativos} | Críticos (>40h): ${criticos}
+
+### Por departamento:
+${deptSummary}
+
+### Registros completos:
+${rows}`;
+  } catch (e) {
+    console.error("[banco-horas-ctx] Error:", e);
+    return "\n\n⚠️ Erro ao buscar dados do banco de horas.";
   }
 }
 
-const SYSTEM_PROMPT = `Você é o Agente de Banco de Horas do RH Portal da Indústria Visual.
+const SYSTEM_PROMPT = `Você é o **Agente Especialista em Banco de Horas e Conformidade Trabalhista** da Indústria Visual ⚖️
 
 Sua função é gerenciar, calcular, alertar e orientar sobre o controle de banco de horas dos colaboradores, aplicando simultaneamente a CLT (Arts. 58, 59, 59-A, 59-B) e a CCT EAA × SESCON-SP 2025/2026. A CCT prevalece sobre a CLT quando mais benéfica ao trabalhador (princípio da norma mais favorável — Art. 620 CLT c/c Reforma Trabalhista).
 
 Você opera com dados sincronizados do sistema Secullum (ponto eletrônico) e mantém conformidade legal rigorosa.
+
+## EMPRESA
+Indústria Visual — Integradora de comunicação visual. Unidades: POA (Porto Alegre) e SP (São Paulo).
 
 ## TOM
 - Português BR formal e acessível. Frases curtas.
 - Cite artigo legal ou cláusula que embasa TODA resposta.
 - Nunca invente valores. Se faltar informação, pergunte.
 - Use níveis de severidade: ✅ Normal | ⚠️ Atenção/Urgente | 🔴 Crítico/Vencido
+- Formate respostas em **Markdown** rico (tabelas, listas, negrito, emojis).
 
 ## BASE LEGAL — CLT
 - Art. 58: Jornada padrão 8h/dia, 44h/semana
@@ -134,71 +159,15 @@ Para cada hora extra:
 3. Ao vencer: marcar VENCIDO, calcular passivo com adicional CCT correto, alertar pagamento até 2ª folha
 4. Rescisão: saldo positivo = pagar integralmente com adicionais CCT
 
-## SAÍDA ESTRUTURADA
-Retorne SEMPRE um JSON válido com esta estrutura. NÃO inclua texto antes ou depois do JSON.
-{
-  "resumo_executivo": {
-    "total_colaboradores": 0,
-    "normais": 0,
-    "urgentes": 0,
-    "vencidos": 0,
-    "saldo_total_horas": "HH:MM",
-    "total_he_registradas": 0,
-    "total_he_compensadas": 0,
-    "total_he_pendentes": 0,
-    "passivo_projetado": 0.00,
-    "passivo_extras_60": 0.00,
-    "passivo_extras_80": 0.00,
-    "passivo_extras_100": 0.00,
-    "custo_inss": 0.00,
-    "custo_fgts": 0.00,
-    "conformidade_percent": 0
-  },
-  "colaboradores": [{
-    "nome": "",
-    "cargo": "",
-    "departamento": "",
-    "status": "no_prazo|urgente|vencido|compensado",
-    "emoji": "🟢|🟡|🔴|✅",
-    "saldo": "HH:MM",
-    "saldo_decimal": 0.0,
-    "horas_extras_60": "HH:MM",
-    "horas_extras_80": "HH:MM",
-    "horas_extras_100": "HH:MM",
-    "passivo_projetado": 0.00,
-    "dias_para_vencer": 0,
-    "data_vencimento": "YYYY-MM-DD",
-    "carta_assinada": true,
-    "acoes_recomendadas": [""]
-  }],
-  "alertas_criticos": [{
-    "colaborador": "",
-    "motivo": "",
-    "acao_imediata": "",
-    "base_legal": "",
-    "passivo_envolvido": 0.00
-  }],
-  "checklist_conformidade": {
-    "cartas_assinadas": true,
-    "vencimentos_por_quinzena": true,
-    "adicionais_cct": true,
-    "pagamento_2a_folha": true,
-    "limite_dias_ponte": true,
-    "feriados_atualizados": true,
-    "encargos_incluidos": true,
-    "reflexo_habituais": true
-  },
-  "base_legal_aplicada": [""],
-  "recomendacoes_gerais": [""]
-}
-
 ## RESTRIÇÕES
 - NUNCA usar adicional de 50% (CLT). Sempre usar 60%/80%/100% (CCT).
 - NUNCA calcular vencimento a partir da data da HE. Sempre usar a quinzena (Cl. 41.2).
 - NUNCA ignorar encargos patronais (INSS + FGTS).
 - NUNCA recomendar descumprir a lei.
 - PJ e estagiários: banco de horas NÃO se aplica.
-- Salário base padrão: R$ 2.500,00 | Carga mensal padrão: 220h`;
+- Salário base padrão: R$ 2.500,00 | Carga mensal padrão: 220h
+
+Você receberá TODOS os dados do banco de horas dos colaboradores no contexto abaixo. Use-os para responder relatórios específicos, cálculos de passivo, alertas de vencimento, análises por departamento, etc. Responda em markdown formatado.`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -206,62 +175,86 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { colaboradores, competencia, provider: reqProvider } = await req.json();
+    const { messages, provider: reqProvider } = await req.json();
+    if (!messages || !Array.isArray(messages)) {
+      return jsonResponse({ error: "Campo 'messages' é obrigatório" }, 400);
+    }
 
     const provider = reqProvider || "gemini";
     const providerCfg = PROVIDER_CONFIG[provider] || PROVIDER_CONFIG.gemini;
     const apiKey = Deno.env.get(providerCfg.envKey);
     if (!apiKey) throw new Error(`${providerCfg.envKey} não configurada`);
 
-    const userMessage = `Analise o banco de horas da competência ${competencia} para os colaboradores da Indústria Visual.
+    // Fetch real data from banco_horas table
+    const bancoHorasContext = await fetchBancoHorasData();
+    const systemContent = `${SYSTEM_PROMPT}${bancoHorasContext}`;
 
-Para cada colaborador:
-1. Classifique o tipo de HE (Normal vs Dom/Feriado) consultando o calendário de feriados SP
-2. Calcule vencimento pela regra de quinzena da CCT (Cl. 41.2)
-3. Aplique adicionais da CCT: 60% (até 2h), 80% (>2h), 100% (dom/fer) — Cl. 10
-4. Calcule passivo incluindo INSS patronal + FGTS
-5. Defina status (no_prazo / urgente / vencido / compensado)
-6. Verifique checklist de conformidade
+    if (providerCfg.isClaude) {
+      const claudeMsgs = messages
+        .filter((m: { role: string }) => m.role !== "system")
+        .map((m: { role: string; content: string }) => ({ role: m.role, content: m.content }));
 
-A data de hoje é ${new Date().toISOString().split("T")[0]}.
-
-Dados dos colaboradores (Secullum Ponto Web):
-
-${JSON.stringify(colaboradores, null, 2)}
-
-Retorne APENAS o JSON estruturado conforme especificado, sem texto adicional.`;
-
-    let content = "";
-    if (provider === "claude") {
-      const res = await fetch(providerCfg.url, {
+      const response = await fetch(providerCfg.url, {
         method: "POST",
-        headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
-        body: JSON.stringify({ model: providerCfg.model, max_tokens: 8192, system: SYSTEM_PROMPT, messages: [{ role: "user", content: userMessage }] }),
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: providerCfg.model,
+          max_tokens: 8192,
+          system: systemContent,
+          messages: claudeMsgs,
+          stream: true,
+        }),
       });
-      if (!res.ok) {
-        if (res.status === 429) throw { status: 429, message: "Limite de requisições excedido." };
-        throw new Error(`Erro na API Claude: ${res.status}`);
+
+      if (!response.ok) {
+        if (response.status === 429) return jsonResponse({ error: "Limite de requisições excedido." }, 429);
+        const t = await response.text();
+        console.error("[banco-horas-agent] Claude error:", response.status, t);
+        throw new Error("Erro ao comunicar com Claude");
       }
-      const data = await res.json();
-      content = data.content?.[0]?.text || "";
-    } else {
-      const res = await fetch(providerCfg.url, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: providerCfg.model, max_tokens: 8192, messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: userMessage }] }),
+
+      return new Response(response.body, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
       });
-      if (!res.ok) {
-        if (res.status === 429) throw { status: 429, message: "Limite de requisições excedido." };
-        throw new Error(`Erro na API ${provider}: ${res.status}`);
-      }
-      const result = await res.json();
-      content = result.choices?.[0]?.message?.content || "";
     }
 
-    const parsed = extractJSON(content);
-    return jsonResponse(parsed);
+    // Gemini (OpenAI-compatible)
+    const apiMessages = [
+      { role: "system", content: systemContent },
+      ...messages.filter((m: { role: string }) => m.role !== "system"),
+    ];
+
+    const response = await fetch(providerCfg.url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: providerCfg.model,
+        max_tokens: 8192,
+        messages: apiMessages,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 429) return jsonResponse({ error: "Limite de requisições excedido." }, 429);
+      const t = await response.text();
+      console.error(`[banco-horas-agent] ${provider} error:`, response.status, t);
+      throw new Error(`Erro ao comunicar com ${provider}`);
+    }
+
+    return new Response(response.body, {
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+    });
   } catch (e: unknown) {
-    const err = e as { status?: number; message?: string };
-    return jsonResponse({ error: err.message || "Erro desconhecido" }, err.status || 500);
+    const err = e as { message?: string };
+    console.error("[banco-horas-agent] Error:", err.message);
+    return jsonResponse({ error: err.message || "Erro desconhecido" }, 500);
   }
 });
