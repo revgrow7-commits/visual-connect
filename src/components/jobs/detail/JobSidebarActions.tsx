@@ -23,6 +23,7 @@ import {
   Tag, CalendarDays, ListChecks, Users, Paperclip, SlidersHorizontal,
   Plus, X, Trash2, Loader2, FileText, Image as ImageIcon, Link2, ExternalLink,
 } from "lucide-react";
+import EquipmentSection from "./EquipmentSection";
 
 interface Props {
   job: Job;
@@ -554,6 +555,8 @@ const JobSidebarActions: React.FC<Props> = ({ job }) => {
             </div>
           </PopoverContent>
         </Popover>
+        {/* ─── Equipamento ─── */}
+        <EquipmentSection job={job} />
       </div>
     </TooltipProvider>
   );
