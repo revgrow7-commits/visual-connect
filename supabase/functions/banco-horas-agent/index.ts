@@ -19,15 +19,35 @@ function jsonResponse(data: unknown, status = 200) {
 }
 
 function extractJSON(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (fenced) return JSON.parse(fenced[1].trim());
-    const start = text.indexOf("{");
-    const end = text.lastIndexOf("}");
-    if (start !== -1 && end !== -1) return JSON.parse(text.substring(start, end + 1));
+  let cleaned = text
+    .replace(/```json\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .trim();
+
+  const jsonStart = cleaned.search(/[\{\[]/);
+  const jsonEnd = cleaned.lastIndexOf(jsonStart !== -1 && cleaned[jsonStart] === '[' ? ']' : '}');
+
+  if (jsonStart === -1 || jsonEnd === -1) {
     throw new Error("Resposta da IA não contém JSON válido");
+  }
+
+  cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    cleaned = cleaned
+      .replace(/,\s*}/g, "}")
+      .replace(/,\s*]/g, "]")
+      .replace(/[\x00-\x1F\x7F]/g, "")
+      .replace(/"\s*\n\s*/g, '" ')
+      .replace(/([}\]])(\s*")/g, '$1,$2');
+
+    try {
+      return JSON.parse(cleaned);
+    } catch (e) {
+      throw new Error("Resposta da IA com JSON malformado: " + (e as Error).message);
+    }
   }
 }
 
