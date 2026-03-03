@@ -41,11 +41,16 @@ const BancoHorasCLTChat = () => {
       body: JSON.stringify({ messages: allMessages, provider: llmProvider }),
     });
 
-    if (resp.status === 429) {
-      toast({ title: "Limite de requisições", description: "Tente novamente em alguns minutos.", variant: "destructive" });
-      throw new Error("Rate limited");
+    if (!resp.ok) {
+      let errorMsg = "Erro ao conectar ao agente.";
+      try {
+        const errBody = await resp.json();
+        errorMsg = errBody.error || errorMsg;
+      } catch {}
+      toast({ title: "Erro do Agente", description: errorMsg, variant: "destructive" });
+      throw new Error(errorMsg);
     }
-    if (!resp.ok || !resp.body) throw new Error("Falha ao iniciar stream");
+    if (!resp.body) throw new Error("Sem corpo de resposta");
 
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
@@ -108,9 +113,12 @@ const BancoHorasCLTChat = () => {
     }
   }, [llmProvider]);
 
+  const sendingRef = useRef(false);
+
   const handleSend = async (text?: string) => {
     const trimmed = (text || input).trim();
-    if (!trimmed || isLoading) return;
+    if (!trimmed || isLoading || sendingRef.current) return;
+    sendingRef.current = true;
 
     const userMsg: Msg = { role: "user", content: trimmed };
     setMessages(prev => [...prev, userMsg]);
@@ -121,9 +129,9 @@ const BancoHorasCLTChat = () => {
       await streamChat([...messages, userMsg]);
     } catch (e) {
       console.error("CLT Agent error:", e);
-      toast({ title: "Erro", description: "Não foi possível conectar ao agente.", variant: "destructive" });
     } finally {
       setIsLoading(false);
+      sendingRef.current = false;
     }
   };
 

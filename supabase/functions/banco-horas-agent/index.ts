@@ -9,6 +9,8 @@ const corsHeaders = {
 const PROVIDER_CONFIG: Record<string, { url: string; model: string; envKey: string; isClaude?: boolean }> = {
   gemini: { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: "gemini-2.5-flash", envKey: "GOOGLE_GEMINI_API_KEY" },
   claude: { url: "https://api.anthropic.com/v1/messages", model: "claude-sonnet-4-20250514", envKey: "ANTHROPIC_API_KEY", isClaude: true },
+  openai: { url: "https://api.openai.com/v1/chat/completions", model: "gpt-4o", envKey: "OPENAI_API_KEY" },
+  perplexity: { url: "https://api.perplexity.ai/chat/completions", model: "sonar-pro", envKey: "PERPLEXITY_API_KEY" },
 };
 
 function jsonResponse(data: unknown, status = 200) {
@@ -331,8 +333,8 @@ Deno.serve(async (req) => {
       if (!response.ok) {
         if (response.status === 429) return jsonResponse({ error: "Limite de requisições excedido." }, 429);
         const t = await response.text();
-        console.error("[banco-horas-agent] Claude error:", response.status, t);
-        throw new Error("Erro ao comunicar com Claude");
+        console.error("[banco-horas-agent] Claude error:", response.status, t.substring(0, 500));
+        return jsonResponse({ error: `Claude ${response.status}: ${t.substring(0, 200)}` }, response.status);
       }
 
       if (shouldStream) {
@@ -368,8 +370,8 @@ Deno.serve(async (req) => {
     if (!response.ok) {
       if (response.status === 429) return jsonResponse({ error: "Limite de requisições excedido." }, 429);
       const t = await response.text();
-      console.error(`[banco-horas-agent] ${provider} error:`, response.status, t);
-      throw new Error(`Erro ao comunicar com ${provider}`);
+      console.error(`[banco-horas-agent] ${provider} error:`, response.status, t.substring(0, 500));
+      return jsonResponse({ error: `${provider} ${response.status}: ${t.substring(0, 200)}` }, response.status);
     }
 
     if (shouldStream) {
