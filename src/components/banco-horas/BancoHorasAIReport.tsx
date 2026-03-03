@@ -138,14 +138,40 @@ const BancoHorasAIReport = ({ data, competencia }: BancoHorasAIReportProps) => {
       if (!reader) throw new Error("Sem resposta do agente");
       const decoder = new TextDecoder();
       let fullText = "";
+      let textBuffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        for (const line of chunk.split("\n")) {
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
           if (!line.startsWith("data: ")) continue;
           const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) fullText += content;
+          } catch {
+            // partial JSON, put back
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+
+      // Flush remaining buffer
+      if (textBuffer.trim()) {
+        for (let raw of textBuffer.split("\n")) {
+          if (!raw) continue;
+          if (raw.endsWith("\r")) raw = raw.slice(0, -1);
+          if (!raw.startsWith("data: ")) continue;
+          const jsonStr = raw.slice(6).trim();
           if (jsonStr === "[DONE]") continue;
           try {
             const parsed = JSON.parse(jsonStr);
@@ -154,6 +180,10 @@ const BancoHorasAIReport = ({ data, competencia }: BancoHorasAIReportProps) => {
           } catch {}
         }
       }
+
+      console.log("[BancoHorasAIReport] fullText length:", fullText.length, "preview:", fullText.slice(0, 200));
+
+      if (!fullText.trim()) throw new Error("Resposta vazia do agente");
 
       // Extract JSON from the full response
       let cleaned = fullText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
