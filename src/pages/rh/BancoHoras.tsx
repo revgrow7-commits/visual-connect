@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Clock, Loader2, DatabaseBackup, Brain, AlertTriangle, Scale, Mail, Download } from "lucide-react";
+import { Clock, Loader2, DatabaseBackup, Brain, AlertTriangle, Scale, Mail, Download, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -214,7 +214,7 @@ const BancoHorasPage = () => {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <div className="rounded-lg gradient-bordo p-2">
             <Clock className="h-4 w-4 text-primary-foreground" />
           </div>
@@ -222,6 +222,17 @@ const BancoHorasPage = () => {
             <h1 className="text-lg font-bold text-foreground leading-none">Banco de Horas</h1>
             <p className="text-muted-foreground text-xs mt-0.5">Dados sincronizados do Secullum</p>
           </div>
+          <button
+            onClick={() => setTab("analise")}
+            className="relative group flex items-center gap-1.5 ml-2 px-3 py-1.5 rounded-full border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-all duration-200"
+            title="Agente CLT/CCT — Banco de Horas"
+          >
+            <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+              <Scale className="h-3.5 w-3.5 text-primary" />
+            </div>
+            <span className="text-xs font-medium text-primary hidden sm:inline">Agente IA</span>
+            <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-background animate-pulse" />
+          </button>
         </div>
         <div className="flex items-center gap-2">
           <Button onClick={handleDownloadCSV} disabled={!hasData} variant="outline" size="sm" className="gap-1.5 text-xs h-8">
