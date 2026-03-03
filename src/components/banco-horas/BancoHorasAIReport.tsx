@@ -111,26 +111,21 @@ const BancoHorasAIReport = ({ data, competencia }: BancoHorasAIReportProps) => {
       if (!authToken) throw new Error("Sessão expirada.");
 
       const colaboradores = data.map((c: any) => ({
-        nome: c.nome,
-        cargo: c.cargo,
-        departamento: c.departamento,
-        unidade: c.unidade,
-        normais: c.normais,
-        carga: c.carga,
-        faltas: c.faltas,
-        ex60: c.ex60,
-        ex80: c.ex80,
-        ex100: c.ex100,
-        bSaldo: c.bSaldo,
-        bTotal: c.bTotal,
-        bCred: c.bCred,
-        bDeb: c.bDeb,
+        nome: c.nome, cargo: c.cargo, departamento: c.departamento, unidade: c.unidade,
+        normais: c.normais, carga: c.carga, faltas: c.faltas,
+        ex60: c.ex60, ex80: c.ex80, ex100: c.ex100,
+        bSaldo: c.bSaldo, bTotal: c.bTotal, bCred: c.bCred, bDeb: c.bDeb,
       }));
+
+      const userMessage = `Analise o banco de horas da competência ${competencia} para os colaboradores abaixo e retorne APENAS um JSON estruturado com: resumo_executivo, colaboradores, alertas_criticos, checklist_conformidade, base_legal_aplicada, recomendacoes_gerais. Dados:\n${JSON.stringify(colaboradores)}`;
 
       const res = await fetch(`${supabaseUrl}/functions/v1/banco-horas-agent`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify({ colaboradores, competencia }),
+        body: JSON.stringify({
+          messages: [{ role: "user", content: userMessage }],
+          provider: "gemini",
+        }),
       });
 
       if (!res.ok) {
@@ -138,7 +133,37 @@ const BancoHorasAIReport = ({ data, competencia }: BancoHorasAIReportProps) => {
         throw new Error(err.error || `HTTP ${res.status}`);
       }
 
-      const result = await res.json();
+      // Read streaming response and collect full text
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("Sem resposta do agente");
+      const decoder = new TextDecoder();
+      let fullText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        for (const line of chunk.split("\n")) {
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) fullText += content;
+          } catch {}
+        }
+      }
+
+      // Extract JSON from the full response
+      let cleaned = fullText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+      const jsonStart = cleaned.indexOf("{");
+      const jsonEnd = cleaned.lastIndexOf("}");
+      if (jsonStart === -1 || jsonEnd === -1) throw new Error("Resposta sem JSON válido");
+      cleaned = cleaned.substring(jsonStart, jsonEnd + 1)
+        .replace(/,\s*}/g, "}").replace(/,\s*]/g, "]").replace(/[\x00-\x1F\x7F]/g, "");
+
+      const result = JSON.parse(cleaned);
       setAnalise(result);
       toast({ title: "Análise concluída", description: "Relatório gerado com base na CCT EAA × SESCON-SP." });
     } catch (e: any) {
