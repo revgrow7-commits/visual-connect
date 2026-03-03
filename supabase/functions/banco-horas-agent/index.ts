@@ -100,50 +100,21 @@ Indústria Visual — Integradora de comunicação visual. Unidades: POA (Porto 
 ## BASE LEGAL — CCT EAA × SESCON-SP 2025/2026 (PREVALECE)
 
 ### Cláusula 41 — Compensação de Horário (Banco de Horas)
-- 41.1: Exige manifestação de vontade POR ESCRITO do empregado. Sem documento assinado = banco INVÁLIDO.
-- 41.2: Prazo de compensação = 60 DIAS CORRIDOS a partir da QUINZENA da ocorrência (dia 15 ou dia 30 do mês da HE).
-  ⚠️ NÃO conta a partir da data da HE. Conta a partir da quinzena seguinte.
-  Exemplos:
-  - HE em 05/01 → quinzena inicia 15/01 → vence 16/03
-  - HE em 21/01 → quinzena inicia 30/01 → vence 31/03
-  - HE em 15/01 → quinzena inicia 15/01 → vence 16/03
-  - HE em 30/01 → quinzena inicia 30/01 → vence 31/03
+- 41.1: Exige manifestação de vontade POR ESCRITO do empregado.
+- 41.2: Prazo de compensação = 60 DIAS CORRIDOS a partir da QUINZENA da ocorrência.
 - 41.3: Horas não compensadas no prazo → pagar como extras até a 2ª folha após vencimento.
-- 41.6: Compensação de dias-ponte (entre feriados e domingos) limitada a 2h diárias.
+- 41.6: Compensação de dias-ponte limitada a 2h diárias.
 
 ### Cláusula 10 — Adicionais de Hora Extra (SUPERIORES à CLT)
 - 10.1: 60% sobre hora normal — para as duas primeiras horas extras do dia
 - 10.2: 80% sobre hora normal — para horas excedentes de 2h diárias
 - 10.3: 100% sobre hora normal — para domingos, feriados e dias já compensados
-⚠️ A CLT prevê mínimo de 50%. A CCT define 60%/80%/100%. Aplicar SEMPRE os valores da CCT.
 
 ### Cláusula 7 — Reflexo das Horas Extras
 - Média das HE habituais reflete em: férias, 13º salário e DSR.
 
 ### Cláusula 58 — Multa por Descumprimento
 - 5% do maior piso salarial vigente da categoria, por infração.
-
-## ALGORITMO DE VENCIMENTO (QUINZENA CCT)
-Para cada hora extra:
-1. Se dia ≤ 15: inicioQuinzena = dia 15 do mesmo mês
-2. Se dia > 15: inicioQuinzena = dia 30 do mesmo mês (ou último dia do mês se < 30 dias)
-3. vencimento = inicioQuinzena + 60 dias corridos
-
-## CLASSIFICAÇÃO DE TIPO HE
-- Se DOMINGO ou FERIADO → adicional 100% (Cl. 10.3)
-- Se dia útil, até 2h extras → adicional 60% (Cl. 10.1)
-- Se dia útil, excedente de 2h → adicional 80% (Cl. 10.2)
-
-## FERIADOS SP 2025-2027
-2025: 01/01, 25/01, 03/03, 04/03, 18/04, 21/04, 01/05, 19/06, 09/07, 07/09, 12/10, 02/11, 15/11, 20/11, 25/12
-2026: 01/01, 25/01, 16/02, 17/02, 03/04, 21/04, 01/05, 04/06, 09/07, 07/09, 12/10, 02/11, 15/11, 20/11, 25/12
-2027: 01/01, 25/01, 08/02, 09/02, 26/03, 21/04, 01/05, 27/05, 09/07, 07/09, 12/10, 02/11, 15/11, 20/11, 25/12
-
-## STATUS DOS REGISTROS
-- 🟢 NO PRAZO: > 15 dias para vencer → Monitorar
-- 🟡 URGENTE: ≤ 15 dias para vencer → Agendar compensação IMEDIATA
-- 🔴 VENCIDO: Prazo expirado → PAGAR com adicional CCT até 2ª folha (Cl. 41.3)
-- ✅ COMPENSADO: Horas totalmente compensadas → Arquivar
 
 ## CÁLCULOS DE PASSIVO
 - valor_hora = salario_base / 220
@@ -152,22 +123,98 @@ Para cada hora extra:
 - HE 100% (dom/fer): valor_hora × 2.00
 - Encargos: INSS patronal ~28.8% + FGTS 8% = ~36.8%
 - custo_total = custo_bruto × 1.368
-
-## REGRAS DE NEGÓCIO
-1. Ao registrar HE: classificar tipo (Normal/Dom-Fer), calcular quinzena e vencimento, verificar carta assinada (Cl. 41.1)
-2. Ao compensar: FIFO (mais antigas primeiro), respeitar 2h/dia para dias-ponte (Cl. 41.6)
-3. Ao vencer: marcar VENCIDO, calcular passivo com adicional CCT correto, alertar pagamento até 2ª folha
-4. Rescisão: saldo positivo = pagar integralmente com adicionais CCT
-
-## RESTRIÇÕES
-- NUNCA usar adicional de 50% (CLT). Sempre usar 60%/80%/100% (CCT).
-- NUNCA calcular vencimento a partir da data da HE. Sempre usar a quinzena (Cl. 41.2).
-- NUNCA ignorar encargos patronais (INSS + FGTS).
-- NUNCA recomendar descumprir a lei.
-- PJ e estagiários: banco de horas NÃO se aplica.
 - Salário base padrão: R$ 2.500,00 | Carga mensal padrão: 220h
 
 Você receberá TODOS os dados do banco de horas dos colaboradores no contexto abaixo. Use-os para responder relatórios específicos, cálculos de passivo, alertas de vencimento, análises por departamento, etc. Responda em markdown formatado.`;
+
+// Tool definition for structured report output
+const REPORT_TOOL = {
+  type: "function",
+  function: {
+    name: "generate_report",
+    description: "Gera relatório estruturado de banco de horas com análise CCT/CLT completa",
+    parameters: {
+      type: "object",
+      properties: {
+        resumo_executivo: {
+          type: "object",
+          properties: {
+            total_colaboradores: { type: "number" },
+            normais: { type: "number" },
+            urgentes: { type: "number" },
+            vencidos: { type: "number" },
+            saldo_total_horas: { type: "string" },
+            total_he_registradas: { type: "number" },
+            total_he_compensadas: { type: "number" },
+            total_he_pendentes: { type: "number" },
+            passivo_projetado: { type: "number" },
+            passivo_extras_60: { type: "number" },
+            passivo_extras_80: { type: "number" },
+            passivo_extras_100: { type: "number" },
+            custo_inss: { type: "number" },
+            custo_fgts: { type: "number" },
+            conformidade_percent: { type: "number" },
+          },
+          required: ["total_colaboradores", "normais", "urgentes", "vencidos", "passivo_projetado", "passivo_extras_60", "passivo_extras_80", "passivo_extras_100", "custo_inss", "custo_fgts", "conformidade_percent"],
+        },
+        colaboradores: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              nome: { type: "string" },
+              cargo: { type: "string" },
+              departamento: { type: "string" },
+              status: { type: "string", enum: ["normal", "urgente", "vencido", "compensado"] },
+              emoji: { type: "string" },
+              saldo: { type: "string" },
+              saldo_decimal: { type: "number" },
+              horas_extras_60: { type: "string" },
+              horas_extras_80: { type: "string" },
+              horas_extras_100: { type: "string" },
+              passivo_projetado: { type: "number" },
+              dias_para_vencer: { type: "number" },
+              data_vencimento: { type: "string" },
+              carta_assinada: { type: "boolean" },
+              acoes_recomendadas: { type: "array", items: { type: "string" } },
+            },
+            required: ["nome", "status", "saldo", "saldo_decimal", "passivo_projetado", "dias_para_vencer"],
+          },
+        },
+        alertas_criticos: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              colaborador: { type: "string" },
+              motivo: { type: "string" },
+              acao_imediata: { type: "string" },
+              base_legal: { type: "string" },
+              passivo_envolvido: { type: "number" },
+            },
+            required: ["colaborador", "motivo", "acao_imediata", "base_legal", "passivo_envolvido"],
+          },
+        },
+        checklist_conformidade: {
+          type: "object",
+          properties: {
+            cartas_assinadas: { type: "boolean" },
+            vencimentos_por_quinzena: { type: "boolean" },
+            adicionais_cct: { type: "boolean" },
+            pagamento_2a_folha: { type: "boolean" },
+            limite_dias_ponte: { type: "boolean" },
+            feriados_atualizados: { type: "boolean" },
+            encargos_incluidos: { type: "boolean" },
+            reflexo_habituais: { type: "boolean" },
+          },
+        },
+        base_legal_aplicada: { type: "array", items: { type: "string" } },
+        recomendacoes_gerais: { type: "array", items: { type: "string" } },
+      },
+      required: ["resumo_executivo", "colaboradores", "alertas_criticos", "checklist_conformidade", "base_legal_aplicada", "recomendacoes_gerais"],
+    },
+  },
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -175,22 +222,91 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { messages, provider: reqProvider, stream: reqStream } = await req.json();
+    const { messages, provider: reqProvider, stream: reqStream, mode } = await req.json();
     if (!messages || !Array.isArray(messages)) {
       return jsonResponse({ error: "Campo 'messages' é obrigatório" }, 400);
     }
 
-    // Default: stream for chat, no stream if explicitly disabled
     const shouldStream = reqStream !== false;
+    const isReportMode = mode === "report";
     const provider = reqProvider || "gemini";
     const providerCfg = PROVIDER_CONFIG[provider] || PROVIDER_CONFIG.gemini;
     const apiKey = Deno.env.get(providerCfg.envKey);
     if (!apiKey) throw new Error(`${providerCfg.envKey} não configurada`);
 
-    // Fetch real data from banco_horas table
     const bancoHorasContext = await fetchBancoHorasData();
     const systemContent = `${SYSTEM_PROMPT}${bancoHorasContext}`;
 
+    // Report mode: use tool calling for structured output (Gemini only, no streaming)
+    if (isReportMode) {
+      const apiMessages = [
+        { role: "system", content: systemContent },
+        ...messages.filter((m: { role: string }) => m.role !== "system"),
+      ];
+
+      const body: any = {
+        model: providerCfg.model,
+        max_tokens: 8192,
+        messages: apiMessages,
+        tools: [REPORT_TOOL],
+        tool_choice: { type: "function", function: { name: "generate_report" } },
+      };
+
+      const response = await fetch(providerCfg.url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const t = await response.text();
+        console.error(`[banco-horas-agent] report error:`, response.status, t);
+        if (response.status === 429) return jsonResponse({ error: "Limite de requisições excedido." }, 429);
+        throw new Error(`Erro ao gerar relatório: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("[banco-horas-agent] report result keys:", JSON.stringify(Object.keys(result)));
+      console.log("[banco-horas-agent] finish_reason:", result.choices?.[0]?.finish_reason);
+      console.log("[banco-horas-agent] message keys:", JSON.stringify(Object.keys(result.choices?.[0]?.message || {})));
+      
+      // Extract tool call arguments
+      const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
+      if (toolCall?.function?.arguments) {
+        const reportData = typeof toolCall.function.arguments === "string"
+          ? JSON.parse(toolCall.function.arguments)
+          : toolCall.function.arguments;
+        return jsonResponse({ report: reportData });
+      }
+
+      // Fallback: try content as text with JSON inside
+      const content = result.choices?.[0]?.message?.content;
+      if (content && typeof content === "string") {
+        // Try to extract JSON from the content
+        let cleaned = content.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+        const jsonStart = cleaned.indexOf("{");
+        const jsonEnd = cleaned.lastIndexOf("}");
+        if (jsonStart !== -1 && jsonEnd !== -1) {
+          cleaned = cleaned.substring(jsonStart, jsonEnd + 1)
+            .replace(/,\s*}/g, "}").replace(/,\s*]/g, "]");
+          try {
+            const parsed = JSON.parse(cleaned);
+            return jsonResponse({ report: parsed });
+          } catch (parseErr) {
+            console.error("[banco-horas-agent] JSON parse fallback failed:", parseErr);
+          }
+        }
+        return jsonResponse({ content });
+      }
+
+      console.error("[banco-horas-agent] Unexpected response:", JSON.stringify(result).substring(0, 500));
+      throw new Error("Resposta inesperada do modelo");
+    }
+
+    // Chat mode (streaming)
     if (providerCfg.isClaude) {
       const claudeMsgs = messages
         .filter((m: { role: string }) => m.role !== "system")
@@ -229,7 +345,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ choices: [{ message: { content: claudeText } }] });
     }
 
-    // Gemini (OpenAI-compatible)
+    // Gemini (OpenAI-compatible) - chat mode
     const apiMessages = [
       { role: "system", content: systemContent },
       ...messages.filter((m: { role: string }) => m.role !== "system"),
