@@ -257,8 +257,8 @@ const BancoHorasPage = () => {
           <TabsList className="h-8">
             <TabsTrigger value="equipe" className="text-xs h-7">Painel RH</TabsTrigger>
             <TabsTrigger value="clt" className="text-xs h-7 gap-1"><Scale className="h-3.5 w-3.5" /> CLT</TabsTrigger>
-            <TabsTrigger value="analise" className="text-xs h-7 gap-1"><Brain className="h-3.5 w-3.5" /> Análise IA</TabsTrigger>
             <TabsTrigger value="meu" className="text-xs h-7">Meu Banco</TabsTrigger>
+            <TabsTrigger value="analise" className="text-xs h-7 gap-1"><Brain className="h-3.5 w-3.5" /> Análise IA</TabsTrigger>
           </TabsList>
 
           <TabsContent value="equipe" className="space-y-3 mt-3">
