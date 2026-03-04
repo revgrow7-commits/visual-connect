@@ -1584,6 +1584,7 @@ export type Database = {
       }
       job_stage_movements: {
         Row: {
+          archived: boolean
           board_id: string
           board_name: string
           created_at: string
@@ -1601,6 +1602,7 @@ export type Database = {
           to_stage_name: string
         }
         Insert: {
+          archived?: boolean
           board_id: string
           board_name: string
           created_at?: string
@@ -1618,6 +1620,7 @@ export type Database = {
           to_stage_name: string
         }
         Update: {
+          archived?: boolean
           board_id?: string
           board_name?: string
           created_at?: string
