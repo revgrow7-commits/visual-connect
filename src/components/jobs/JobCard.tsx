@@ -1,7 +1,7 @@
 import React from "react";
 import type { Job } from "./types";
 import { formatBRL, formatDateBR, formatTimeMins, isOverdue } from "./types";
-import { Zap, Users, AlignLeft, Clock, Check, Ruler } from "lucide-react";
+import { Zap, Users, AlignLeft, Clock, Check, Ruler, Archive, Trash2 } from "lucide-react";
 import type { FlexField } from "@/stores/boardsStore";
 
 interface Props {
@@ -12,9 +12,11 @@ interface Props {
   selectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (jobId: string, e: React.MouseEvent) => void;
+  onArchive?: (jobId: string) => void;
+  onDelete?: (jobId: string) => void;
 }
 
-const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visibleFlexfields, selectionMode, isSelected, onToggleSelect }) => {
+const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visibleFlexfields, selectionMode, isSelected, onToggleSelect, onArchive, onDelete }) => {
   const overdue = isOverdue(job.delivery_date);
 
   const handleClick = (e: React.MouseEvent) => {
@@ -130,6 +132,24 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
           <span className={`w-2 h-2 rounded-full ${job.progress_percent > 0 ? "bg-emerald-500" : "bg-red-500"}`} />
           {job.time_tracked || formatTimeMins(job.time_spent_minutes)}
         </span>
+        {onArchive && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onArchive(job.id); }}
+            className="p-1 rounded hover:bg-amber-50 text-amber-500 transition-colors"
+            title="Arquivar"
+          >
+            <Archive className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {onDelete && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(job.id); }}
+            className="p-1 rounded hover:bg-red-50 text-red-500 transition-colors"
+            title="Excluir"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
     </div>
   );

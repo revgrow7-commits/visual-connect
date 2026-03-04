@@ -30,7 +30,7 @@ import { toast } from "@/hooks/use-toast";
 import { Link, useSearchParams } from "react-router-dom";
 import { useRecordMovement } from "@/hooks/useJobStageMovements";
 import { useQueryClient } from "@tanstack/react-query";
-import { useArchivedJobIds, useArchiveJob } from "@/hooks/useJobArchives";
+import { useArchivedJobIds, useArchiveJob, useDeleteJobFromCache } from "@/hooks/useJobArchives";
 
 // Drill-down state types
 interface DrillDownState {
@@ -56,6 +56,7 @@ const JobsKanban: React.FC = () => {
   const queryClient = useQueryClient();
   const { data: archivedIds, isLoading: archivesLoading } = useArchivedJobIds();
   const archiveJob = useArchiveJob();
+  const deleteJob = useDeleteJobFromCache();
   const [showArchived, setShowArchived] = useState(false);
 
   // Multi-select state
@@ -692,6 +693,11 @@ const JobsKanban: React.FC = () => {
                                     selectionMode={selectionMode}
                                     isSelected={selectedJobIds.has(job.id)}
                                     onToggleSelect={toggleSelectJob}
+                                    onArchive={(id) => {
+                                      const j = col.jobs.find(j => j.id === id);
+                                      if (j) archiveJob.mutate({ job_id: j.id, job_code: j.code, job_title: j.description, customer_name: j.client_name });
+                                    }}
+                                    onDelete={(id) => deleteJob.mutate(id)}
                                   />
                                 </div>
                               )}
