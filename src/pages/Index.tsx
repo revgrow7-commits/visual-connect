@@ -6,6 +6,7 @@ import AtalhosRapidos from "@/components/home/AtalhosRapidos";
 import VagasInternasWidget from "@/components/home/VagasInternasWidget";
 import HomeUsuariosAdmin from "@/components/home/HomeUsuariosAdmin";
 import AniversarioBalloon from "@/components/home/AniversarioBalloon";
+import AniversariantesCarousel from "@/components/home/AniversariantesCarousel";
 import logo from "@/assets/logo-industria-visual.png";
 
 const getGreeting = () => {
@@ -35,7 +36,8 @@ const Index = () => {
       {/* Atalhos */}
       <AtalhosRapidos />
 
-
+      {/* Carrossel Aniversariantes */}
+      <AniversariantesCarousel />
       {/* Grid principal */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
