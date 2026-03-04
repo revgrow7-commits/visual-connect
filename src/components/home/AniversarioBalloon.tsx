@@ -3,11 +3,12 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface AniversarianteHoje {
   nome: string;
   cargo: string | null;
+  foto_url: string | null;
   dia: number;
 }
 
@@ -61,7 +62,7 @@ async function fetchProximosAniversariantes(): Promise<AniversarianteHoje[]> {
 
   const { data, error } = await supabase
     .from("colaboradores")
-    .select("nome, cargo, data_nascimento")
+    .select("nome, cargo, data_nascimento, foto_url")
     .not("data_nascimento", "is", null)
     .eq("status", "ativo");
 
@@ -72,7 +73,7 @@ async function fetchProximosAniversariantes(): Promise<AniversarianteHoje[]> {
       const dn = new Date(c.data_nascimento + "T00:00:00");
       const dia = dn.getDate();
       const mes = dn.getMonth() + 1;
-      return { nome: c.nome, cargo: c.cargo, dia, mes };
+      return { nome: c.nome, cargo: c.cargo, foto_url: c.foto_url, dia, mes };
     })
     .filter((a) => a.mes === mesAtual && a.dia >= diaAtual)
     .sort((a, b) => a.dia - b.dia)
@@ -145,6 +146,7 @@ const AniversarioBalloon = () => {
                     "h-10 w-10 shrink-0 border-2",
                     isToday ? "border-primary" : "border-muted"
                   )}>
+                    {person.foto_url && <AvatarImage src={person.foto_url} alt={person.nome} className="object-cover" />}
                     <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
                       {getInitials(person.nome)}
                     </AvatarFallback>

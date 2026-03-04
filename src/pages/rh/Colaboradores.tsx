@@ -14,7 +14,7 @@ import type { Colaborador, StatusColaborador } from "@/components/colaboradores/
 import ColaboradoresEditableTable from "@/components/colaboradores/ColaboradoresEditableTable";
 import NovoColaboradorDialog from "@/components/colaboradores/NovoColaboradorDialog";
 
-const COLAB_SELECT = `id, nome, email_pessoal, telefone_celular, cargo, setor, unidade, data_admissao, tipo_contratacao, status, compliance_aceito, cpf, created_at, matricula, rg, data_nascimento, sexo, estado_civil, salario_base, jornada, horario, escala, pis_pasep, ctps, cep, endereco, numero, bairro, cidade, estado, banco, agencia, conta, pix, escolaridade, sst, secoes_visiveis`;
+const COLAB_SELECT = `id, nome, email_pessoal, telefone_celular, cargo, setor, unidade, data_admissao, tipo_contratacao, status, compliance_aceito, cpf, created_at, matricula, rg, data_nascimento, sexo, estado_civil, salario_base, jornada, horario, escala, pis_pasep, ctps, cep, endereco, numero, bairro, cidade, estado, banco, agencia, conta, pix, escolaridade, sst, secoes_visiveis, foto_url`;
 
 const ColaboradoresPage = () => {
   const [search, setSearch] = useState("");
