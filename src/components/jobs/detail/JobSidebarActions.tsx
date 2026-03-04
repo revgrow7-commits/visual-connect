@@ -8,6 +8,8 @@ import { useJobExtension, useUpsertJobExtension } from "@/hooks/useJobExtensions
 import { useJobChecklist, useAddChecklistTask, useToggleChecklist, useDeleteChecklist } from "@/hooks/useJobLocalData";
 import { useJobFiles, useUploadJobFile, useDeleteJobFile } from "@/hooks/useJobLocalData";
 import { useJobLinks, useAddJobLink, useDeleteJobLink } from "@/hooks/useJobLinks";
+import { useEtiquetas, etiquetaCorToBg } from "@/hooks/useEtiquetas";
+import EtiquetasEditor from "@/components/etiquetas/EtiquetasEditor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,15 +30,6 @@ import EquipmentSection from "./EquipmentSection";
 interface Props {
   job: Job;
 }
-
-const LABEL_COLORS = [
-  { name: "Verde", color: "#22c55e" },
-  { name: "Amarelo", color: "#eab308" },
-  { name: "Laranja", color: "#f97316" },
-  { name: "Vermelho", color: "#ef4444" },
-  { name: "Roxo", color: "#8b5cf6" },
-  { name: "Azul", color: "#3b82f6" },
-];
 
 const LEMBRETE_OPTIONS = [
   { value: "nenhum", label: "Nenhum" },
@@ -120,16 +113,20 @@ const JobSidebarActions: React.FC<Props> = ({ job }) => {
   }, [ext]);
 
   const tags = ext?.tags || [];
+  const { data: allEtiquetas = [] } = useEtiquetas();
   const checkedCount = checklist.filter(c => c.checked).length;
   const anexosCount = files.length + links.length;
 
+  // Map tag IDs to etiqueta objects for display
+  const selectedEtiquetas = allEtiquetas.filter(e => tags.includes(e.id));
+
   // ─── Handlers ────
-  const handleAddTag = (color: string) => {
-    if (tags.includes(color)) return;
-    upsert.mutate({ tags: [...tags, color] });
-  };
-  const handleRemoveTag = (color: string) => {
-    upsert.mutate({ tags: tags.filter(t => t !== color) });
+  const handleToggleEtiqueta = (id: string, selected: boolean) => {
+    if (selected) {
+      if (!tags.includes(id)) upsert.mutate({ tags: [...tags, id] });
+    } else {
+      upsert.mutate({ tags: tags.filter(t => t !== id) });
+    }
   };
   const handleToggleMember = (name: string) => {
     const next = new Set(selectedMembers);
@@ -221,10 +218,12 @@ const JobSidebarActions: React.FC<Props> = ({ job }) => {
                 <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs px-2.5">
                   <Tag className="h-3.5 w-3.5" />
                   Etiquetas
-                  {tags.length > 0 && (
+                  {selectedEtiquetas.length > 0 && (
                     <span className="flex gap-0.5 ml-0.5">
-                      {tags.slice(0, 3).map(t => <span key={t} className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: t }} />)}
-                      {tags.length > 3 && <span className="text-[9px] text-muted-foreground">+{tags.length - 3}</span>}
+                      {selectedEtiquetas.slice(0, 3).map(e => (
+                        <span key={e.id} className={`h-2.5 w-2.5 rounded-full ${etiquetaCorToBg(e.cor)}`} />
+                      ))}
+                      {selectedEtiquetas.length > 3 && <span className="text-[9px] text-muted-foreground">+{selectedEtiquetas.length - 3}</span>}
                     </span>
                   )}
                 </Button>
@@ -232,29 +231,12 @@ const JobSidebarActions: React.FC<Props> = ({ job }) => {
             </TooltipTrigger>
             <TooltipContent side="bottom"><p>Organize e categorize</p></TooltipContent>
           </Tooltip>
-          <PopoverContent className="w-64 p-3" align="start">
-            <p className="text-xs font-semibold text-muted-foreground mb-2">Etiquetas</p>
-            {tags.length > 0 && (
-              <div className="flex flex-wrap gap-1 mb-2">
-                {tags.map(t => (
-                  <span key={t} className="inline-flex items-center gap-1 text-[11px] font-medium text-white rounded-full px-2.5 py-0.5" style={{ backgroundColor: t }}>
-                    {LABEL_COLORS.find(c => c.color === t)?.name || t}
-                    <button onClick={() => handleRemoveTag(t)} className="hover:opacity-70"><X className="h-3 w-3" /></button>
-                  </span>
-                ))}
-              </div>
-            )}
-            <div className="grid grid-cols-3 gap-1.5">
-              {LABEL_COLORS.map(lc => (
-                <button
-                  key={lc.color}
-                  onClick={() => tags.includes(lc.color) ? handleRemoveTag(lc.color) : handleAddTag(lc.color)}
-                  className={`h-7 rounded-md text-white text-[10px] font-medium transition-all ${tags.includes(lc.color) ? "ring-2 ring-offset-1 ring-foreground/50" : "hover:opacity-80"}`}
-                  style={{ backgroundColor: lc.color }}
-                >
-                  {lc.name}
-                </button>
-              ))}
+          <PopoverContent className="w-[320px] p-0 bg-[#0d1117] border-[#2a2f3d]" align="start">
+            <div className="h-[420px]">
+              <EtiquetasEditor
+                selectedIds={tags}
+                onToggle={handleToggleEtiqueta}
+              />
             </div>
           </PopoverContent>
         </Popover>
