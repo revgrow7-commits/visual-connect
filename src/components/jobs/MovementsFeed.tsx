@@ -29,7 +29,7 @@ function timeAgo(dateStr: string): string {
 
 const MovementsFeed: React.FC<{ maxItems?: number }> = ({ maxItems = 8 }) => {
   const [movements, setMovements] = useState<Movement[]>([]);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   const fetchMovements = async () => {
     const { data } = await supabase
