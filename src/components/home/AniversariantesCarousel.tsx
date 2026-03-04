@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Cake } from "lucide-react";
+import { Cake, PartyPopper } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useEffect, useRef, useCallback } from "react";
@@ -153,12 +153,37 @@ const AniversariantesCarousel = () => {
   });
 
   const hasToday = aniversariantes.some((a) => a.hoje);
+  const aniversariantesHoje = aniversariantes.filter((a) => a.hoje);
   useConfetti(boxRef, hasToday);
 
   if (aniversariantes.length === 0) return null;
 
   return (
     <div ref={boxRef} className="bg-card rounded-xl p-4 shadow-card relative overflow-hidden">
+      {/* Banner de parabéns */}
+      {aniversariantesHoje.length > 0 && (
+        <div className="mb-3 rounded-lg gradient-bordo p-3 flex items-center gap-3 animate-fade-in">
+          <PartyPopper className="h-6 w-6 text-primary-foreground shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-primary-foreground">
+              🎉 Parabéns{aniversariantesHoje.length > 1 ? "" : ""},{" "}
+              {aniversariantesHoje.map((a, i) => (
+                <span key={a.id}>
+                  {a.nome.split(" ")[0]}
+                  {i < aniversariantesHoje.length - 2 && ", "}
+                  {i === aniversariantesHoje.length - 2 && " e "}
+                </span>
+              ))}
+              ! 🥳
+            </p>
+            <p className="text-xs text-primary-foreground/80 mt-0.5">
+              Desejamos um dia incrível cheio de alegria e realizações!
+            </p>
+          </div>
+          <span className="text-2xl">🎂</span>
+        </div>
+      )}
+
       <div className="flex items-center gap-2 mb-3">
         <Cake className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-bold text-foreground">
