@@ -45,6 +45,80 @@ const STEP_TO_STAGE: Record<string, Stage> = {
   "finalizado": "producao_finalizada",
 };
 
+/**
+ * Determine the REAL current production step by analyzing production.items[].tasks[].
+ * The API's `currentProductionStepName` is unreliable (always "Revisão Comercial"),
+ * so we infer the stage from the task statuses within the production flow.
+ */
+function inferCurrentStep(raw: any): string {
+  const production = raw.production;
+  if (!production?.items?.length) return "";
+
+  // Collect all tasks across all items, prioritizing non-productive (stage) tasks
+  const allTasks: any[] = [];
+  for (const item of production.items) {
+    if (item.tasks) allTasks.push(...item.tasks);
+  }
+  if (!allTasks.length) return "";
+
+  // Stage-level tasks (non-productive: Revisão Comercial, Aprovação Financeira, Programação, Faturamento)
+  const stageTasks = allTasks.filter(t => !t.isProductive);
+  // Production tasks (productive: Impressão, Corte, Acabamento, etc.)
+  const prodTasks = allTasks.filter(t => t.isProductive);
+
+  // Find the last finalized stage task to know which stage we passed
+  const STAGE_ORDER = [
+    "revisão comercial", "aprovação financeira", "programação", "faturamento"
+  ];
+
+  // Check if Faturamento is Ready or Finalized
+  const faturamento = stageTasks.find(t => (t.name || "").toLowerCase().includes("faturamento"));
+  if (faturamento?.productionStatus === "Finalized") return "Faturamento";
+  if (faturamento?.productionStatus === "Ready") return "Faturamento";
+
+  // Check productive tasks to find current production step
+  // Find the first non-finalized productive task (the one currently being worked on or next)
+  const activeProdTask = prodTasks.find(t =>
+    t.productionStatus === "InProgress" || t.productionStatus === "Ready" || t.productionStatus === "Paused"
+  );
+  if (activeProdTask) return String(activeProdTask.name || "");
+
+  // If all productive tasks are finalized, check if there's a blocked one
+  const blockedProdTask = prodTasks.find(t => t.productionStatus === "Blocked");
+
+  // Check stage tasks status
+  const programacao = stageTasks.find(t => (t.name || "").toLowerCase().includes("programação"));
+  const aprovacao = stageTasks.find(t => (t.name || "").toLowerCase().includes("aprovação"));
+  const revisao = stageTasks.find(t => (t.name || "").toLowerCase().includes("revisão"));
+
+  // If all prod tasks are finalized → Faturamento or Produção Finalizada
+  const allProdFinalized = prodTasks.length > 0 && prodTasks.every(t => t.productionStatus === "Finalized");
+  if (allProdFinalized) return "Faturamento";
+
+  // If we have a blocked prod task but stages passed
+  if (blockedProdTask) {
+    // Determine which stage we're at based on finalized stage tasks
+    if (programacao?.productionStatus === "Finalized") {
+      // We're past programming, in production phase - map by task name
+      return String(blockedProdTask.name || "Impressão");
+    }
+    if (aprovacao?.productionStatus === "Finalized") return "Programação";
+    if (revisao?.productionStatus === "Finalized") return "Aprovação Financeira";
+  }
+
+  // Check stage task statuses
+  if (programacao?.productionStatus === "Finalized" || programacao?.productionStatus === "Ready") {
+    // Past programming, look at productive tasks
+    const firstProd = prodTasks[0];
+    if (firstProd) return String(firstProd.name || "Impressão");
+    return "Programação";
+  }
+  if (aprovacao?.productionStatus === "Finalized" || aprovacao?.productionStatus === "Ready") return "Programação";
+  if (revisao?.productionStatus === "Finalized" || revisao?.productionStatus === "Ready") return "Aprovação Financeira";
+
+  return "Revisão Comercial";
+}
+
 function mapStage(stepName: string, job: HoldprintJob): Stage {
   const lower = (stepName || "").toLowerCase().trim();
   if (STEP_TO_STAGE[lower]) return STEP_TO_STAGE[lower];
@@ -79,7 +153,9 @@ function calcTotalM2(raw: any): number {
 
 function transformJob(raw: HoldprintJob): Job {
   const r = raw as any;
-  const stepName = String(r.currentProductionStepName || "");
+  // Infer the real current step from production tasks instead of unreliable currentProductionStepName
+  const inferredStep = inferCurrentStep(r);
+  const stepName = inferredStep || String(r.currentProductionStepName || "");
   const stage = mapStage(stepName, raw);
   const status = r.isFinalized ? "fechado" : "aberto";
   const customerName = r.customerName || r.customer?.name || r.customer?.fantasyName || "Sem cliente";

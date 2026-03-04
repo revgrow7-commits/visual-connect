@@ -4,6 +4,52 @@ import type { HoldprintJob } from "@/hooks/useCSHoldprintData";
 import type { PCPColumn, PCPCard } from "./pcpMockData";
 import { initialPcpColumns } from "./pcpMockData";
 
+/** Infer the real current step from production tasks instead of unreliable currentProductionStepName */
+function inferCurrentStepPCP(raw: any): string {
+  const production = raw.production;
+  if (!production?.items?.length) return "";
+  const allTasks: any[] = [];
+  for (const item of production.items) {
+    if (item.tasks) allTasks.push(...item.tasks);
+  }
+  if (!allTasks.length) return "";
+
+  const stageTasks = allTasks.filter((t: any) => !t.isProductive);
+  const prodTasks = allTasks.filter((t: any) => t.isProductive);
+
+  const faturamento = stageTasks.find((t: any) => (t.name || "").toLowerCase().includes("faturamento"));
+  if (faturamento?.productionStatus === "Finalized" || faturamento?.productionStatus === "Ready") return "Faturamento";
+
+  const activeProdTask = prodTasks.find((t: any) =>
+    t.productionStatus === "InProgress" || t.productionStatus === "Ready" || t.productionStatus === "Paused"
+  );
+  if (activeProdTask) return String(activeProdTask.name || "");
+
+  const allProdFinalized = prodTasks.length > 0 && prodTasks.every((t: any) => t.productionStatus === "Finalized");
+  if (allProdFinalized) return "Faturamento";
+
+  const blockedProdTask = prodTasks.find((t: any) => t.productionStatus === "Blocked");
+  const programacao = stageTasks.find((t: any) => (t.name || "").toLowerCase().includes("programação"));
+  const aprovacao = stageTasks.find((t: any) => (t.name || "").toLowerCase().includes("aprovação"));
+  const revisao = stageTasks.find((t: any) => (t.name || "").toLowerCase().includes("revisão"));
+
+  if (blockedProdTask) {
+    if (programacao?.productionStatus === "Finalized") return String(blockedProdTask.name || "Impressão");
+    if (aprovacao?.productionStatus === "Finalized") return "Programação";
+    if (revisao?.productionStatus === "Finalized") return "Aprovação Financeira";
+  }
+
+  if (programacao?.productionStatus === "Finalized" || programacao?.productionStatus === "Ready") {
+    const firstProd = prodTasks[0];
+    if (firstProd) return String(firstProd.name || "Impressão");
+    return "Programação";
+  }
+  if (aprovacao?.productionStatus === "Finalized" || aprovacao?.productionStatus === "Ready") return "Programação";
+  if (revisao?.productionStatus === "Finalized" || revisao?.productionStatus === "Ready") return "Aprovação Financeira";
+
+  return "Revisão Comercial";
+}
+
 // Map production step names to kanban column IDs
 const STEP_TO_COLUMN: Record<string, string> = {
   "revisão comercial": "aguardando",
@@ -108,7 +154,8 @@ export function transformJobsToKanban(jobs: HoldprintJob[]): PCPColumn[] {
   const activeJobs = jobs.filter(j => !j.isFinalized);
 
   for (const job of activeJobs) {
-    const stepName = job.currentProductionStepName || "";
+    const inferredStep = inferCurrentStepPCP(job);
+    const stepName = inferredStep || job.currentProductionStepName || "";
     const columnId = getColumnId(stepName);
     const suffix = getSubSuffix(job);
     const subId = resolveSubSectionId(columnId, suffix, columns);
@@ -152,9 +199,10 @@ export function useKanbanHoldprintJobs() {
       const { data, error } = await supabase.functions.invoke("cs-holdprint-data", {
         body: {
           endpoints: ["jobs"],
-          startDate: today,
-          endDate: today,
-          maxPages: 5,
+           startDate: today,
+           endDate: today,
+           maxPages: 5,
+           fullDetail: true,
         },
       });
 
