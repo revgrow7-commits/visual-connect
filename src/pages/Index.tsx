@@ -15,14 +15,10 @@ const getGreeting = () => {
   return "Boa noite";
 };
 
-const aniversariantesHoje = [
-  { nome: "Ana Rodrigues", foto: "https://i.pravatar.cc/150?img=1" },
-];
-
 const Index = () => {
   return (
     <div className="space-y-6 animate-fade-in">
-      <AniversarioBalloon aniversariantes={aniversariantesHoje} />
+      <AniversarioBalloon />
       {/* Hero Banner */}
       <div className="gradient-bordo rounded-2xl p-6 flex items-center gap-4">
         <img src={logo} alt="Indústria Visual" className="h-10 brightness-0 invert hidden sm:block" />

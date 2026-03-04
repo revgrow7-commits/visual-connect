@@ -1,0 +1,1 @@
+DELETE FROM public.colaboradores WHERE id = 'f1a6b05f-abb4-4e74-83f1-27fad390a665';
