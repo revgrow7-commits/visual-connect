@@ -25,10 +25,8 @@ import {
 import {
   Search, RefreshCw, Loader2, Plus, LayoutGrid, List,
   Calendar, Settings2, Users, ChevronLeft, ChevronRight, Archive, MousePointerClick,
-  Briefcase, Clock, TrendingUp, CalendarCheck, Tag,
+  Briefcase, Clock, TrendingUp, CalendarCheck,
 } from "lucide-react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import EtiquetasEditor from "@/components/etiquetas/EtiquetasEditor";
 import { toast } from "@/hooks/use-toast";
 import { Link, useSearchParams } from "react-router-dom";
 import { useRecordMovement } from "@/hooks/useJobStageMovements";
@@ -419,16 +417,6 @@ const JobsKanban: React.FC = () => {
             {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             <span className="ml-1.5 text-xs">Atualizar</span>
           </Button>
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-9 px-3 text-white/70 hover:text-white hover:bg-[#1e2330] border border-[#2a2f3d]">
-                <Tag className="h-4 w-4 mr-1.5" /> <span className="text-xs">Etiquetas</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="bg-[#0d1117] border-[#2a2f3d] w-[420px] sm:w-[480px]">
-              <EtiquetasEditor />
-            </SheetContent>
-          </Sheet>
           <Link to="/admin/boards">
             <Button variant="ghost" size="sm" className="h-9 px-3 text-white/70 hover:text-white hover:bg-[#1e2330] border border-[#2a2f3d]">
               <Settings2 className="h-4 w-4 mr-1.5" /> <span className="text-xs">Configurar</span>
