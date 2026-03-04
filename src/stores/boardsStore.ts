@@ -51,6 +51,7 @@ export const DEFAULT_BOARDS: Board[] = [
       { id: "revisao_comercial", name: "Revisão Comercial", color: "#6366F1" },
       { id: "aprovacao_financeira", name: "Aprovação Financeira", color: "#8B5CF6" },
       { id: "programacao", name: "Programação", color: "#06B6D4" },
+      { id: "projetos", name: "Projetos", color: "#7C3AED" },
       { id: "compras", name: "Compras", color: "#F59E0B" },
       { id: "arte_final", name: "Arte Final", color: "#EC4899" },
       { id: "impressao", name: "Impressão", color: "#3B82F6" },

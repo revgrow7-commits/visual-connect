@@ -37,6 +37,7 @@ export type Stage =
   | "revisao_comercial"
   | "aprovacao_financeira"
   | "programacao"
+  | "projetos"
   | "compras"
   | "arte_final"
   | "impressao"
@@ -65,20 +66,21 @@ export const DEFAULT_STAGES: StageConfig[] = [
   { id: "revisao_comercial", name: "Revisão Comercial", order: 1, color: "#6366F1" },
   { id: "aprovacao_financeira", name: "Aprovação Financeira", order: 2, color: "#8B5CF6" },
   { id: "programacao", name: "Programação", order: 3, color: "#06B6D4" },
-  { id: "compras", name: "Compras", order: 4, color: "#F59E0B" },
-  { id: "arte_final", name: "Arte Final", order: 5, color: "#EC4899" },
-  { id: "impressao", name: "Impressão", order: 6, color: "#3B82F6" },
-  { id: "acabamento", name: "Acabamento", order: 7, color: "#10B981" },
-  { id: "serralheria", name: "Serralheria", order: 8, color: "#64748B" },
-  { id: "marcenaria", name: "Marcenaria", order: 9, color: "#92400E" },
-  { id: "pintura", name: "Pintura", order: 10, color: "#DC2626" },
-  { id: "expedicao", name: "Expedição", order: 11, color: "#7C3AED" },
-  { id: "instalacao", name: "Instalação", order: 12, color: "#059669" },
-  { id: "entrega", name: "Entrega", order: 13, color: "#0EA5E9" },
-  { id: "faturamento", name: "Faturamento", order: 14, color: "#D97706" },
-  { id: "nao_gera_faturamento", name: "Não Gera Faturamento", order: 15, color: "#6B7280" },
-  { id: "previsto_realizado", name: "Previsto x Realizado", order: 16, color: "#4B5563" },
-  { id: "producao_finalizada", name: "Produção Finalizada", order: 17, color: "#16A34A" },
+  { id: "projetos", name: "Projetos", order: 4, color: "#7C3AED" },
+  { id: "compras", name: "Compras", order: 5, color: "#F59E0B" },
+  { id: "arte_final", name: "Arte Final", order: 6, color: "#EC4899" },
+  { id: "impressao", name: "Impressão", order: 7, color: "#3B82F6" },
+  { id: "acabamento", name: "Acabamento", order: 8, color: "#10B981" },
+  { id: "serralheria", name: "Serralheria", order: 9, color: "#64748B" },
+  { id: "marcenaria", name: "Marcenaria", order: 10, color: "#92400E" },
+  { id: "pintura", name: "Pintura", order: 11, color: "#DC2626" },
+  { id: "expedicao", name: "Expedição", order: 12, color: "#7C3AED" },
+  { id: "instalacao", name: "Instalação", order: 13, color: "#059669" },
+  { id: "entrega", name: "Entrega", order: 14, color: "#0EA5E9" },
+  { id: "faturamento", name: "Faturamento", order: 15, color: "#D97706" },
+  { id: "nao_gera_faturamento", name: "Não Gera Faturamento", order: 16, color: "#6B7280" },
+  { id: "previsto_realizado", name: "Previsto x Realizado", order: 17, color: "#4B5563" },
+  { id: "producao_finalizada", name: "Produção Finalizada", order: 18, color: "#16A34A" },
 ];
 
 export interface Job {
