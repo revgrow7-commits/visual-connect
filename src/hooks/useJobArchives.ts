@@ -56,3 +56,27 @@ export function useUnarchiveJob() {
     },
   });
 }
+
+export function useDeleteJobFromCache() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (jobId: string) => {
+      const { error } = await supabase
+        .from("jobs_cache")
+        .delete()
+        .eq("holdprint_id", jobId);
+      if (error) throw error;
+      // Also clean up related local data
+      await supabase.from("job_archives").delete().eq("job_id", jobId);
+      await supabase.from("job_extensions").delete().eq("holdprint_job_id", jobId);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["jobs-kanban"] });
+      qc.invalidateQueries({ queryKey: ["job-archives"] });
+      toast({ title: "Job excluído", description: "O job foi removido permanentemente." });
+    },
+    onError: () => {
+      toast({ title: "Erro", description: "Não foi possível excluir o job.", variant: "destructive" });
+    },
+  });
+}
