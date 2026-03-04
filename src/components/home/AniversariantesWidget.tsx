@@ -2,7 +2,7 @@ import { Cake } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface Aniversariante {
@@ -10,6 +10,7 @@ interface Aniversariante {
   nome: string;
   cargo: string | null;
   unidade: string | null;
+  foto_url: string | null;
   dia: number;
   mes: number;
   hoje: boolean;
@@ -31,7 +32,7 @@ async function fetchAniversariantes(): Promise<Aniversariante[]> {
 
   const { data, error } = await supabase
     .from("colaboradores")
-    .select("id, nome, cargo, unidade, data_nascimento, status")
+    .select("id, nome, cargo, unidade, data_nascimento, status, foto_url")
     .not("data_nascimento", "is", null)
     .eq("status", "ativo");
 
@@ -49,6 +50,7 @@ async function fetchAniversariantes(): Promise<Aniversariante[]> {
         nome: c.nome,
         cargo: c.cargo,
         unidade: c.unidade,
+        foto_url: c.foto_url,
         dia,
         mes,
         hoje: mes === mesAtual && dia === hoje,
@@ -107,6 +109,7 @@ const AniversariantesWidget = () => {
                 "h-9 w-9 shrink-0 border-2",
                 person.hoje ? "border-primary" : "border-muted"
               )}>
+                {person.foto_url && <AvatarImage src={person.foto_url} alt={person.nome} className="object-cover" />}
                 <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
                   {getInitials(person.nome)}
                 </AvatarFallback>
