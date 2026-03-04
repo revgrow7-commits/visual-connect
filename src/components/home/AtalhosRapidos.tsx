@@ -16,7 +16,7 @@ const atalhos = [
   { label: "Questionários", icon: ClipboardList, path: "/questionarios" },
   { label: "Vagas Internas", icon: Briefcase, path: "/rh/colaboradores" },
   { label: "Feedback PDI", icon: MessageSquarePlus, path: "https://empflow-22.emergent.host/create-feedback", external: true },
-  { label: "Jobs", icon: Kanban, path: "/jobs-fullscreen", external: true },
+  { label: "Jobs", icon: Kanban, path: "/jobs" },
   { label: "CS", icon: Heart, path: "/gestao/cs" },
 ];
 
