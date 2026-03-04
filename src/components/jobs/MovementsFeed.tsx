@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowRight, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowRight, RefreshCw, ChevronDown, ChevronUp, Archive, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 interface Movement {
   id: string;
@@ -14,6 +15,7 @@ interface Movement {
   moved_by: string | null;
   movement_type: string;
   created_at: string;
+  archived?: boolean;
 }
 
 function timeAgo(dateStr: string): string {
@@ -34,7 +36,8 @@ const MovementsFeed: React.FC<{ maxItems?: number }> = ({ maxItems = 8 }) => {
   const fetchMovements = async () => {
     const { data } = await supabase
       .from("job_stage_movements")
-      .select("id, job_id, job_code, job_title, customer_name, from_stage_name, to_stage_name, moved_by, movement_type, created_at")
+      .select("id, job_id, job_code, job_title, customer_name, from_stage_name, to_stage_name, moved_by, movement_type, created_at, archived")
+      .eq("archived", false)
       .order("created_at", { ascending: false })
       .limit(maxItems);
     if (data) setMovements(data);
@@ -53,7 +56,35 @@ const MovementsFeed: React.FC<{ maxItems?: number }> = ({ maxItems = 8 }) => {
     return () => { supabase.removeChannel(channel); };
   }, [maxItems]);
 
-  if (movements.length === 0) return null;
+  const handleArchive = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const { error } = await supabase
+      .from("job_stage_movements")
+      .update({ archived: true } as any)
+      .eq("id", id);
+    if (error) {
+      toast.error("Erro ao arquivar movimentação");
+      return;
+    }
+    setMovements((prev) => prev.filter((m) => m.id !== id));
+    toast.success("Movimentação arquivada");
+  };
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const { error } = await supabase
+      .from("job_stage_movements")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      toast.error("Erro ao excluir movimentação");
+      return;
+    }
+    setMovements((prev) => prev.filter((m) => m.id !== id));
+    toast.success("Movimentação excluída");
+  };
+
+  if (movements.length === 0 && !expanded) return null;
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
@@ -71,8 +102,11 @@ const MovementsFeed: React.FC<{ maxItems?: number }> = ({ maxItems = 8 }) => {
 
       {expanded && (
         <div className="px-3 pb-2 space-y-1 max-h-[200px] overflow-y-auto">
+          {movements.length === 0 && (
+            <p className="text-[11px] text-gray-400 py-2 text-center">Nenhuma movimentação recente</p>
+          )}
           {movements.map((m) => (
-            <div key={m.id} className="flex items-center gap-1.5 text-[11px] py-1 border-b border-gray-100 last:border-0">
+            <div key={m.id} className="flex items-center gap-1.5 text-[11px] py-1 border-b border-gray-100 last:border-0 group">
               <span className="font-mono font-semibold text-blue-600 shrink-0">
                 {m.job_code ? `J${m.job_code}` : m.job_id.slice(0, 8)}
               </span>
@@ -87,6 +121,20 @@ const MovementsFeed: React.FC<{ maxItems?: number }> = ({ maxItems = 8 }) => {
               {m.movement_type === "holdprint_sync" && (
                 <Badge variant="outline" className="text-[9px] h-3.5 px-1 border-blue-200 text-blue-500">sync</Badge>
               )}
+              <button
+                onClick={(e) => handleArchive(m.id, e)}
+                className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-amber-50 text-amber-500 shrink-0"
+                title="Arquivar"
+              >
+                <Archive className="h-3 w-3" />
+              </button>
+              <button
+                onClick={(e) => handleDelete(m.id, e)}
+                className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 text-red-500 shrink-0"
+                title="Excluir"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
             </div>
           ))}
         </div>
