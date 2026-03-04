@@ -1,7 +1,7 @@
 import JobsKanban from "@/components/jobs/JobsKanban";
 
 const JobsPage = () => (
-  <div className="min-h-screen bg-[#f0f2f5]">
+  <div className="min-h-screen bg-[#0d1117]">
     <JobsKanban />
   </div>
 );
