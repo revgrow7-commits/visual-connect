@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Cake } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { useEffect, useRef, useCallback } from "react";
 
 interface Aniversariante {
   id: string;
@@ -56,8 +57,94 @@ async function fetchAniversariantes(): Promise<Aniversariante[]> {
     .sort((a, b) => a.dia - b.dia);
 }
 
+const CONFETTI_COLORS = [
+  "hsl(var(--primary))",
+  "#FFD700",
+  "#FF6B6B",
+  "#4ECDC4",
+  "#A78BFA",
+  "#FB923C",
+  "#34D399",
+  "#F472B6",
+];
+
+function useConfetti(containerRef: React.RefObject<HTMLDivElement | null>, active: boolean) {
+  const animFrameRef = useRef<number>(0);
+
+  const run = useCallback(() => {
+    const container = containerRef.current;
+    if (!container || !active) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.style.cssText = "position:absolute;inset:0;pointer-events:none;z-index:10;border-radius:inherit;";
+    container.style.position = "relative";
+    container.style.overflow = "hidden";
+    container.appendChild(canvas);
+
+    const ctx = canvas.getContext("2d")!;
+    const rect = container.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+
+    interface Particle {
+      x: number; y: number; w: number; h: number;
+      color: string; vx: number; vy: number;
+      rotation: number; rotSpeed: number; opacity: number;
+    }
+
+    const particles: Particle[] = Array.from({ length: 60 }, () => ({
+      x: Math.random() * canvas.width,
+      y: -10 - Math.random() * 40,
+      w: 4 + Math.random() * 4,
+      h: 6 + Math.random() * 8,
+      color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+      vx: (Math.random() - 0.5) * 2,
+      vy: 1.2 + Math.random() * 2.5,
+      rotation: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.15,
+      opacity: 1,
+    }));
+
+    let done = 0;
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach((p) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.rotation += p.rotSpeed;
+        if (p.y > canvas.height * 0.7) p.opacity = Math.max(0, p.opacity - 0.02);
+        if (p.opacity <= 0) { done++; return; }
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+        ctx.globalAlpha = p.opacity;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      });
+      if (done < particles.length) {
+        animFrameRef.current = requestAnimationFrame(animate);
+      } else {
+        canvas.remove();
+      }
+    };
+    animFrameRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(animFrameRef.current);
+      canvas.remove();
+    };
+  }, [containerRef, active]);
+
+  useEffect(() => {
+    const cleanup = run();
+    return cleanup;
+  }, [run]);
+}
+
 const AniversariantesCarousel = () => {
   const mesAtual = new Date().getMonth() + 1;
+  const boxRef = useRef<HTMLDivElement>(null);
 
   const { data: aniversariantes = [] } = useQuery({
     queryKey: ["aniversariantes-carousel", mesAtual],
@@ -65,10 +152,13 @@ const AniversariantesCarousel = () => {
     staleTime: 10 * 60 * 1000,
   });
 
+  const hasToday = aniversariantes.some((a) => a.hoje);
+  useConfetti(boxRef, hasToday);
+
   if (aniversariantes.length === 0) return null;
 
   return (
-    <div className="bg-card rounded-xl p-4 shadow-card">
+    <div ref={boxRef} className="bg-card rounded-xl p-4 shadow-card relative overflow-hidden">
       <div className="flex items-center gap-2 mb-3">
         <Cake className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-bold text-foreground">
