@@ -428,18 +428,7 @@ const JobsKanban: React.FC = () => {
         </div>
       </div>
 
-      {/* ── KPI Summary ── */}
-      <div className="px-6 pb-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KPICard icon={Briefcase} value={kpis.total} label="Total" color="#ef4444" bgColor="rgba(239,68,68,0.1)" />
-        <KPICard icon={Clock} value={kpis.aguardando} label="Aguardando" color="#f59e0b" bgColor="rgba(245,158,11,0.1)" />
-        <KPICard icon={TrendingUp} value={kpis.instalando} label="Instalando" color="#3b82f6" bgColor="rgba(59,130,246,0.1)" />
-        <KPICard icon={CalendarCheck} value={kpis.agendados} label="Agendados" color="#10b981" bgColor="rgba(16,185,129,0.1)" />
-      </div>
-
-      {/* ── Movements Feed ── */}
-      <div className="px-6 pb-3">
-        <MovementsFeed maxItems={6} />
-      </div>
+      {/* KPI Summary and Movements Feed hidden per user request */}
 
       {/* ── Filters ── */}
       <div className="px-6 pb-3 flex flex-wrap items-center gap-2">
