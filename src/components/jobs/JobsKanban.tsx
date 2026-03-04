@@ -408,17 +408,17 @@ const JobsKanban: React.FC = () => {
       {/* ── Header ── */}
       <div className="px-6 pt-5 pb-3 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-100 tracking-tight">Jobs</h1>
-          <p className="text-sm text-gray-500">{filteredData?.total || 0} job(s) encontrado(s)</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Jobs</h1>
+          <p className="text-sm text-white/60">{filteredData?.total || 0} job(s) encontrado(s)</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => refetch()} disabled={isFetching}
-            className="h-9 px-3 text-gray-400 hover:text-gray-100 hover:bg-[#1e2330] border border-[#2a2f3d]">
+            className="h-9 px-3 text-white/70 hover:text-white hover:bg-[#1e2330] border border-[#2a2f3d]">
             {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             <span className="ml-1.5 text-xs">Atualizar</span>
           </Button>
           <Link to="/admin/boards">
-            <Button variant="ghost" size="sm" className="h-9 px-3 text-gray-400 hover:text-gray-100 hover:bg-[#1e2330] border border-[#2a2f3d]">
+            <Button variant="ghost" size="sm" className="h-9 px-3 text-white/70 hover:text-white hover:bg-[#1e2330] border border-[#2a2f3d]">
               <Settings2 className="h-4 w-4 mr-1.5" /> <span className="text-xs">Configurar</span>
             </Button>
           </Link>
@@ -436,7 +436,7 @@ const JobsKanban: React.FC = () => {
         <div className="flex border border-[#2a2f3d] rounded-lg overflow-hidden mr-1">
           {boards.map(b => (
             <button key={b.id} onClick={() => { setActiveBoardId(b.id); setLocalByStage(null); setDrillDown({ level: "board" }); setSelectedJob(null); setActiveMicroBoardId(null); }}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${activeBoardId === b.id && !activeMicroBoardId ? "text-white" : "bg-[#161b26] text-gray-500 hover:bg-[#1e2330] hover:text-gray-300"}`}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${activeBoardId === b.id && !activeMicroBoardId ? "text-white" : "bg-[#161b26] text-white/70 hover:bg-[#1e2330] hover:text-white"}`}
               style={activeBoardId === b.id && !activeMicroBoardId ? { backgroundColor: b.color } : undefined}>
               {b.name}
             </button>
@@ -448,7 +448,7 @@ const JobsKanban: React.FC = () => {
           <div className="flex border border-[#2a2f3d] rounded-lg overflow-hidden mr-1">
             {microBoards.map(mb => (
               <button key={mb.id} onClick={() => { setActiveMicroBoardId(mb.id); setDrillDown({ level: "board" }); setSelectedJob(null); }}
-                className={`px-2.5 py-1.5 text-[11px] font-medium transition-colors flex items-center gap-1.5 ${activeMicroBoardId === mb.id ? "text-white" : "bg-[#161b26] text-gray-500 hover:bg-[#1e2330]"}`}
+                className={`px-2.5 py-1.5 text-[11px] font-medium transition-colors flex items-center gap-1.5 ${activeMicroBoardId === mb.id ? "text-white" : "bg-[#161b26] text-white/70 hover:bg-[#1e2330]"}`}
                 style={activeMicroBoardId === mb.id ? { backgroundColor: mb.color } : undefined}>
                 <span className="h-2 w-2 rounded-full" style={{ backgroundColor: mb.color }} />
                 {mb.name}
@@ -459,21 +459,21 @@ const JobsKanban: React.FC = () => {
 
         {/* Search */}
         <div className="relative flex-1 min-w-[200px] max-w-[320px]">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/50" />
           <Input placeholder="Buscar por título, cliente ou #código..."
             value={search} onChange={e => setSearch(e.target.value)}
-            className="pl-9 h-9 text-xs bg-[#161b26] border-[#2a2f3d] text-gray-200 placeholder:text-gray-600 focus:border-rose-500/50 focus:ring-rose-500/20" />
+            className="pl-9 h-9 text-xs bg-[#161b26] border-[#2a2f3d] text-white placeholder:text-white/40 focus:border-rose-500/50 focus:ring-rose-500/20" />
         </div>
 
         {/* View toggle */}
         <div className="flex border border-[#2a2f3d] rounded-lg overflow-hidden">
-          <button onClick={() => setViewMode("kanban")} className={`p-2 transition-colors ${viewMode === "kanban" ? "bg-[#2a2f3d] text-gray-100" : "bg-[#161b26] text-gray-500 hover:text-gray-300"}`}><LayoutGrid className="h-3.5 w-3.5" /></button>
-          <button onClick={() => setViewMode("list")} className={`p-2 transition-colors ${viewMode === "list" ? "bg-[#2a2f3d] text-gray-100" : "bg-[#161b26] text-gray-500 hover:text-gray-300"}`}><List className="h-3.5 w-3.5" /></button>
+          <button onClick={() => setViewMode("kanban")} className={`p-2 transition-colors ${viewMode === "kanban" ? "bg-[#2a2f3d] text-white" : "bg-[#161b26] text-white/60 hover:text-white"}`}><LayoutGrid className="h-3.5 w-3.5" /></button>
+          <button onClick={() => setViewMode("list")} className={`p-2 transition-colors ${viewMode === "list" ? "bg-[#2a2f3d] text-white" : "bg-[#161b26] text-white/60 hover:text-white"}`}><List className="h-3.5 w-3.5" /></button>
         </div>
 
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-[130px] h-9 text-xs bg-[#161b26] border-[#2a2f3d] text-gray-300"><SelectValue /></SelectTrigger>
-          <SelectContent className="bg-[#1e2330] border-[#2a2f3d] text-gray-200">
+          <SelectTrigger className="w-[130px] h-9 text-xs bg-[#161b26] border-[#2a2f3d] text-white"><SelectValue /></SelectTrigger>
+          <SelectContent className="bg-[#1e2330] border-[#2a2f3d] text-white">
             <SelectItem value="aberto">Todos os Status</SelectItem>
             <SelectItem value="fechado">Fechados</SelectItem>
             <SelectItem value="todos">Todos</SelectItem>
@@ -482,20 +482,20 @@ const JobsKanban: React.FC = () => {
         </Select>
 
         <Select value={filterResponsavel} onValueChange={setFilterResponsavel}>
-          <SelectTrigger className="w-[160px] h-9 text-xs bg-[#161b26] border-[#2a2f3d] text-gray-300">
-            <Users className="h-3.5 w-3.5 mr-1 text-gray-500" /><SelectValue placeholder="Todas as Filiais" />
+          <SelectTrigger className="w-[160px] h-9 text-xs bg-[#161b26] border-[#2a2f3d] text-white">
+            <Users className="h-3.5 w-3.5 mr-1 text-white/50" /><SelectValue placeholder="Todas as Filiais" />
           </SelectTrigger>
-          <SelectContent className="bg-[#1e2330] border-[#2a2f3d] text-gray-200">
+          <SelectContent className="bg-[#1e2330] border-[#2a2f3d] text-white">
             <SelectItem value="todos">Todos...</SelectItem>
             {colaboradores.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
           </SelectContent>
         </Select>
 
         <Select value={filterPrazo} onValueChange={setFilterPrazo}>
-          <SelectTrigger className="w-[130px] h-9 text-xs bg-[#161b26] border-[#2a2f3d] text-gray-300">
-            <Calendar className="h-3.5 w-3.5 mr-1 text-gray-500" /><SelectValue />
+          <SelectTrigger className="w-[130px] h-9 text-xs bg-[#161b26] border-[#2a2f3d] text-white">
+            <Calendar className="h-3.5 w-3.5 mr-1 text-white/50" /><SelectValue />
           </SelectTrigger>
-          <SelectContent className="bg-[#1e2330] border-[#2a2f3d] text-gray-200">
+          <SelectContent className="bg-[#1e2330] border-[#2a2f3d] text-white">
             <SelectItem value="todos">Prazo: Todos</SelectItem>
             <SelectItem value="hoje">Hoje</SelectItem>
             <SelectItem value="semana">Semana</SelectItem>
@@ -504,12 +504,12 @@ const JobsKanban: React.FC = () => {
         </Select>
 
         <div className="flex items-center gap-1.5 border border-[#2a2f3d] rounded-lg px-3 h-9 bg-[#161b26]">
-          <Calendar className="h-3.5 w-3.5 text-gray-500" />
+          <Calendar className="h-3.5 w-3.5 text-white/50" />
           <input type="date" value={dateFrom} readOnly
-            className="bg-transparent text-[11px] text-gray-400 border-none outline-none w-[105px] pointer-events-none" />
-          <span className="text-[11px] text-gray-600">→</span>
+            className="bg-transparent text-[11px] text-white/80 border-none outline-none w-[105px] pointer-events-none" />
+          <span className="text-[11px] text-white/40">→</span>
           <input type="date" value={dateTo} readOnly
-            className="bg-transparent text-[11px] text-gray-400 border-none outline-none w-[105px] pointer-events-none" />
+            className="bg-transparent text-[11px] text-white/80 border-none outline-none w-[105px] pointer-events-none" />
         </div>
 
         <div className="ml-auto flex items-center gap-1.5">
@@ -517,7 +517,7 @@ const JobsKanban: React.FC = () => {
             variant={selectionMode ? "default" : "ghost"}
             size="sm"
             onClick={() => { if (selectionMode) clearSelection(); else setSelectionMode(true); }}
-            className={`h-9 gap-1 text-xs border border-[#2a2f3d] ${selectionMode ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600" : "text-gray-400 hover:text-gray-100 hover:bg-[#1e2330]"}`}
+            className={`h-9 gap-1 text-xs border border-[#2a2f3d] ${selectionMode ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600" : "text-white/70 hover:text-white hover:bg-[#1e2330]"}`}
           >
             <MousePointerClick className="h-3.5 w-3.5" />
             {selectionMode ? "Cancelar" : "Selecionar"}
@@ -527,7 +527,7 @@ const JobsKanban: React.FC = () => {
             variant={showArchived ? "default" : "ghost"}
             size="sm"
             onClick={() => setShowArchived(!showArchived)}
-            className={`h-9 gap-1 text-xs border border-[#2a2f3d] ${showArchived ? "bg-amber-600 hover:bg-amber-700 text-white border-amber-600" : "text-gray-400 hover:text-gray-100 hover:bg-[#1e2330]"}`}
+            className={`h-9 gap-1 text-xs border border-[#2a2f3d] ${showArchived ? "bg-amber-600 hover:bg-amber-700 text-white border-amber-600" : "text-white/70 hover:text-white hover:bg-[#1e2330]"}`}
           >
             <Archive className="h-3.5 w-3.5" />
             {showArchived ? "Arquivados" : "Arquivo"}
