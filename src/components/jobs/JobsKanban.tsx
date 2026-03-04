@@ -168,13 +168,13 @@ const JobsKanban: React.FC = () => {
   }, []);
 
   const now = new Date();
-  // Use a wider default range (3 months back) to capture all active jobs
-  const threeMonthsAgo = new Date(now);
-  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-  const defaultFrom = `${threeMonthsAgo.getFullYear()}-${String(threeMonthsAgo.getMonth() + 1).padStart(2, "0")}-01`;
+  // Fixed: show only the last 2 days
+  const twoDaysAgo = new Date(now);
+  twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+  const defaultFrom = `${twoDaysAgo.getFullYear()}-${String(twoDaysAgo.getMonth() + 1).padStart(2, "0")}-${String(twoDaysAgo.getDate()).padStart(2, "0")}`;
   const defaultTo = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const [dateFrom, setDateFrom] = useState(defaultFrom);
-  const [dateTo, setDateTo] = useState(defaultTo);
+  const [dateFrom] = useState(defaultFrom);
+  const [dateTo] = useState(defaultTo);
   const filters: JobsFilters = { search, status: status as JobsFilters["status"], productionType, dateFrom, dateTo };
   const { data, isLoading, isFetching, refetch, isError } = useJobsData(filters, activeBoard);
 
@@ -582,11 +582,11 @@ const JobsKanban: React.FC = () => {
 
         <div className="flex items-center gap-1.5 border rounded-md px-2 h-8">
           <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-            className="bg-transparent text-[11px] text-muted-foreground border-none outline-none w-[105px]" />
+          <input type="date" value={dateFrom} readOnly
+            className="bg-transparent text-[11px] text-muted-foreground border-none outline-none w-[105px] pointer-events-none" />
           <span className="text-[11px] text-muted-foreground">até</span>
-          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-            className="bg-transparent text-[11px] text-muted-foreground border-none outline-none w-[105px]" />
+          <input type="date" value={dateTo} readOnly
+            className="bg-transparent text-[11px] text-muted-foreground border-none outline-none w-[105px] pointer-events-none" />
         </div>
 
         <div className="ml-auto flex items-center gap-1.5">
