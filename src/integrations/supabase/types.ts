@@ -876,6 +876,77 @@ export type Database = {
         }
         Relationships: []
       }
+      etiquetas: {
+        Row: {
+          ativa: boolean
+          cor: string
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          ativa?: boolean
+          cor?: string
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          ativa?: boolean
+          cor?: string
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      etiquetas_historico: {
+        Row: {
+          acao: string
+          created_at: string
+          dados_anteriores: Json | null
+          dados_novos: Json | null
+          etiqueta_id: string | null
+          executado_por: string | null
+          id: string
+        }
+        Insert: {
+          acao: string
+          created_at?: string
+          dados_anteriores?: Json | null
+          dados_novos?: Json | null
+          etiqueta_id?: string | null
+          executado_por?: string | null
+          id?: string
+        }
+        Update: {
+          acao?: string
+          created_at?: string
+          dados_anteriores?: Json | null
+          dados_novos?: Json | null
+          etiqueta_id?: string | null
+          executado_por?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "etiquetas_historico_etiqueta_id_fkey"
+            columns: ["etiqueta_id"]
+            isOneToOne: false
+            referencedRelation: "etiquetas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gateway_users: {
         Row: {
           created_at: string
