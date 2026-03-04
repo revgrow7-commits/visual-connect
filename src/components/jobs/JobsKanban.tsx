@@ -25,6 +25,7 @@ import {
 import {
   Search, RefreshCw, Loader2, Plus, LayoutGrid, List,
   Calendar, Settings2, Users, ChevronLeft, ChevronRight, Archive, MousePointerClick,
+  Briefcase, Clock, TrendingUp, CalendarCheck,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Link, useSearchParams } from "react-router-dom";
@@ -39,6 +40,21 @@ interface DrillDownState {
   job?: Job;
   itemId?: string;
 }
+
+// ── KPI Summary Card ──
+const KPICard = ({ icon: Icon, value, label, color, bgColor }: {
+  icon: React.ElementType; value: number | string; label: string; color: string; bgColor: string;
+}) => (
+  <div className="flex items-center gap-3 bg-[#161b26] border border-[#2a2f3d] rounded-xl px-5 py-4 flex-1 min-w-[160px]">
+    <div className="p-2.5 rounded-lg" style={{ backgroundColor: bgColor }}>
+      <Icon className="h-5 w-5" style={{ color }} />
+    </div>
+    <div>
+      <p className="text-2xl font-bold text-gray-100 tabular-nums">{value}</p>
+      <p className="text-xs text-gray-500 font-medium">{label}</p>
+    </div>
+  </div>
+);
 
 const JobsKanban: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -80,41 +96,25 @@ const JobsKanban: React.FC = () => {
     setSelectionMode(false);
   }, []);
 
-  // Track pending moves so we don't clear optimistic state until DB reflects the change
-  const pendingMovesRef = useRef<Map<string, string>>(new Map()); // jobId -> targetStageId
+  const pendingMovesRef = useRef<Map<string, string>>(new Map());
 
   const persistStageChange = useCallback(async (job: Job, boardId: string, boardName: string, stageId: string, stageName: string, fromStageName?: string) => {
     pendingMovesRef.current.set(job.id, stageId);
-
     try {
-      // Deactivate ALL previous assignments for this job on this board
-      await supabase
-        .from("job_board_assignments")
-        .update({ is_active: false })
-        .eq("job_id", job.id)
-        .eq("board_id", boardId)
-        .eq("is_active", true);
-
-      // Insert new active assignment
+      await supabase.from("job_board_assignments").update({ is_active: false }).eq("job_id", job.id).eq("board_id", boardId).eq("is_active", true);
       const { error: insertError } = await supabase.from("job_board_assignments").insert({
         job_id: job.id, job_code: job.code || null, job_title: job.description || null,
         customer_name: job.client_name || null, board_id: boardId, board_name: boardName,
         stage_id: stageId, stage_name: stageName, assigned_by: "Sistema", is_active: true,
       });
-
       if (insertError) {
-        console.error("Erro ao inserir assignment:", insertError);
         toast({ title: "Erro ao salvar posição", description: insertError.message, variant: "destructive" });
         pendingMovesRef.current.delete(job.id);
         queryClient.invalidateQueries({ queryKey: ["holdprint-jobs-kanban"] });
         return;
       }
-
-      // Clear pending and refetch
       pendingMovesRef.current.delete(job.id);
       queryClient.invalidateQueries({ queryKey: ["holdprint-jobs-kanban"] });
-
-      // Fire-and-forget notification
       supabase.functions.invoke("job-movement-notify", {
         body: { job_id: job.id, job_code: job.code, job_title: job.description, customer_name: job.client_name,
           board_id: boardId, board_name: boardName, from_stage_name: fromStageName || "—", to_stage_name: stageName, moved_by: "Sistema" },
@@ -169,7 +169,6 @@ const JobsKanban: React.FC = () => {
   }, []);
 
   const now = new Date();
-  // Fixed: show only the last 2 days
   const twoDaysAgo = new Date(now);
   twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
   const defaultFrom = `${twoDaysAgo.getFullYear()}-${String(twoDaysAgo.getMonth() + 1).padStart(2, "0")}-${String(twoDaysAgo.getDate()).padStart(2, "0")}`;
@@ -181,37 +180,22 @@ const JobsKanban: React.FC = () => {
 
   const [localByStage, setLocalByStage] = useState<JobsByStage[] | null>(null);
 
-  // Filter by responsavel, deadline, progress, and archive status
   const filteredData = useMemo(() => {
     if (!data) return data;
     const now = new Date();
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
     const weekEnd = new Date(todayEnd.getTime() + 7 * 86400000);
-
     const filterJobs = (jobs: Job[]) => {
       let result = jobs;
-      if (archivedIds && !showArchived) {
-        result = result.filter(j => !archivedIds.has(j.id));
-      } else if (archivedIds && showArchived) {
-        result = result.filter(j => archivedIds.has(j.id));
-      }
-      if (filterResponsavel !== "todos") {
-        result = result.filter(j => j.responsible.some(r => r.name === filterResponsavel));
-      }
-      if (filterPrazo === "hoje") {
-        result = result.filter(j => j.delivery_date && new Date(j.delivery_date) <= todayEnd);
-      } else if (filterPrazo === "semana") {
-        result = result.filter(j => j.delivery_date && new Date(j.delivery_date) <= weekEnd);
-      } else if (filterPrazo === "atrasados") {
-        result = result.filter(j => j.delivery_date && new Date(j.delivery_date) < now && j.status !== "fechado");
-      }
-      if (filterProgresso === "0") {
-        result = result.filter(j => j.progress_percent === 0);
-      } else if (filterProgresso === "andamento") {
-        result = result.filter(j => j.progress_percent > 0 && j.progress_percent < 100);
-      } else if (filterProgresso === "concluido") {
-        result = result.filter(j => j.progress_percent >= 100);
-      }
+      if (archivedIds && !showArchived) result = result.filter(j => !archivedIds.has(j.id));
+      else if (archivedIds && showArchived) result = result.filter(j => archivedIds.has(j.id));
+      if (filterResponsavel !== "todos") result = result.filter(j => j.responsible.some(r => r.name === filterResponsavel));
+      if (filterPrazo === "hoje") result = result.filter(j => j.delivery_date && new Date(j.delivery_date) <= todayEnd);
+      else if (filterPrazo === "semana") result = result.filter(j => j.delivery_date && new Date(j.delivery_date) <= weekEnd);
+      else if (filterPrazo === "atrasados") result = result.filter(j => j.delivery_date && new Date(j.delivery_date) < now && j.status !== "fechado");
+      if (filterProgresso === "0") result = result.filter(j => j.progress_percent === 0);
+      else if (filterProgresso === "andamento") result = result.filter(j => j.progress_percent > 0 && j.progress_percent < 100);
+      else if (filterProgresso === "concluido") result = result.filter(j => j.progress_percent >= 100);
       return result;
     };
     return {
@@ -224,61 +208,49 @@ const JobsKanban: React.FC = () => {
     };
   }, [data, filterResponsavel, filterPrazo, filterProgresso, archivedIds, showArchived]);
 
-  // When server data arrives, apply any pending moves over it before clearing optimistic state
   const byStage = useMemo(() => {
     const base = localByStage || filteredData?.byStage || [];
     if (pendingMovesRef.current.size === 0 || localByStage) return base;
-    // Apply pending moves to server data to prevent visual revert
     const adjusted = base.map(col => ({ ...col, jobs: [...col.jobs] }));
     for (const [jobId, targetStage] of pendingMovesRef.current) {
-      // Remove from wrong columns
       for (const col of adjusted) {
         const idx = col.jobs.findIndex(j => j.id === jobId);
         if (idx !== -1 && col.stage.id !== targetStage) {
           const [job] = col.jobs.splice(idx, 1);
-          // Add to target column
           const target = adjusted.find(c => c.stage.id === targetStage);
-          if (target) {
-            job.stage = targetStage as Job["stage"];
-            target.jobs.unshift(job);
-          }
+          if (target) { job.stage = targetStage as Job["stage"]; target.jobs.unshift(job); }
         }
       }
     }
-    // Recalc totals
-    for (const col of adjusted) {
-      col.totalValue = col.jobs.reduce((s, j) => s + j.value, 0);
-    }
+    for (const col of adjusted) col.totalValue = col.jobs.reduce((s, j) => s + j.value, 0);
     return adjusted;
   }, [localByStage, filteredData?.byStage]);
 
   React.useEffect(() => { if (data?.byStage) setLocalByStage(null); }, [data?.byStage]);
 
-  // All visible jobs for bulk operations
   const allVisibleJobs = useMemo(() => filteredData?.jobs || [], [filteredData]);
 
-  // Deep link auto-navigation from email notifications
+  // KPI calculations
+  const kpis = useMemo(() => {
+    const jobs = filteredData?.jobs || [];
+    const total = jobs.length;
+    const aguardando = byStage.find(s => s.stage.id === "revisao_comercial")?.jobs.length || 0;
+    const instalando = byStage.find(s => s.stage.id === "instalacao")?.jobs.length || 0;
+    const agendados = byStage.find(s => s.stage.id === "entrega")?.jobs.length || 0;
+    return { total, aguardando, instalando, agendados };
+  }, [filteredData, byStage]);
+
   useEffect(() => {
     if (deepLinkProcessed.current || !data?.jobs.length) return;
     const paramStage = searchParams.get("stage");
     const paramJob = searchParams.get("job");
     if (!paramStage && !paramJob) return;
-
     deepLinkProcessed.current = true;
-
     if (paramJob) {
       const job = data.jobs.find(j => j.id === paramJob);
-      if (job) {
-        setDrillDown({ level: "job", stageId: paramStage || undefined, job });
-        setSelectedJob(job);
-      } else if (paramStage) {
-        setDrillDown({ level: "stage", stageId: paramStage });
-      }
-    } else if (paramStage) {
-      setDrillDown({ level: "stage", stageId: paramStage });
-    }
-
-    // Clean URL params without reload
+      if (job) { setDrillDown({ level: "job", stageId: paramStage || undefined, job }); setSelectedJob(job); }
+      else if (paramStage) setDrillDown({ level: "stage", stageId: paramStage });
+    } else if (paramStage) setDrillDown({ level: "stage", stageId: paramStage });
     setSearchParams({}, { replace: true });
   }, [data, searchParams, setSearchParams]);
 
@@ -293,18 +265,16 @@ const JobsKanban: React.FC = () => {
   }, [updateScrollButtons, byStage]);
 
   const onDragEnd = useCallback((result: DropResult) => {
-    if (selectionMode) return; // Disable drag during selection mode
+    if (selectionMode) return;
     const { source, destination } = result;
     if (!destination || !data) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
-
     const srcStage = source.droppableId;
     const dstStage = destination.droppableId;
     const srcStageObj = byStage.find(c => c.stage.id === srcStage)?.stage;
     const dstStageObj = byStage.find(c => c.stage.id === dstStage)?.stage;
     const dstStageName = dstStageObj?.name || dstStage;
     let movedJob: Job | undefined;
-
     setLocalByStage(prev => {
       const current = prev || data.byStage;
       const next = current.map(col => ({ ...col, jobs: [...col.jobs] }));
@@ -314,18 +284,14 @@ const JobsKanban: React.FC = () => {
       const [moved] = srcCol.jobs.splice(source.index, 1);
       movedJob = moved;
       moved.stage = dstStage as Job["stage"];
-      // Auto-adjust progress based on destination column position
       const totalColumns = next.length;
       const dstIndex = next.findIndex(c => c.stage.id === dstStage);
-      if (totalColumns > 1 && dstIndex >= 0) {
-        moved.progress_percent = Math.round(((dstIndex + 1) / totalColumns) * 100);
-      }
+      if (totalColumns > 1 && dstIndex >= 0) moved.progress_percent = Math.round(((dstIndex + 1) / totalColumns) * 100);
       dstCol.jobs.splice(destination.index, 0, moved);
       srcCol.totalValue = srcCol.jobs.reduce((s, j) => s + j.value, 0);
       dstCol.totalValue = dstCol.jobs.reduce((s, j) => s + j.value, 0);
       return next;
     });
-
     if (activeBoard) {
       const job = movedJob || byStage.find(c => c.stage.id === srcStage)?.jobs[source.index];
       recordMovement.mutate({
@@ -345,15 +311,12 @@ const JobsKanban: React.FC = () => {
     setBulkArchiving(true);
     try {
       const jobs = allVisibleJobs.filter(j => ids.includes(j.id));
-      // Filter out already archived jobs
       const notArchived = jobs.filter(j => !archivedIds?.has(j.id));
       const rows = notArchived.map(j => ({
-        job_id: j.id,
-        job_code: j.code ?? null,
+        job_id: j.id, job_code: j.code ?? null,
         job_title: (j.description || "").substring(0, 200),
         customer_name: (j.client_name || "").substring(0, 200),
-        reason: "Arquivamento manual em lote",
-        archived_by: "Usuário",
+        reason: "Arquivamento manual em lote", archived_by: "Usuário",
       }));
       if (rows.length > 0) {
         const { error } = await supabase.from("job_archives").insert(rows as any);
@@ -364,15 +327,12 @@ const JobsKanban: React.FC = () => {
       clearSelection();
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
-    } finally {
-      setBulkArchiving(false);
-    }
+    } finally { setBulkArchiving(false); }
   }, [allVisibleJobs, queryClient, clearSelection, archivedIds]);
 
   const handleBulkDelete = useCallback(async (ids: string[]) => {
     setBulkDeleting(true);
     try {
-      // Find record_ids in holdprint_cache that match these job ids
       for (const id of ids) {
         await supabase.from("holdprint_cache").delete().eq("endpoint", "jobs").or(`record_id.eq.${id},record_id.eq.poa_${id},record_id.eq.sp_${id}`);
       }
@@ -381,34 +341,22 @@ const JobsKanban: React.FC = () => {
       clearSelection();
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
-    } finally {
-      setBulkDeleting(false);
-    }
+    } finally { setBulkDeleting(false); }
   }, [queryClient, clearSelection]);
 
   const handleRename = useCallback(async (jobId: string, newTitle: string) => {
     try {
-      // Update the title in holdprint_cache raw_data
       const { data: rows } = await supabase.from("holdprint_cache")
-        .select("id, raw_data, record_id")
-        .eq("endpoint", "jobs")
-        .or(`record_id.eq.${jobId},record_id.eq.poa_${jobId},record_id.eq.sp_${jobId}`)
-        .limit(1);
-
+        .select("id, raw_data, record_id").eq("endpoint", "jobs")
+        .or(`record_id.eq.${jobId},record_id.eq.poa_${jobId},record_id.eq.sp_${jobId}`).limit(1);
       if (rows && rows.length > 0) {
         const row = rows[0];
         const updated = { ...(row.raw_data as any), title: newTitle };
         await supabase.from("holdprint_cache").update({ raw_data: updated }).eq("id", row.id);
       }
-
-      // Also log rename in job_history
       await supabase.from("job_history").insert({
-        job_id: jobId,
-        event_type: "rename",
-        content: `Título alterado para: ${newTitle}`,
-        user_name: "Usuário",
+        job_id: jobId, event_type: "rename", content: `Título alterado para: ${newTitle}`, user_name: "Usuário",
       });
-
       queryClient.invalidateQueries({ queryKey: ["holdprint-jobs-kanban"] });
       toast({ title: "Job renomeado", description: `Título alterado para "${newTitle}"` });
       clearSelection();
@@ -418,35 +366,21 @@ const JobsKanban: React.FC = () => {
   }, [queryClient, clearSelection]);
 
   const handleSelectAll = useCallback(() => {
-    if (selectedJobIds.size === allVisibleJobs.length) {
-      clearSelection();
-    } else {
-      setSelectedJobIds(new Set(allVisibleJobs.map(j => j.id)));
-      setSelectionMode(true);
-    }
+    if (selectedJobIds.size === allVisibleJobs.length) clearSelection();
+    else { setSelectedJobIds(new Set(allVisibleJobs.map(j => j.id))); setSelectionMode(true); }
   }, [allVisibleJobs, selectedJobIds.size, clearSelection]);
 
   const stageConfigs = activeBoard?.stages || DEFAULT_STAGES;
   const selectedIsArchived = selectedJob ? (archivedIds?.has(selectedJob.id) || false) : false;
 
   // ── Drill-down navigation ──
-  const drillDownToStage = useCallback((stageId: string) => {
-    setDrillDown({ level: "stage", stageId });
-  }, []);
-
-  const drillDownToJob = useCallback((job: Job) => {
-    setDrillDown(prev => ({ ...prev, level: "job", job }));
-    setSelectedJob(job);
-  }, []);
-
-  const drillDownToItem = useCallback((job: Job, itemId: string) => {
-    setDrillDown(prev => ({ ...prev, level: "item", job, itemId }));
-  }, []);
+  const drillDownToStage = useCallback((stageId: string) => { setDrillDown({ level: "stage", stageId }); }, []);
+  const drillDownToJob = useCallback((job: Job) => { setDrillDown(prev => ({ ...prev, level: "job", job })); setSelectedJob(job); }, []);
+  const drillDownToItem = useCallback((job: Job, itemId: string) => { setDrillDown(prev => ({ ...prev, level: "item", job, itemId })); }, []);
 
   const breadcrumbLevels = useMemo((): DrillDownLevel[] => {
     const boardName = activeBoard?.name || "Jobs";
     const levels: DrillDownLevel[] = [{ type: "board", label: boardName, color: activeBoard?.color }];
-
     if (drillDown.level !== "board" && drillDown.stageId) {
       const stage = byStage.find(s => s.stage.id === drillDown.stageId)?.stage;
       levels.push({ type: "stage", label: stage?.name || drillDown.stageId, id: drillDown.stageId, color: stage?.color });
@@ -462,47 +396,58 @@ const JobsKanban: React.FC = () => {
 
   const handleBreadcrumbNavigate = useCallback((index: number) => {
     const level = breadcrumbLevels[index];
-    if (level.type === "board") {
-      setDrillDown({ level: "board" });
-      setSelectedJob(null);
-    } else if (level.type === "stage") {
-      setDrillDown({ level: "stage", stageId: level.id });
-      setSelectedJob(null);
-    } else if (level.type === "job") {
-      const job = drillDown.job;
-      if (job) setDrillDown({ level: "job", stageId: drillDown.stageId, job });
-    }
+    if (level.type === "board") { setDrillDown({ level: "board" }); setSelectedJob(null); }
+    else if (level.type === "stage") { setDrillDown({ level: "stage", stageId: level.id }); setSelectedJob(null); }
+    else if (level.type === "job") { const job = drillDown.job; if (job) setDrillDown({ level: "job", stageId: drillDown.stageId, job }); }
   }, [breadcrumbLevels, drillDown]);
 
   const isDrilledDown = drillDown.level !== "board";
 
   return (
     <div className="flex flex-col h-full min-h-[calc(100vh-120px)]">
-      {/* Header */}
-      <div className="px-6 py-4 flex items-center justify-between">
+      {/* ── Header ── */}
+      <div className="px-6 pt-5 pb-3 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#1a2332]">Jobs</h1>
-          <p className="text-sm text-[#6b7280]">Home / Jobs</p>
+          <h1 className="text-2xl font-bold text-gray-100 tracking-tight">Jobs</h1>
+          <p className="text-sm text-gray-500">{filteredData?.total || 0} job(s) encontrado(s)</p>
         </div>
-        <Link to="/admin/boards">
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-            <Settings2 className="h-3.5 w-3.5" /> Configurar Boards
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => refetch()} disabled={isFetching}
+            className="h-9 px-3 text-gray-400 hover:text-gray-100 hover:bg-[#1e2330] border border-[#2a2f3d]">
+            {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            <span className="ml-1.5 text-xs">Atualizar</span>
           </Button>
-        </Link>
+          <Link to="/admin/boards">
+            <Button variant="ghost" size="sm" className="h-9 px-3 text-gray-400 hover:text-gray-100 hover:bg-[#1e2330] border border-[#2a2f3d]">
+              <Settings2 className="h-4 w-4 mr-1.5" /> <span className="text-xs">Configurar</span>
+            </Button>
+          </Link>
+          <Button className="bg-rose-600 hover:bg-rose-700 text-white h-9 gap-1.5 text-xs font-semibold shadow-lg shadow-rose-600/20">
+            <Plus className="h-4 w-4" /> Importar Holdprint
+          </Button>
+        </div>
       </div>
 
-      {/* Movements Feed */}
-      <div className="px-6 pb-2">
+      {/* ── KPI Summary ── */}
+      <div className="px-6 pb-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KPICard icon={Briefcase} value={kpis.total} label="Total" color="#ef4444" bgColor="rgba(239,68,68,0.1)" />
+        <KPICard icon={Clock} value={kpis.aguardando} label="Aguardando" color="#f59e0b" bgColor="rgba(245,158,11,0.1)" />
+        <KPICard icon={TrendingUp} value={kpis.instalando} label="Instalando" color="#3b82f6" bgColor="rgba(59,130,246,0.1)" />
+        <KPICard icon={CalendarCheck} value={kpis.agendados} label="Agendados" color="#10b981" bgColor="rgba(16,185,129,0.1)" />
+      </div>
+
+      {/* ── Movements Feed ── */}
+      <div className="px-6 pb-3">
         <MovementsFeed maxItems={6} />
       </div>
 
-      {/* Filters */}
+      {/* ── Filters ── */}
       <div className="px-6 pb-3 flex flex-wrap items-center gap-2">
-        {/* Board navigation - always visible */}
-        <div className="flex border rounded-md overflow-hidden mr-1">
+        {/* Board tabs */}
+        <div className="flex border border-[#2a2f3d] rounded-lg overflow-hidden mr-1">
           {boards.map(b => (
             <button key={b.id} onClick={() => { setActiveBoardId(b.id); setLocalByStage(null); setDrillDown({ level: "board" }); setSelectedJob(null); setActiveMicroBoardId(null); }}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${activeBoardId === b.id && !activeMicroBoardId ? "text-white" : "bg-white text-[#6b7280] hover:bg-gray-50"}`}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${activeBoardId === b.id && !activeMicroBoardId ? "text-white" : "bg-[#161b26] text-gray-500 hover:bg-[#1e2330] hover:text-gray-300"}`}
               style={activeBoardId === b.id && !activeMicroBoardId ? { backgroundColor: b.color } : undefined}>
               {b.name}
             </button>
@@ -511,10 +456,10 @@ const JobsKanban: React.FC = () => {
 
         {/* Micro board sub-tabs */}
         {microBoards.length > 0 && (
-          <div className="flex border rounded-md overflow-hidden mr-1">
+          <div className="flex border border-[#2a2f3d] rounded-lg overflow-hidden mr-1">
             {microBoards.map(mb => (
               <button key={mb.id} onClick={() => { setActiveMicroBoardId(mb.id); setDrillDown({ level: "board" }); setSelectedJob(null); }}
-                className={`px-2.5 py-1.5 text-[11px] font-medium transition-colors flex items-center gap-1.5 ${activeMicroBoardId === mb.id ? "text-white" : "bg-white text-[#6b7280] hover:bg-gray-50"}`}
+                className={`px-2.5 py-1.5 text-[11px] font-medium transition-colors flex items-center gap-1.5 ${activeMicroBoardId === mb.id ? "text-white" : "bg-[#161b26] text-gray-500 hover:bg-[#1e2330]"}`}
                 style={activeMicroBoardId === mb.id ? { backgroundColor: mb.color } : undefined}>
                 <span className="h-2 w-2 rounded-full" style={{ backgroundColor: mb.color }} />
                 {mb.name}
@@ -523,30 +468,24 @@ const JobsKanban: React.FC = () => {
           </div>
         )}
 
-        <div className="relative flex-1 min-w-[160px] max-w-[220px]">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-[#6b7280]" />
-          <Input placeholder="Buscar" value={search} onChange={e => setSearch(e.target.value)} className="pl-8 h-8 text-xs border-[#e5e7eb]" />
+        {/* Search */}
+        <div className="relative flex-1 min-w-[200px] max-w-[320px]">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
+          <Input placeholder="Buscar por título, cliente ou #código..."
+            value={search} onChange={e => setSearch(e.target.value)}
+            className="pl-9 h-9 text-xs bg-[#161b26] border-[#2a2f3d] text-gray-200 placeholder:text-gray-600 focus:border-rose-500/50 focus:ring-rose-500/20" />
         </div>
 
-        <div className="flex border rounded-md overflow-hidden">
-          <button onClick={() => setViewMode("kanban")} className={`p-1.5 ${viewMode === "kanban" ? "bg-[#1a2332] text-white" : "bg-white text-[#6b7280] hover:bg-gray-50"}`}><LayoutGrid className="h-3.5 w-3.5" /></button>
-          <button onClick={() => setViewMode("list")} className={`p-1.5 ${viewMode === "list" ? "bg-[#1a2332] text-white" : "bg-white text-[#6b7280] hover:bg-gray-50"}`}><List className="h-3.5 w-3.5" /></button>
+        {/* View toggle */}
+        <div className="flex border border-[#2a2f3d] rounded-lg overflow-hidden">
+          <button onClick={() => setViewMode("kanban")} className={`p-2 transition-colors ${viewMode === "kanban" ? "bg-[#2a2f3d] text-gray-100" : "bg-[#161b26] text-gray-500 hover:text-gray-300"}`}><LayoutGrid className="h-3.5 w-3.5" /></button>
+          <button onClick={() => setViewMode("list")} className={`p-2 transition-colors ${viewMode === "list" ? "bg-[#2a2f3d] text-gray-100" : "bg-[#161b26] text-gray-500 hover:text-gray-300"}`}><List className="h-3.5 w-3.5" /></button>
         </div>
-
-        <Select value={productionType} onValueChange={setProductionType}>
-          <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="Tipo de Produção" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Produção Completa</SelectItem>
-            <SelectItem value="arte">Arte Final</SelectItem>
-            <SelectItem value="impressão">Impressão</SelectItem>
-            <SelectItem value="acabamento">Acabamento</SelectItem>
-          </SelectContent>
-        </Select>
 
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-[110px] h-8 text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="aberto">Abertos</SelectItem>
+          <SelectTrigger className="w-[130px] h-9 text-xs bg-[#161b26] border-[#2a2f3d] text-gray-300"><SelectValue /></SelectTrigger>
+          <SelectContent className="bg-[#1e2330] border-[#2a2f3d] text-gray-200">
+            <SelectItem value="aberto">Todos os Status</SelectItem>
             <SelectItem value="fechado">Fechados</SelectItem>
             <SelectItem value="todos">Todos</SelectItem>
             <SelectItem value="cancelado">Cancelados</SelectItem>
@@ -554,140 +493,135 @@ const JobsKanban: React.FC = () => {
         </Select>
 
         <Select value={filterResponsavel} onValueChange={setFilterResponsavel}>
-          <SelectTrigger className="w-[170px] h-8 text-xs"><Users className="h-3.5 w-3.5 mr-1 text-[#6b7280]" /><SelectValue placeholder="Todos..." /></SelectTrigger>
-          <SelectContent>
+          <SelectTrigger className="w-[160px] h-9 text-xs bg-[#161b26] border-[#2a2f3d] text-gray-300">
+            <Users className="h-3.5 w-3.5 mr-1 text-gray-500" /><SelectValue placeholder="Todas as Filiais" />
+          </SelectTrigger>
+          <SelectContent className="bg-[#1e2330] border-[#2a2f3d] text-gray-200">
             <SelectItem value="todos">Todos...</SelectItem>
             {colaboradores.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
           </SelectContent>
         </Select>
 
         <Select value={filterPrazo} onValueChange={setFilterPrazo}>
-          <SelectTrigger className="w-[130px] h-8 text-xs"><Calendar className="h-3.5 w-3.5 mr-1 text-muted-foreground" /><SelectValue /></SelectTrigger>
-          <SelectContent>
+          <SelectTrigger className="w-[130px] h-9 text-xs bg-[#161b26] border-[#2a2f3d] text-gray-300">
+            <Calendar className="h-3.5 w-3.5 mr-1 text-gray-500" /><SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-[#1e2330] border-[#2a2f3d] text-gray-200">
             <SelectItem value="todos">Prazo: Todos</SelectItem>
-            <SelectItem value="hoje">📅 Hoje</SelectItem>
-            <SelectItem value="semana">📅 Semana</SelectItem>
-            <SelectItem value="atrasados">🔴 Atrasados</SelectItem>
+            <SelectItem value="hoje">Hoje</SelectItem>
+            <SelectItem value="semana">Semana</SelectItem>
+            <SelectItem value="atrasados">Atrasados</SelectItem>
           </SelectContent>
         </Select>
 
-        <Select value={filterProgresso} onValueChange={setFilterProgresso}>
-          <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Progresso: Todos</SelectItem>
-            <SelectItem value="0">📊 0%</SelectItem>
-            <SelectItem value="andamento">📊 Em andamento</SelectItem>
-            <SelectItem value="concluido">📊 Concluído</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <div className="flex items-center gap-1.5 border rounded-md px-2 h-8">
-          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+        <div className="flex items-center gap-1.5 border border-[#2a2f3d] rounded-lg px-3 h-9 bg-[#161b26]">
+          <Calendar className="h-3.5 w-3.5 text-gray-500" />
           <input type="date" value={dateFrom} readOnly
-            className="bg-transparent text-[11px] text-muted-foreground border-none outline-none w-[105px] pointer-events-none" />
-          <span className="text-[11px] text-muted-foreground">até</span>
+            className="bg-transparent text-[11px] text-gray-400 border-none outline-none w-[105px] pointer-events-none" />
+          <span className="text-[11px] text-gray-600">→</span>
           <input type="date" value={dateTo} readOnly
-            className="bg-transparent text-[11px] text-muted-foreground border-none outline-none w-[105px] pointer-events-none" />
+            className="bg-transparent text-[11px] text-gray-400 border-none outline-none w-[105px] pointer-events-none" />
         </div>
 
         <div className="ml-auto flex items-center gap-1.5">
           <Button
-            variant={selectionMode ? "default" : "outline"}
+            variant={selectionMode ? "default" : "ghost"}
             size="sm"
             onClick={() => { if (selectionMode) clearSelection(); else setSelectionMode(true); }}
-            className={`h-8 gap-1 text-xs ${selectionMode ? "bg-[#1DB899] hover:bg-[#17a085] text-white" : ""}`}
+            className={`h-9 gap-1 text-xs border border-[#2a2f3d] ${selectionMode ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600" : "text-gray-400 hover:text-gray-100 hover:bg-[#1e2330]"}`}
           >
             <MousePointerClick className="h-3.5 w-3.5" />
-            {selectionMode ? "Cancelar seleção" : "Selecionar"}
+            {selectionMode ? "Cancelar" : "Selecionar"}
           </Button>
 
           <Button
-            variant={showArchived ? "default" : "outline"}
+            variant={showArchived ? "default" : "ghost"}
             size="sm"
             onClick={() => setShowArchived(!showArchived)}
-            className={`h-8 gap-1 text-xs ${showArchived ? "bg-amber-600 hover:bg-amber-700 text-white" : ""}`}
+            className={`h-9 gap-1 text-xs border border-[#2a2f3d] ${showArchived ? "bg-amber-600 hover:bg-amber-700 text-white border-amber-600" : "text-gray-400 hover:text-gray-100 hover:bg-[#1e2330]"}`}
           >
             <Archive className="h-3.5 w-3.5" />
             {showArchived ? "Arquivados" : "Arquivo"}
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => refetch()} disabled={isFetching} className="h-8 px-2">
-            {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-          </Button>
-          <Button className="bg-[#1DB899] hover:bg-[#17a085] text-white h-8 gap-1 text-xs"><Plus className="h-3.5 w-3.5" /> Novo Job</Button>
         </div>
       </div>
 
-      {/* Breadcrumb - shown when drilled down */}
-      {isDrilledDown && (
-        <DrillDownBreadcrumb levels={breadcrumbLevels} onNavigate={handleBreadcrumbNavigate} />
-      )}
+      {/* ── Breadcrumb ── */}
+      {isDrilledDown && <DrillDownBreadcrumb levels={breadcrumbLevels} onNavigate={handleBreadcrumbNavigate} />}
 
-      {/* Micro Board View */}
+      {/* ── Main content ── */}
       {activeMicroBoard && !isDrilledDown ? (
         <MicroBoardKanban board={activeMicroBoard} />
       ) : isDrilledDown && drillDown.level === "stage" && drillDown.stageId ? (
         (() => {
           const stageData = byStage.find(s => s.stage.id === drillDown.stageId);
-          if (!stageData) return <div className="flex-1 flex items-center justify-center text-muted-foreground">Etapa não encontrada</div>;
+          if (!stageData) return <div className="flex-1 flex items-center justify-center text-gray-500">Etapa não encontrada</div>;
           return <StageDrillDown stageData={stageData} onSelectJob={(job) => drillDownToJob(job)} />;
         })()
       ) : isDrilledDown && drillDown.level === "item" && drillDown.job && drillDown.itemId ? (
         <ItemDrillDown job={drillDown.job} itemId={drillDown.itemId} />
-      ) : isDrilledDown && drillDown.level === "job" && drillDown.job ? (
-        // Job-level drill-down uses the dialog (already open via selectedJob)
-        null
-      ) : isLoading ? (
+      ) : isDrilledDown && drillDown.level === "job" && drillDown.job ? null
+      : isLoading ? (
         <BoardSkeleton count={stageConfigs.length} />
       ) : isError ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <p className="text-destructive font-medium">Erro ao carregar jobs</p>
-            <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-2">Tentar novamente</Button>
+            <p className="text-red-400 font-medium">Erro ao carregar jobs</p>
+            <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-2 border-[#2a2f3d] text-gray-300">Tentar novamente</Button>
           </div>
         </div>
       ) : viewMode === "kanban" ? (
         <DragDropContext onDragEnd={onDragEnd}>
+          {/* Scroll slider top */}
           <div className="px-6 pb-1.5">
-            <div className="flex items-center gap-3 px-3 py-1 rounded-md bg-muted/30 border">
-              <span className="text-[10px] text-muted-foreground whitespace-nowrap font-medium">◀ Rolagem Horizontal ▶</span>
+            <div className="flex items-center gap-3 px-3 py-1 rounded-lg bg-[#161b26]/60 border border-[#2a2f3d]">
+              <span className="text-[10px] text-gray-600 whitespace-nowrap font-medium">◀ ▶</span>
               <input type="range" min={0} max={100} step={0.5} value={scrollPercent}
                 onChange={(e) => { const val = Number(e.target.value); setScrollPercent(val); const el = scrollRef.current; if (el) el.scrollLeft = (val / 100) * (el.scrollWidth - el.clientWidth); }}
-                className="w-full h-1.5 cursor-pointer rounded-full" style={{ accentColor: "#1DB899" }} />
+                className="w-full h-1.5 cursor-pointer rounded-full" style={{ accentColor: "#ef4444" }} />
             </div>
           </div>
 
           <div className="flex-1 flex items-stretch relative">
+            {/* Scroll left */}
             <button onClick={() => scrollKanban("left")}
               className={`flex-shrink-0 w-8 flex items-center justify-center z-20 transition-all duration-300 ${canScrollLeft ? "opacity-100 cursor-pointer" : "opacity-0 pointer-events-none"}`}>
-              <div className="bg-red-600 hover:bg-red-700 text-white shadow-lg rounded-full p-2 hover:scale-110 transition-transform animate-pulse">
+              <div className="bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/30 rounded-full p-2 hover:scale-110 transition-transform">
                 <ChevronLeft className="h-5 w-5" />
               </div>
             </button>
 
             <div ref={scrollRef} className="overflow-x-auto flex-1 pb-4 scroll-smooth scrollbar-thin">
-              <div className="flex gap-2.5 min-h-[calc(100vh-300px)]">
+              <div className="flex gap-2.5 min-h-[calc(100vh-380px)]">
                 {byStage.map(col => (
-                  <div key={col.stage.id} className="min-w-[200px] flex-1 max-w-[250px] flex flex-col">
+                  <div key={col.stage.id} className="min-w-[220px] flex-1 max-w-[260px] flex flex-col">
+                    {/* Column header */}
                     <div
                       onClick={() => drillDownToStage(col.stage.id)}
-                      className="bg-card rounded-t-lg p-2.5 border border-border border-b-0 cursor-pointer hover:bg-accent/50 transition-colors group"
+                      className="bg-[#161b26] rounded-t-xl p-3 border border-[#2a2f3d] border-b-0 cursor-pointer hover:bg-[#1e2330] transition-colors group"
                       style={{ borderTopWidth: 3, borderTopColor: col.stage.color }}
                     >
-                      <p className="font-bold text-[13px] text-foreground group-hover:text-primary transition-colors">{col.stage.name}</p>
-                      <p className="text-[11px] text-muted-foreground">{formatBRL(col.totalValue)}</p>
-                      <p className="text-[11px] text-muted-foreground">{col.jobs.length} Jobs</p>
+                      <div className="flex items-center justify-between">
+                        <p className="font-bold text-xs text-gray-200 group-hover:text-gray-100 transition-colors truncate">{col.stage.name}</p>
+                        <Badge className="text-[10px] text-white font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: col.stage.color }}>
+                          {col.jobs.length}
+                        </Badge>
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-0.5 font-medium">{formatBRL(col.totalValue)}</p>
                     </div>
+
+                    {/* Column body */}
                     <Droppable droppableId={col.stage.id} isDropDisabled={selectionMode}>
                       {(provided, snapshot) => (
                         <div ref={provided.innerRef} {...provided.droppableProps}
-                          className={`flex-1 bg-muted/50 border border-border border-t-0 rounded-b-lg p-1.5 space-y-1.5 transition-colors ${snapshot.isDraggingOver ? "bg-emerald-100/50" : ""}`}>
+                          className={`flex-1 bg-[#0f1318] border border-[#2a2f3d] border-t-0 rounded-b-xl p-1.5 space-y-2 transition-colors ${snapshot.isDraggingOver ? "bg-emerald-900/20 border-emerald-500/30" : ""}`}>
                           {col.jobs.map((job, idx) => (
                             <Draggable key={job.id} draggableId={job.id} index={idx} isDragDisabled={selectionMode}>
                               {(prov, snap) => (
                                 <div ref={prov.innerRef} {...prov.draggableProps} {...prov.dragHandleProps}>
                                   <JobCard
                                     job={job}
-                                    onClick={() => { if (!selectionMode) { drillDownToJob(job); } }}
+                                    onClick={() => { if (!selectionMode) drillDownToJob(job); }}
                                     isDragging={snap.isDragging}
                                     visibleFlexfields={visibleFlexfields}
                                     selectionMode={selectionMode}
@@ -704,7 +638,7 @@ const JobsKanban: React.FC = () => {
                             </Draggable>
                           ))}
                           {provided.placeholder}
-                          {col.jobs.length === 0 && <div className="text-center py-6 text-[#6b7280] text-xs">Nenhum job</div>}
+                          {col.jobs.length === 0 && <div className="text-center py-8 text-gray-600 text-xs">Nenhum job</div>}
                         </div>
                       )}
                     </Droppable>
@@ -713,39 +647,42 @@ const JobsKanban: React.FC = () => {
               </div>
             </div>
 
+            {/* Scroll right */}
             <button onClick={() => scrollKanban("right")}
               className={`flex-shrink-0 w-8 flex items-center justify-center z-20 transition-all duration-300 ${canScrollRight ? "opacity-100 cursor-pointer" : "opacity-0 pointer-events-none"}`}>
-              <div className="bg-red-600 hover:bg-red-700 text-white shadow-lg rounded-full p-2 hover:scale-110 transition-transform animate-pulse">
+              <div className="bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/30 rounded-full p-2 hover:scale-110 transition-transform">
                 <ChevronRight className="h-5 w-5" />
               </div>
             </button>
           </div>
 
+          {/* Scroll slider bottom */}
           <div className="px-6 pt-1.5">
-            <div className="flex items-center gap-3 px-3 py-1 rounded-md bg-muted/30 border">
-              <span className="text-[10px] text-muted-foreground whitespace-nowrap font-medium">◀ Rolagem Horizontal ▶</span>
+            <div className="flex items-center gap-3 px-3 py-1 rounded-lg bg-[#161b26]/60 border border-[#2a2f3d]">
+              <span className="text-[10px] text-gray-600 whitespace-nowrap font-medium">◀ ▶</span>
               <input type="range" min={0} max={100} step={0.5} value={scrollPercent}
                 onChange={(e) => { const val = Number(e.target.value); setScrollPercent(val); const el = scrollRef.current; if (el) el.scrollLeft = (val / 100) * (el.scrollWidth - el.clientWidth); }}
-                className="w-full h-1.5 cursor-pointer rounded-full" style={{ accentColor: "#1DB899" }} />
+                className="w-full h-1.5 cursor-pointer rounded-full" style={{ accentColor: "#ef4444" }} />
             </div>
           </div>
         </DragDropContext>
       ) : (
+        /* ── List view ── */
         <div className="px-6 pb-4">
-          <div className="border rounded-lg overflow-hidden bg-white">
+          <div className="border border-[#2a2f3d] rounded-xl overflow-hidden bg-[#161b26]">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 border-b text-[#6b7280] text-xs">
-                  {selectionMode && <th className="w-8 p-2.5"></th>}
-                  <th className="text-left p-2.5">#</th>
-                  <th className="text-left p-2.5">Cliente</th>
-                  <th className="text-left p-2.5">Descrição</th>
-                  <th className="text-left p-2.5">Etapa</th>
-                  <th className="text-left p-2.5">Responsável</th>
-                  <th className="text-right p-2.5">Valor</th>
-                  <th className="text-left p-2.5">Entrega</th>
-                  <th className="text-right p-2.5">%</th>
-                  <th className="text-center p-2.5">Ações</th>
+                <tr className="bg-[#1a1f2e] border-b border-[#2a2f3d] text-gray-500 text-xs">
+                  {selectionMode && <th className="w-8 p-3"></th>}
+                  <th className="text-left p-3">#</th>
+                  <th className="text-left p-3">Cliente</th>
+                  <th className="text-left p-3">Descrição</th>
+                  <th className="text-left p-3">Etapa</th>
+                  <th className="text-left p-3">Responsável</th>
+                  <th className="text-right p-3">Valor</th>
+                  <th className="text-left p-3">Entrega</th>
+                  <th className="text-right p-3">%</th>
+                  <th className="text-center p-3">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -755,31 +692,31 @@ const JobsKanban: React.FC = () => {
                   const isArch = archivedIds?.has(job.id);
                   const isSel = selectedJobIds.has(job.id);
                   return (
-                    <tr key={job.id} className={`border-b cursor-pointer hover:bg-gray-50 ${overdue ? "bg-red-50/50" : ""} ${isArch ? "opacity-50" : ""} ${isSel ? "bg-emerald-50 ring-1 ring-inset ring-[#1DB899]" : ""}`}>
+                    <tr key={job.id} className={`border-b border-[#2a2f3d] cursor-pointer transition-colors hover:bg-[#1e2330] ${overdue ? "bg-red-900/10" : ""} ${isArch ? "opacity-40" : ""} ${isSel ? "bg-emerald-900/20 ring-1 ring-inset ring-emerald-500/30" : ""}`}>
                       {selectionMode && (
-                        <td className="p-2.5">
-                          <div
-                            className={`w-4 h-4 rounded border-2 flex items-center justify-center cursor-pointer ${isSel ? "bg-[#1DB899] border-[#1DB899] text-white" : "border-gray-300"}`}
-                            onClick={(e) => toggleSelectJob(job.id, e)}
-                          >
+                        <td className="p-3">
+                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center cursor-pointer ${isSel ? "bg-emerald-500 border-emerald-500 text-white" : "border-gray-600"}`}
+                            onClick={(e) => toggleSelectJob(job.id, e)}>
                             {isSel && <span className="text-[10px]">✓</span>}
                           </div>
                         </td>
                       )}
-                      <td className="p-2.5 font-mono text-xs" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>J{job.code || job.id}</td>
-                      <td className="p-2.5 font-medium text-xs" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>{job.client_name}</td>
-                      <td className="p-2.5 text-muted-foreground text-xs max-w-[180px] truncate" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>{job.description}</td>
-                      <td className="p-2.5" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}><Badge className="text-[9px] text-white" style={{ backgroundColor: stageCfg?.color }}>{stageCfg?.name}</Badge></td>
-                      <td className="p-2.5 text-xs" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>{job.responsible[0]?.name || "—"}</td>
-                      <td className="p-2.5 text-right text-xs font-medium" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>{formatBRL(job.value)}</td>
-                      <td className={`p-2.5 text-xs ${overdue ? "text-destructive font-semibold" : ""}`} onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>
+                      <td className="p-3 font-mono text-xs text-rose-400 font-bold" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>#{job.code || job.id.substring(0,6)}</td>
+                      <td className="p-3 font-medium text-xs text-gray-200" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>{job.client_name}</td>
+                      <td className="p-3 text-gray-400 text-xs max-w-[180px] truncate" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>{job.description}</td>
+                      <td className="p-3" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>
+                        <Badge className="text-[9px] text-white font-bold" style={{ backgroundColor: stageCfg?.color }}>{stageCfg?.name}</Badge>
+                      </td>
+                      <td className="p-3 text-xs text-gray-400" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>{job.responsible[0]?.name || "—"}</td>
+                      <td className="p-3 text-right text-xs font-bold text-emerald-400" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>{formatBRL(job.value)}</td>
+                      <td className={`p-3 text-xs ${overdue ? "text-red-400 font-semibold" : "text-gray-400"}`} onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>
                         {job.delivery_date ? new Date(job.delivery_date).toLocaleDateString("pt-BR") : "—"}
                       </td>
-                      <td className="p-2.5 text-right text-xs" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>{job.progress_percent}%</td>
-                      <td className="p-2.5 text-center">
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0"
+                      <td className="p-3 text-right text-xs text-gray-300" onClick={() => selectionMode ? toggleSelectJob(job.id, {} as any) : drillDownToJob(job)}>{job.progress_percent}%</td>
+                      <td className="p-3 text-center">
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-amber-500/10"
                           onClick={() => archiveJob.mutate({ job_id: job.id, job_code: job.code, job_title: job.description, customer_name: job.client_name })}>
-                          <Archive className="h-3.5 w-3.5 text-[#6b7280]" />
+                          <Archive className="h-3.5 w-3.5 text-gray-500 hover:text-amber-400" />
                         </Button>
                       </td>
                     </tr>
@@ -788,7 +725,7 @@ const JobsKanban: React.FC = () => {
               </tbody>
             </table>
             {(!filteredData?.jobs || filteredData.jobs.length === 0) && (
-              <div className="text-center py-10 text-[#6b7280]">{showArchived ? "Nenhum job arquivado" : "Nenhum job encontrado"}</div>
+              <div className="text-center py-12 text-gray-600">{showArchived ? "Nenhum job arquivado" : "Nenhum job encontrado"}</div>
             )}
           </div>
         </div>
@@ -858,10 +795,10 @@ const JobsKanban: React.FC = () => {
 const BoardSkeleton = ({ count = 7 }: { count?: number }) => (
   <div className="flex gap-2.5 px-6 pb-4">
     {[...Array(count)].map((_, i) => (
-      <div key={i} className="min-w-[200px] flex-1 max-w-[250px] space-y-2">
-        <Skeleton className="h-14 w-full rounded-lg" />
-        <Skeleton className="h-24 w-full rounded-lg" />
-        <Skeleton className="h-24 w-full rounded-lg" />
+      <div key={i} className="min-w-[220px] flex-1 max-w-[260px] space-y-2">
+        <Skeleton className="h-14 w-full rounded-xl bg-[#1e2330]" />
+        <Skeleton className="h-28 w-full rounded-xl bg-[#1e2330]" />
+        <Skeleton className="h-28 w-full rounded-xl bg-[#1e2330]" />
       </div>
     ))}
   </div>
