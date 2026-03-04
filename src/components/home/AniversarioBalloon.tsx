@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface AniversarianteHoje {
   nome: string;
-  foto: string;
+  cargo: string | null;
+  dia: number;
 }
 
 const confettiColors = [
@@ -45,13 +49,47 @@ function Confetti() {
   );
 }
 
-interface Props {
-  aniversariantes: AniversarianteHoje[];
+const getInitials = (nome: string) => {
+  const parts = nome.split(" ").filter(Boolean);
+  return `${parts[0]?.[0] || ""}${parts[parts.length - 1]?.[0] || ""}`.toUpperCase();
+};
+
+async function fetchProximosAniversariantes(): Promise<AniversarianteHoje[]> {
+  const now = new Date();
+  const mesAtual = now.getMonth() + 1;
+  const diaAtual = now.getDate();
+
+  const { data, error } = await supabase
+    .from("colaboradores")
+    .select("nome, cargo, data_nascimento")
+    .not("data_nascimento", "is", null)
+    .eq("status", "ativo");
+
+  if (error || !data) return [];
+
+  const aniversariantes = data
+    .map((c: any) => {
+      const dn = new Date(c.data_nascimento + "T00:00:00");
+      const dia = dn.getDate();
+      const mes = dn.getMonth() + 1;
+      return { nome: c.nome, cargo: c.cargo, dia, mes };
+    })
+    .filter((a) => a.mes === mesAtual && a.dia >= diaAtual)
+    .sort((a, b) => a.dia - b.dia)
+    .slice(0, 3);
+
+  return aniversariantes;
 }
 
-const AniversarioBalloon = ({ aniversariantes }: Props) => {
+const AniversarioBalloon = () => {
   const [visible, setVisible] = useState(true);
   const [showConfetti, setShowConfetti] = useState(true);
+
+  const { data: aniversariantes = [] } = useQuery({
+    queryKey: ["proximos-aniversariantes"],
+    queryFn: fetchProximosAniversariantes,
+    staleTime: 30 * 60 * 1000,
+  });
 
   useEffect(() => {
     const timer = setTimeout(() => setShowConfetti(false), 5000);
@@ -60,42 +98,72 @@ const AniversarioBalloon = ({ aniversariantes }: Props) => {
 
   if (!visible || aniversariantes.length === 0) return null;
 
+  const hoje = new Date().getDate();
+  const temHoje = aniversariantes.some((a) => a.dia === hoje);
+
   return (
     <div className="fixed top-20 right-6 z-50 animate-fade-in">
-      <div className="relative rounded-2xl p-6 min-w-[280px] max-w-[320px]">
-        {showConfetti && <Confetti />}
+      <div className="relative rounded-2xl bg-card border border-border shadow-lg p-5 min-w-[260px] max-w-[300px]">
+        {showConfetti && temHoje && <Confetti />}
 
         <button
           onClick={() => setVisible(false)}
-          className="absolute top-2 right-2 p-1 rounded-full hover:bg-muted/30 transition-colors z-10"
+          className="absolute top-2 right-2 p-1 rounded-full hover:bg-muted/50 transition-colors z-10"
         >
-          <X className="h-3.5 w-3.5 text-yellow-400" />
+          <X className="h-3.5 w-3.5 text-muted-foreground" />
         </button>
 
         <div className="flex flex-col items-center gap-3 relative z-[1]">
-          <span className="text-3xl animate-bounce">🎈</span>
-          <p className="text-sm font-bold text-yellow-400 uppercase tracking-wider drop-shadow-md">
-            Feliz Aniversário!
-          </p>
-
-          <div className="flex flex-col items-center gap-2 w-full">
-            {aniversariantes.map((person) => (
-              <div key={person.nome} className="flex flex-col items-center gap-2">
-                <img
-                  src={person.foto}
-                  alt={person.nome}
-                  className="h-[180px] w-[180px] rounded-full object-cover border-4 border-yellow-400 shadow-md"
-                />
-                <span className="text-sm font-medium text-yellow-400 drop-shadow-sm">{person.nome}</span>
-              </div>
+          <div className="flex gap-1">
+            {["🎈", "🎈", "🎈"].map((b, i) => (
+              <span
+                key={i}
+                className="text-2xl"
+                style={{ animation: `bounce 1.${i + 2}s ease-in-out infinite` }}
+              >
+                {b}
+              </span>
             ))}
           </div>
 
-          <span className="text-lg">🎂🎉</span>
+          <p className="text-xs font-bold text-primary uppercase tracking-wider">
+            {temHoje ? "Feliz Aniversário!" : "Próximos Aniversários"}
+          </p>
+
+          <div className="flex flex-col gap-2.5 w-full">
+            {aniversariantes.map((person) => {
+              const isToday = person.dia === hoje;
+              return (
+                <div
+                  key={person.nome}
+                  className={cn(
+                    "flex items-center gap-3 p-2 rounded-lg",
+                    isToday ? "gradient-bordo-light" : "bg-muted/30"
+                  )}
+                >
+                  <Avatar className={cn(
+                    "h-10 w-10 shrink-0 border-2",
+                    isToday ? "border-primary" : "border-muted"
+                  )}>
+                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                      {getInitials(person.nome)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground truncate">{person.nome}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {person.cargo || "—"} · {String(person.dia).padStart(2, "0")}/03
+                    </p>
+                  </div>
+                  {isToday && <span className="text-lg shrink-0">🎂</span>}
+                </div>
+              );
+            })}
+          </div>
 
           <button
             onClick={() => setVisible(false)}
-            className="mt-2 px-4 py-1.5 rounded-full bg-yellow-400 text-black text-xs font-semibold hover:bg-yellow-300 transition-colors"
+            className="mt-1 px-4 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors"
           >
             Fechar
           </button>
