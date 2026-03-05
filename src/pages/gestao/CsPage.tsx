@@ -32,6 +32,7 @@ const sectionTitles: Record<CSSectionId, string> = {
   visitas: "Visitas Técnicas",
   regua: "Régua de Relacionamento",
   upsell: "Oportunidades",
+  leads: "Leads/Prospects",
   playbooks: "Playbooks",
   relatorios: "Relatórios",
   pcp: "PCP (Kanban)",
@@ -72,6 +73,16 @@ const CsPage = () => {
       case "visitas": return <VisitasTecnicasTab />;
       case "regua": return <ReguaRelacionamentoTab />;
       case "upsell": return <OportunidadesTab />;
+      case "leads": return (
+        <div className="h-full w-full -m-4 md:-m-6">
+          <iframe
+            src="https://docs.google.com/spreadsheets/d/13jRAMAyk82f3PQv-MNtxVnpgC3ITr--IAIHK57Z12Ts/edit?gid=503992820#gid=503992820&rm=minimal"
+            className="w-full h-[calc(100vh-var(--topbar-height)-6rem)] border-0 rounded-lg"
+            title="Leads e Prospects"
+            allow="clipboard-read; clipboard-write"
+          />
+        </div>
+      );
       case "playbooks": return <CSPlaybooksSection />;
       case "relatorios": return <CSRelatoriosSection />;
       case "pcp": return (

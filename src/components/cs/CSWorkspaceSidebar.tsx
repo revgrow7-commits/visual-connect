@@ -27,6 +27,7 @@ const sections: Array<{ id: CSSectionId; label: string; icon: React.ElementType;
   { id: "visitas", label: "Visitas Técnicas", icon: Wrench },
   { id: "regua", label: "Régua", icon: Calendar },
   { id: "upsell", label: "Oportunidades", icon: Lightbulb },
+  { id: "leads", label: "Leads/Prospects", icon: Target },
   { id: "playbooks", label: "Playbooks", icon: ClipboardList },
   { id: "relatorios", label: "Relatórios", icon: LineChart },
   { id: "pcp", label: "PCP (Kanban)", icon: Kanban },
