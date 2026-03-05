@@ -1,11 +1,10 @@
-import { useState, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useRef, useCallback } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -14,92 +13,60 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, Upload, Loader2, X } from "lucide-react";
+import {
+  ArrowLeft,
+  AlertCircle,
+  Lightbulb,
+  TrendingUp,
+  Heart,
+  AlertTriangle,
+  Upload,
+  Send,
+  X,
+  CheckCircle2,
+  Loader2,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-const SETORES = [
-  "Comercial", "Marketing", "PCP / Planejamento", "Impressão",
-  "Acabamentos", "Instalação", "Logística", "RH & DP",
-  "Financeiro", "Diretoria", "Outro",
+const TIPOS_RELATO = [
+  { id: "problema", label: "Problema", icon: AlertCircle, color: "text-red-500", borderColor: "border-red-500", glowColor: "shadow-red-500/30", bgActive: "bg-red-500/10" },
+  { id: "sugestao", label: "Sugestão", icon: Lightbulb, color: "text-blue-500", borderColor: "border-blue-500", glowColor: "shadow-blue-500/30", bgActive: "bg-blue-500/10" },
+  { id: "melhoria", label: "Melhoria", icon: TrendingUp, color: "text-green-500", borderColor: "border-green-500", glowColor: "shadow-green-500/30", bgActive: "bg-green-500/10" },
+  { id: "elogio", label: "Elogio", icon: Heart, color: "text-purple-500", borderColor: "border-purple-500", glowColor: "shadow-purple-500/30", bgActive: "bg-purple-500/10" },
+  { id: "alerta", label: "Alerta", icon: AlertTriangle, color: "text-orange-500", borderColor: "border-orange-500", glowColor: "shadow-orange-500/30", bgActive: "bg-orange-500/10" },
 ];
 
 const CATEGORIAS = [
-  {
-    id: "critico",
-    emoji: "🔴",
-    label: "Incidente Crítico",
-    desc: "Risco à segurança, acidente, assédio, risco jurídico, impacto cliente estratégico",
-    color: "border-destructive bg-destructive/5 data-[active=true]:bg-destructive/15 data-[active=true]:ring-2 data-[active=true]:ring-destructive",
-  },
-  {
-    id: "operacional",
-    emoji: "🟠",
-    label: "Incidente Operacional Relevante",
-    desc: "Retrabalho, erro orçamento, checklist, atraso evento, fornecedor",
-    color: "border-warning bg-warning/5 data-[active=true]:bg-warning/15 data-[active=true]:ring-2 data-[active=true]:ring-warning",
-  },
-  {
-    id: "estrategico",
-    emoji: "🔵",
-    label: "Sugestão Estratégica",
-    desc: "Melhoria processo, redução custo, inovação Smart Signage",
-    color: "border-info bg-info/5 data-[active=true]:bg-info/15 data-[active=true]:ring-2 data-[active=true]:ring-info",
-  },
-  {
-    id: "clima",
-    emoji: "🟢",
-    label: "Clima / Cultura",
-    desc: "Liderança, ambiente, sobrecarga, conflitos",
-    color: "border-success bg-success/5 data-[active=true]:bg-success/15 data-[active=true]:ring-2 data-[active=true]:ring-success",
-  },
+  "Almoxarifado", "Compras", "Conferência", "Denúncias",
+  "Fechamento de arquivos e Projetos", "Financeiro", "Gestores",
+  "Impressão", "Infraestrutura", "Instalação", "PDV", "RH", "Vendas",
 ];
 
-const URGENCIAS = [
-  { id: "baixa", label: "Baixa", cls: "bg-muted text-foreground data-[active=true]:bg-success data-[active=true]:text-success-foreground" },
-  { id: "media", label: "Média", cls: "bg-muted text-foreground data-[active=true]:bg-info data-[active=true]:text-info-foreground" },
-  { id: "alta", label: "Alta", cls: "bg-muted text-foreground data-[active=true]:bg-warning data-[active=true]:text-warning-foreground" },
-  { id: "critica", label: "Crítica", cls: "bg-muted text-foreground data-[active=true]:bg-destructive data-[active=true]:text-destructive-foreground" },
+const PRIORIDADES = [
+  { value: "baixa", label: "Baixa" },
+  { value: "media", label: "Média" },
+  { value: "alta", label: "Alta" },
 ];
 
-const MIN_DESC = 200;
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp", "application/pdf", "video/mp4", "video/webm"];
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
+const MAX_TITULO = 200;
 
 const OuvidoriaForm = () => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [step, setStep] = useState(0);
-  const [unidade, setUnidade] = useState("");
-  const [setor, setSetor] = useState("");
-  const [categoria, setCategoria] = useState("");
-  const [anonimo, setAnonimo] = useState(true);
-  const [nome, setNome] = useState("");
-  const [setorId, setSetorId] = useState("");
-  const [unidadeId, setUnidadeId] = useState("");
-  const [emailId, setEmailId] = useState("");
+  const [tipoRelato, setTipoRelato] = useState("");
+  const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
-  const [urgencia, setUrgencia] = useState("");
+  const [categoria, setCategoria] = useState("");
+  const [prioridade, setPrioridade] = useState("media");
+  const [anonimo, setAnonimo] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [protocolo, setProtocolo] = useState("");
-
-  const totalSteps = 7;
-
-  const canNext = () => {
-    switch (step) {
-      case 0: return !!unidade;
-      case 1: return !!setor;
-      case 2: return !!categoria;
-      case 3: return anonimo || (!!nome && !!emailId);
-      case 4: return descricao.length >= MIN_DESC;
-      case 5: return !!urgencia;
-      case 6: return true;
-      default: return false;
-    }
-  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
@@ -120,73 +87,59 @@ const OuvidoriaForm = () => {
 
   const removeFile = (idx: number) => setFiles((prev) => prev.filter((_, i) => i !== idx));
 
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const dropped = Array.from(e.dataTransfer.files);
+    const valid = dropped.filter((f) => ACCEPTED_TYPES.includes(f.type) && f.size <= MAX_FILE_SIZE);
+    setFiles((prev) => [...prev, ...valid]);
+  }, []);
+
   const handleSubmit = async () => {
+    if (!tipoRelato || !titulo.trim() || !descricao.trim() || !categoria) {
+      toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
+      return;
+    }
     setSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-
       if (!user) {
-        toast({
-          title: "Autenticação necessária",
-          description: "Faça login para enviar sua manifestação.",
-          variant: "destructive",
-        });
+        toast({ title: "Autenticação necessária", description: "Faça login para enviar.", variant: "destructive" });
         setSubmitting(false);
         return;
       }
 
-      // Upload files first
-      const anexoUrls: string[] = [];
       for (const file of files) {
         const path = `${user.id}/${crypto.randomUUID()}/${file.name}`;
-        const { error: uploadErr } = await supabase.storage
-          .from("ouvidoria-anexos")
-          .upload(path, file);
+        const { error: uploadErr } = await supabase.storage.from("ouvidoria-anexos").upload(path, file);
         if (uploadErr) {
-          console.error("Upload error:", uploadErr);
-          toast({
-            title: "Erro no upload",
-            description: `Falha ao enviar ${file.name}: ${uploadErr.message}`,
-            variant: "destructive",
-          });
+          toast({ title: "Erro no upload", description: uploadErr.message, variant: "destructive" });
           setSubmitting(false);
           return;
         }
-        anexoUrls.push(path);
       }
 
-      // Insert manifestation — protocolo is auto-generated by trigger
       const { data, error } = await supabase
         .from("ouvidoria_manifestacoes")
         .insert({
-          unidade,
-          setor,
-          categoria,
+          unidade: "Geral",
+          setor: categoria,
+          categoria: tipoRelato === "problema" ? "incidente_operacional" : tipoRelato === "alerta" ? "incidente_critico" : tipoRelato === "sugestao" ? "sugestao_estrategica" : "clima_cultura",
           anonimo,
-          nome: anonimo ? null : nome,
-          setor_identificacao: anonimo ? null : setorId,
-          unidade_identificacao: anonimo ? null : unidadeId,
-          email: anonimo ? null : emailId,
-          descricao,
-          urgencia,
+          nome: null,
+          descricao: `[${titulo}]\n\n${descricao}`,
+          urgencia: prioridade === "alta" ? "alta" : prioridade === "baixa" ? "baixa" : "media",
           user_id: user.id,
-          protocolo: "temp", // will be overwritten by trigger
+          protocolo: "temp",
         } as any)
         .select("protocolo")
         .single();
 
       if (error) throw error;
-
       setProtocolo(data.protocolo);
       setSubmitted(true);
-      toast({ title: "Manifestação enviada com sucesso!" });
+      toast({ title: "Relato enviado com sucesso!" });
     } catch (err: any) {
-      console.error("Ouvidoria submit error:", err);
-      toast({
-        title: "Erro ao enviar",
-        description: err.message || "Tente novamente.",
-        variant: "destructive",
-      });
+      toast({ title: "Erro ao enviar", description: err.message, variant: "destructive" });
     } finally {
       setSubmitting(false);
     }
@@ -194,211 +147,205 @@ const OuvidoriaForm = () => {
 
   const resetForm = () => {
     setSubmitted(false);
-    setStep(0);
-    setUnidade("");
-    setSetor("");
-    setCategoria("");
-    setAnonimo(true);
-    setNome("");
-    setSetorId("");
-    setUnidadeId("");
-    setEmailId("");
+    setTipoRelato("");
+    setTitulo("");
     setDescricao("");
-    setUrgencia("");
+    setCategoria("");
+    setPrioridade("media");
+    setAnonimo(false);
     setFiles([]);
     setProtocolo("");
   };
 
   if (submitted) {
     return (
-      <Card className="border-success">
-        <CardContent className="p-8 text-center space-y-4">
-          <CheckCircle2 className="h-16 w-16 text-success mx-auto" />
-          <h3 className="text-2xl font-bold text-foreground">Manifestação Enviada</h3>
-          <div className="text-sm text-muted-foreground space-y-2 max-w-md mx-auto">
-            <p>✔ Protocolo: <span className="font-mono font-bold text-foreground">{protocolo}</span></p>
-            <p>✔ Prazo estimado: {categoria === "critico" ? "24–48h" : "5–7 dias úteis"}</p>
-            <p>✔ Sua manifestação será triada e encaminhada de acordo com o fluxo interno da Ouvidoria Estratégica.</p>
-          </div>
-          <Button variant="outline" onClick={resetForm}>Nova Manifestação</Button>
-        </CardContent>
-      </Card>
+      <section>
+        <Card className="bg-[#121212] border-green-500/30">
+          <CardContent className="p-8 text-center space-y-4">
+            <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
+            <h3 className="text-2xl font-bold text-foreground">Relato Enviado</h3>
+            <p className="text-muted-foreground">
+              Protocolo: <span className="font-mono font-bold text-foreground">{protocolo}</span>
+            </p>
+            <Button variant="outline" onClick={resetForm}>Novo Relato</Button>
+          </CardContent>
+        </Card>
+      </section>
     );
   }
 
   return (
     <section>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Registrar Manifestação</CardTitle>
-          <div className="flex items-center gap-1 mt-3">
-            {Array.from({ length: totalSteps }).map((_, i) => (
-              <div key={i} className={cn("h-1.5 flex-1 rounded-full transition-colors", i <= step ? "bg-primary" : "bg-muted")} />
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">Etapa {step + 1} de {totalSteps}</p>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {step === 0 && (
-            <div className="space-y-3">
-              <Label className="text-sm font-semibold">Unidade</Label>
-              <RadioGroup value={unidade} onValueChange={setUnidade} className="flex flex-col gap-2">
-                {["Porto Alegre (POA)", "São Paulo (SP)", "Ambos"].map((u) => (
-                  <div key={u} className="flex items-center gap-2">
-                    <RadioGroupItem value={u} id={u} />
-                    <Label htmlFor={u} className="cursor-pointer">{u}</Label>
-                  </div>
-                ))}
-              </RadioGroup>
+      <Card className="bg-[#121212] border-border/50 rounded-2xl overflow-hidden">
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4 border-b border-border/30">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={resetForm}
+              className="p-1.5 rounded-lg hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <div>
+              <h2 className="text-xl font-bold text-foreground">Novo Relato</h2>
+              <p className="text-sm text-muted-foreground">
+                Registre sua manifestação de forma segura e confidencial.
+              </p>
             </div>
-          )}
+          </div>
+        </div>
 
-          {step === 1 && (
-            <div className="space-y-3">
-              <Label className="text-sm font-semibold">Setor</Label>
-              <Select value={setor} onValueChange={setSetor}>
-                <SelectTrigger><SelectValue placeholder="Selecione o setor" /></SelectTrigger>
+        <CardContent className="p-6 space-y-8">
+          {/* Tipo do Relato */}
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold text-foreground">Tipo do Relato</Label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+              {TIPOS_RELATO.map((tipo) => {
+                const Icon = tipo.icon;
+                const isActive = tipoRelato === tipo.id;
+                return (
+                  <button
+                    key={tipo.id}
+                    onClick={() => setTipoRelato(tipo.id)}
+                    className={cn(
+                      "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 cursor-pointer",
+                      isActive
+                        ? `${tipo.borderColor} ${tipo.bgActive} shadow-lg ${tipo.glowColor}`
+                        : "border-border/40 hover:border-border bg-muted/20 hover:bg-muted/40"
+                    )}
+                  >
+                    <Icon className={cn("h-7 w-7", isActive ? tipo.color : "text-muted-foreground")} />
+                    <span className={cn("text-xs font-medium", isActive ? "text-foreground" : "text-muted-foreground")}>
+                      {tipo.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Título */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-semibold text-foreground">Título</Label>
+              <span className="text-xs text-muted-foreground">{titulo.length}/{MAX_TITULO}</span>
+            </div>
+            <Input
+              value={titulo}
+              onChange={(e) => setTitulo(e.target.value.slice(0, MAX_TITULO))}
+              placeholder="Resuma o relato em uma frase..."
+              className="bg-muted/30 border-border/40"
+            />
+          </div>
+
+          {/* Descrição */}
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold text-foreground">Descrição</Label>
+            <Textarea
+              value={descricao}
+              onChange={(e) => setDescricao(e.target.value)}
+              placeholder="Descreva a situação com o máximo de detalhes possível..."
+              className="min-h-[120px] bg-muted/30 border-border/40"
+              maxLength={5000}
+            />
+          </div>
+
+          {/* Categoria + Prioridade */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-foreground">Categoria</Label>
+              <Select value={categoria} onValueChange={setCategoria}>
+                <SelectTrigger className="bg-muted/30 border-border/40">
+                  <SelectValue placeholder="Selecione a categoria" />
+                </SelectTrigger>
                 <SelectContent>
-                  {SETORES.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+                  {CATEGORIAS.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-          )}
-
-          {step === 2 && (
-            <div className="space-y-3">
-              <Label className="text-sm font-semibold">Tipo de Manifestação</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {CATEGORIAS.map((cat) => (
-                  <button
-                    key={cat.id}
-                    data-active={categoria === cat.id}
-                    onClick={() => setCategoria(cat.id)}
-                    className={cn("rounded-lg border-2 p-4 text-left transition-all", cat.color)}
-                  >
-                    <p className="font-semibold text-sm">{cat.emoji} {cat.label}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{cat.desc}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="space-y-4">
-              <Label className="text-sm font-semibold">Identificação</Label>
-              <div className="flex items-center gap-3">
-                <Switch checked={!anonimo} onCheckedChange={(v) => setAnonimo(!v)} />
-                <span className="text-sm">{anonimo ? "Enviar de forma anônima" : "Quero me identificar"}</span>
-              </div>
-              {!anonimo && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 animate-in fade-in slide-in-from-top-2">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Nome</Label>
-                    <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Setor</Label>
-                    <Input value={setorId} onChange={(e) => setSetorId(e.target.value)} placeholder="Seu setor" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Unidade</Label>
-                    <Input value={unidadeId} onChange={(e) => setUnidadeId(e.target.value)} placeholder="Sua unidade" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Email interno</Label>
-                    <Input type="email" value={emailId} onChange={(e) => setEmailId(e.target.value)} placeholder="seu@email.com" />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {step === 4 && (
-            <div className="space-y-3">
-              <Label className="text-sm font-semibold">Descrição</Label>
-              <Textarea
-                value={descricao}
-                onChange={(e) => setDescricao(e.target.value)}
-                placeholder="Descreva a situação com o máximo de detalhes possível..."
-                className="min-h-[160px]"
-                maxLength={5000}
-              />
-              <div className="flex justify-between text-xs">
-                <span className={descricao.length < MIN_DESC ? "text-destructive" : "text-success"}>
-                  {descricao.length < MIN_DESC
-                    ? `Mínimo ${MIN_DESC} caracteres (faltam ${MIN_DESC - descricao.length})`
-                    : "✓ Quantidade mínima atingida"}
-                </span>
-                <span className="text-muted-foreground">{descricao.length} caracteres</span>
-              </div>
-            </div>
-          )}
-
-          {step === 5 && (
-            <div className="space-y-3">
-              <Label className="text-sm font-semibold">Grau de Urgência</Label>
-              <div className="flex flex-wrap gap-2">
-                {URGENCIAS.map((u) => (
-                  <button
-                    key={u.id}
-                    data-active={urgencia === u.id}
-                    onClick={() => setUrgencia(u.id)}
-                    className={cn("px-5 py-2 rounded-full text-sm font-medium transition-all", u.cls)}
-                  >
-                    {u.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {step === 6 && (
-            <div className="space-y-3">
-              <Label className="text-sm font-semibold">Anexos (opcional)</Label>
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
-              >
-                <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Arraste arquivos aqui ou clique para selecionar</p>
-                <p className="text-xs text-muted-foreground mt-1">Imagens, PDF ou Vídeo (máx. 20MB cada)</p>
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept={ACCEPTED_TYPES.join(",")}
-                className="hidden"
-                onChange={handleFileChange}
-              />
-              {files.length > 0 && (
-                <div className="space-y-2 mt-2">
-                  {files.map((f, i) => (
-                    <div key={i} className="flex items-center justify-between bg-muted rounded-md px-3 py-2 text-sm">
-                      <span className="truncate">{f.name} ({(f.size / 1024 / 1024).toFixed(1)}MB)</span>
-                      <button onClick={() => removeFile(i)} className="text-muted-foreground hover:text-destructive">
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-foreground">Prioridade</Label>
+              <Select value={prioridade} onValueChange={setPrioridade}>
+                <SelectTrigger className="bg-muted/30 border-border/40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRIORIDADES.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                   ))}
-                </div>
-              )}
+                </SelectContent>
+              </Select>
             </div>
-          )}
+          </div>
 
-          <div className="flex justify-between pt-4 border-t">
-            <Button variant="outline" disabled={step === 0 || submitting} onClick={() => setStep(step - 1)}>
-              Voltar
-            </Button>
-            {step < totalSteps - 1 ? (
-              <Button disabled={!canNext()} onClick={() => setStep(step + 1)}>Próximo</Button>
-            ) : (
-              <Button onClick={handleSubmit} disabled={submitting} className="gap-2">
-                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                Enviar para Ouvidoria Estratégica
-              </Button>
+          {/* Upload */}
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold text-foreground">Anexos (opcional)</Label>
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDrop={handleDrop}
+              onDragOver={(e) => e.preventDefault()}
+              className="border-2 border-dashed border-border/40 rounded-xl p-8 text-center hover:border-primary/50 transition-colors cursor-pointer bg-muted/10"
+            >
+              <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">Arraste arquivos aqui ou clique para selecionar</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">PNG, JPG, PDF ou Vídeo (máx. 20MB)</p>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={ACCEPTED_TYPES.join(",")}
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            {files.length > 0 && (
+              <div className="space-y-2">
+                {files.map((f, i) => (
+                  <div key={i} className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2 text-sm">
+                    <span className="truncate text-foreground">{f.name} ({(f.size / 1024 / 1024).toFixed(1)}MB)</span>
+                    <button onClick={() => removeFile(i)} className="text-muted-foreground hover:text-destructive ml-2">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
+          </div>
+
+          {/* Anonimato */}
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-muted/20 border border-border/30">
+            <Checkbox
+              id="anonimo"
+              checked={anonimo}
+              onCheckedChange={(v) => setAnonimo(v === true)}
+              className="mt-0.5"
+            />
+            <div>
+              <label htmlFor="anonimo" className="text-sm font-medium text-foreground cursor-pointer">
+                Enviar de forma anônima
+              </label>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Sua identidade ficará visível apenas para Admin e Segurança.
+              </p>
+            </div>
+          </div>
+
+          {/* Ações */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-border/30">
+            <Button variant="outline" onClick={resetForm} disabled={submitting}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={submitting || !tipoRelato || !titulo.trim() || !descricao.trim() || !categoria}
+              className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Enviar Relato
+            </Button>
           </div>
         </CardContent>
       </Card>
