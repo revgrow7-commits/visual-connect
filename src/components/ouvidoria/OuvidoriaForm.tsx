@@ -144,14 +144,13 @@ const OuvidoriaForm = () => {
           setor: categoria,
           categoria: categoriaMap[tipoRelato] || "clima_cultura",
           anonimo,
-          nome: anonimo ? null : null,
-          email: null,
+          nome: anonimo ? null : user.email?.split("@")[0] || null,
+          email: anonimo ? null : user.email || null,
           setor_identificacao: null,
           unidade_identificacao: null,
           descricao: `[Tipo: ${tipoRelato.charAt(0).toUpperCase() + tipoRelato.slice(1)}] [Título: ${titulo.trim()}]\n\n${descricao.trim()}${anexoUrls.length > 0 ? `\n\n[Anexos: ${anexoUrls.join(", ")}]` : ""}`,
           urgencia: urgenciaMap[prioridade] || "media",
           user_id: user.id,
-          protocolo: "temp",
         } as any)
         .select("protocolo")
         .single();
