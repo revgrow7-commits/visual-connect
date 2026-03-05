@@ -30,11 +30,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 const TIPOS_RELATO = [
-  { id: "problema", label: "Problema", icon: AlertCircle, color: "text-red-500", borderColor: "border-red-500", glowColor: "shadow-red-500/30", bgActive: "bg-red-500/10" },
-  { id: "sugestao", label: "Sugestão", icon: Lightbulb, color: "text-blue-500", borderColor: "border-blue-500", glowColor: "shadow-blue-500/30", bgActive: "bg-blue-500/10" },
-  { id: "melhoria", label: "Melhoria", icon: TrendingUp, color: "text-green-500", borderColor: "border-green-500", glowColor: "shadow-green-500/30", bgActive: "bg-green-500/10" },
-  { id: "elogio", label: "Elogio", icon: Heart, color: "text-purple-500", borderColor: "border-purple-500", glowColor: "shadow-purple-500/30", bgActive: "bg-purple-500/10" },
-  { id: "alerta", label: "Alerta", icon: AlertTriangle, color: "text-orange-500", borderColor: "border-orange-500", glowColor: "shadow-orange-500/30", bgActive: "bg-orange-500/10" },
+  { id: "problema", label: "Problema", icon: AlertCircle, color: "text-red-500", borderColor: "border-red-500", glowColor: "shadow-red-500/25", bgActive: "bg-red-50" },
+  { id: "sugestao", label: "Sugestão", icon: Lightbulb, color: "text-blue-500", borderColor: "border-blue-500", glowColor: "shadow-blue-500/25", bgActive: "bg-blue-50" },
+  { id: "melhoria", label: "Melhoria", icon: TrendingUp, color: "text-green-500", borderColor: "border-green-500", glowColor: "shadow-green-500/25", bgActive: "bg-green-50" },
+  { id: "elogio", label: "Elogio", icon: Heart, color: "text-purple-500", borderColor: "border-purple-500", glowColor: "shadow-purple-500/25", bgActive: "bg-purple-50" },
+  { id: "alerta", label: "Alerta", icon: AlertTriangle, color: "text-orange-500", borderColor: "border-orange-500", glowColor: "shadow-orange-500/25", bgActive: "bg-orange-50" },
 ];
 
 const CATEGORIAS = [
@@ -52,6 +52,20 @@ const PRIORIDADES = [
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp", "application/pdf", "video/mp4", "video/webm"];
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const MAX_TITULO = 200;
+
+const categoriaMap: Record<string, string> = {
+  problema: "incidente_operacional",
+  sugestao: "sugestao_estrategica",
+  melhoria: "sugestao_estrategica",
+  elogio: "clima_cultura",
+  alerta: "incidente_critico",
+};
+
+const urgenciaMap: Record<string, string> = {
+  baixa: "baixa",
+  media: "media",
+  alta: "alta",
+};
 
 const OuvidoriaForm = () => {
   const { toast } = useToast();
@@ -94,9 +108,11 @@ const OuvidoriaForm = () => {
     setFiles((prev) => [...prev, ...valid]);
   }, []);
 
+  const isFormValid = tipoRelato && titulo.trim().length >= 3 && descricao.trim().length >= 10 && categoria;
+
   const handleSubmit = async () => {
-    if (!tipoRelato || !titulo.trim() || !descricao.trim() || !categoria) {
-      toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
+    if (!isFormValid) {
+      toast({ title: "Preencha todos os campos obrigatórios", description: "Tipo, título (mín. 3 chars), descrição (mín. 10 chars) e categoria são obrigatórios.", variant: "destructive" });
       return;
     }
     setSubmitting(true);
@@ -108,14 +124,17 @@ const OuvidoriaForm = () => {
         return;
       }
 
+      // Upload files
+      const anexoUrls: string[] = [];
       for (const file of files) {
         const path = `${user.id}/${crypto.randomUUID()}/${file.name}`;
         const { error: uploadErr } = await supabase.storage.from("ouvidoria-anexos").upload(path, file);
         if (uploadErr) {
-          toast({ title: "Erro no upload", description: uploadErr.message, variant: "destructive" });
+          toast({ title: "Erro no upload", description: `${file.name}: ${uploadErr.message}`, variant: "destructive" });
           setSubmitting(false);
           return;
         }
+        anexoUrls.push(path);
       }
 
       const { data, error } = await supabase
@@ -123,11 +142,14 @@ const OuvidoriaForm = () => {
         .insert({
           unidade: "Geral",
           setor: categoria,
-          categoria: tipoRelato === "problema" ? "incidente_operacional" : tipoRelato === "alerta" ? "incidente_critico" : tipoRelato === "sugestao" ? "sugestao_estrategica" : "clima_cultura",
+          categoria: categoriaMap[tipoRelato] || "clima_cultura",
           anonimo,
-          nome: null,
-          descricao: `[${titulo}]\n\n${descricao}`,
-          urgencia: prioridade === "alta" ? "alta" : prioridade === "baixa" ? "baixa" : "media",
+          nome: anonimo ? null : null,
+          email: null,
+          setor_identificacao: null,
+          unidade_identificacao: null,
+          descricao: `[Tipo: ${tipoRelato.charAt(0).toUpperCase() + tipoRelato.slice(1)}] [Título: ${titulo.trim()}]\n\n${descricao.trim()}${anexoUrls.length > 0 ? `\n\n[Anexos: ${anexoUrls.join(", ")}]` : ""}`,
+          urgencia: urgenciaMap[prioridade] || "media",
           user_id: user.id,
           protocolo: "temp",
         } as any)
@@ -139,7 +161,8 @@ const OuvidoriaForm = () => {
       setSubmitted(true);
       toast({ title: "Relato enviado com sucesso!" });
     } catch (err: any) {
-      toast({ title: "Erro ao enviar", description: err.message, variant: "destructive" });
+      console.error("Ouvidoria submit error:", err);
+      toast({ title: "Erro ao enviar", description: err.message || "Tente novamente.", variant: "destructive" });
     } finally {
       setSubmitting(false);
     }
@@ -160,14 +183,17 @@ const OuvidoriaForm = () => {
   if (submitted) {
     return (
       <section>
-        <Card className="bg-[#121212] border-green-500/30">
+        <Card className="bg-white border border-gray-200 shadow-sm">
           <CardContent className="p-8 text-center space-y-4">
             <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
-            <h3 className="text-2xl font-bold text-foreground">Relato Enviado</h3>
-            <p className="text-muted-foreground">
-              Protocolo: <span className="font-mono font-bold text-foreground">{protocolo}</span>
+            <h3 className="text-2xl font-bold text-gray-900">Relato Enviado</h3>
+            <p className="text-gray-600">
+              Protocolo: <span className="font-mono font-bold text-gray-900">{protocolo}</span>
             </p>
-            <Button variant="outline" onClick={resetForm}>Novo Relato</Button>
+            <p className="text-sm text-gray-500">Seu relato foi registrado e será analisado pela equipe responsável.</p>
+            <Button variant="outline" onClick={resetForm} className="border-gray-300 text-gray-700 hover:bg-gray-50">
+              Novo Relato
+            </Button>
           </CardContent>
         </Card>
       </section>
@@ -176,29 +202,29 @@ const OuvidoriaForm = () => {
 
   return (
     <section>
-      <Card className="bg-[#121212] border-border/50 rounded-2xl overflow-hidden">
+      <Card className="bg-white border border-gray-200 shadow-sm rounded-2xl overflow-hidden">
         {/* Header */}
-        <div className="px-6 pt-6 pb-4 border-b border-border/30">
+        <div className="px-6 pt-6 pb-4 border-b border-gray-100">
           <div className="flex items-center gap-3">
             <button
               onClick={resetForm}
-              className="p-1.5 rounded-lg hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-700"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
             <div>
-              <h2 className="text-xl font-bold text-foreground">Novo Relato</h2>
-              <p className="text-sm text-muted-foreground">
+              <h2 className="text-xl font-bold text-gray-900">Novo Relato</h2>
+              <p className="text-sm text-gray-400">
                 Registre sua manifestação de forma segura e confidencial.
               </p>
             </div>
           </div>
         </div>
 
-        <CardContent className="p-6 space-y-8">
+        <CardContent className="p-6 space-y-7">
           {/* Tipo do Relato */}
           <div className="space-y-3">
-            <Label className="text-sm font-semibold text-foreground">Tipo do Relato</Label>
+            <Label className="text-sm font-semibold text-gray-500">Tipo do Relato</Label>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
               {TIPOS_RELATO.map((tipo) => {
                 const Icon = tipo.icon;
@@ -208,54 +234,63 @@ const OuvidoriaForm = () => {
                     key={tipo.id}
                     onClick={() => setTipoRelato(tipo.id)}
                     className={cn(
-                      "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 cursor-pointer",
+                      "flex flex-col items-center gap-2.5 p-5 rounded-xl border-2 transition-all duration-200 cursor-pointer",
                       isActive
                         ? `${tipo.borderColor} ${tipo.bgActive} shadow-lg ${tipo.glowColor}`
-                        : "border-border/40 hover:border-border bg-muted/20 hover:bg-muted/40"
+                        : "border-gray-200 hover:border-gray-300 bg-gray-50 hover:bg-gray-100"
                     )}
                   >
-                    <Icon className={cn("h-7 w-7", isActive ? tipo.color : "text-muted-foreground")} />
-                    <span className={cn("text-xs font-medium", isActive ? "text-foreground" : "text-muted-foreground")}>
+                    <Icon className={cn("h-7 w-7", isActive ? tipo.color : "text-gray-400")} />
+                    <span className={cn("text-xs font-medium", isActive ? "text-gray-900" : "text-gray-500")}>
                       {tipo.label}
                     </span>
                   </button>
                 );
               })}
             </div>
+            {!tipoRelato && (
+              <p className="text-xs text-gray-400">Selecione o tipo do seu relato para continuar.</p>
+            )}
           </div>
 
           {/* Título */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold text-foreground">Título</Label>
-              <span className="text-xs text-muted-foreground">{titulo.length}/{MAX_TITULO}</span>
+              <Label className="text-sm font-semibold text-gray-500">Título</Label>
+              <span className="text-xs text-gray-400">{titulo.length}/{MAX_TITULO}</span>
             </div>
             <Input
               value={titulo}
               onChange={(e) => setTitulo(e.target.value.slice(0, MAX_TITULO))}
               placeholder="Resuma o relato em uma frase..."
-              className="bg-muted/30 border-border/40"
+              className="bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:ring-blue-400/20"
             />
           </div>
 
           {/* Descrição */}
           <div className="space-y-2">
-            <Label className="text-sm font-semibold text-foreground">Descrição</Label>
+            <Label className="text-sm font-semibold text-gray-500">Descrição</Label>
             <Textarea
               value={descricao}
               onChange={(e) => setDescricao(e.target.value)}
               placeholder="Descreva a situação com o máximo de detalhes possível..."
-              className="min-h-[120px] bg-muted/30 border-border/40"
+              className="min-h-[140px] bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:ring-blue-400/20"
               maxLength={5000}
             />
+            <div className="flex justify-between text-xs">
+              <span className={descricao.length < 10 ? "text-red-400" : "text-green-500"}>
+                {descricao.length < 10 ? `Mínimo 10 caracteres` : "✓ OK"}
+              </span>
+              <span className="text-gray-400">{descricao.length}/5000</span>
+            </div>
           </div>
 
           {/* Categoria + Prioridade */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-foreground">Categoria</Label>
+              <Label className="text-sm font-semibold text-gray-500">Categoria</Label>
               <Select value={categoria} onValueChange={setCategoria}>
-                <SelectTrigger className="bg-muted/30 border-border/40">
+                <SelectTrigger className="bg-gray-50 border-gray-200 text-gray-900">
                   <SelectValue placeholder="Selecione a categoria" />
                 </SelectTrigger>
                 <SelectContent>
@@ -266,9 +301,9 @@ const OuvidoriaForm = () => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-foreground">Prioridade</Label>
+              <Label className="text-sm font-semibold text-gray-500">Prioridade</Label>
               <Select value={prioridade} onValueChange={setPrioridade}>
-                <SelectTrigger className="bg-muted/30 border-border/40">
+                <SelectTrigger className="bg-gray-50 border-gray-200 text-gray-900">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -282,16 +317,16 @@ const OuvidoriaForm = () => {
 
           {/* Upload */}
           <div className="space-y-3">
-            <Label className="text-sm font-semibold text-foreground">Anexos (opcional)</Label>
+            <Label className="text-sm font-semibold text-gray-500">Anexos (opcional)</Label>
             <div
               onClick={() => fileInputRef.current?.click()}
               onDrop={handleDrop}
               onDragOver={(e) => e.preventDefault()}
-              className="border-2 border-dashed border-border/40 rounded-xl p-8 text-center hover:border-primary/50 transition-colors cursor-pointer bg-muted/10"
+              className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 hover:bg-blue-50/30 transition-colors cursor-pointer bg-gray-50/50"
             >
-              <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">Arraste arquivos aqui ou clique para selecionar</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">PNG, JPG, PDF ou Vídeo (máx. 20MB)</p>
+              <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">Arraste arquivos aqui ou clique para selecionar</p>
+              <p className="text-xs text-gray-400 mt-1">PNG, JPG, PDF ou Vídeo (máx. 20MB)</p>
             </div>
             <input
               ref={fileInputRef}
@@ -304,9 +339,9 @@ const OuvidoriaForm = () => {
             {files.length > 0 && (
               <div className="space-y-2">
                 {files.map((f, i) => (
-                  <div key={i} className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2 text-sm">
-                    <span className="truncate text-foreground">{f.name} ({(f.size / 1024 / 1024).toFixed(1)}MB)</span>
-                    <button onClick={() => removeFile(i)} className="text-muted-foreground hover:text-destructive ml-2">
+                  <div key={i} className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                    <span className="truncate text-gray-700">{f.name} ({(f.size / 1024 / 1024).toFixed(1)}MB)</span>
+                    <button onClick={() => removeFile(i)} className="text-gray-400 hover:text-red-500 ml-2 transition-colors">
                       <X className="h-4 w-4" />
                     </button>
                   </div>
@@ -316,7 +351,7 @@ const OuvidoriaForm = () => {
           </div>
 
           {/* Anonimato */}
-          <div className="flex items-start gap-3 p-4 rounded-xl bg-muted/20 border border-border/30">
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-gray-50 border border-gray-200">
             <Checkbox
               id="anonimo"
               checked={anonimo}
@@ -324,24 +359,24 @@ const OuvidoriaForm = () => {
               className="mt-0.5"
             />
             <div>
-              <label htmlFor="anonimo" className="text-sm font-medium text-foreground cursor-pointer">
+              <label htmlFor="anonimo" className="text-sm font-medium text-gray-700 cursor-pointer">
                 Enviar de forma anônima
               </label>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="text-xs text-gray-400 mt-0.5">
                 Sua identidade ficará visível apenas para Admin e Segurança.
               </p>
             </div>
           </div>
 
           {/* Ações */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-border/30">
-            <Button variant="outline" onClick={resetForm} disabled={submitting}>
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+            <Button variant="outline" onClick={resetForm} disabled={submitting} className="border-gray-300 text-gray-600 hover:bg-gray-50">
               Cancelar
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={submitting || !tipoRelato || !titulo.trim() || !descricao.trim() || !categoria}
-              className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={submitting || !isFormValid}
+              className="gap-2 bg-blue-500 hover:bg-blue-600 text-white"
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               Enviar Relato
