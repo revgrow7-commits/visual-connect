@@ -195,37 +195,44 @@ const AniversariantesCarousel = () => {
       </div>
 
       <ScrollArea className="w-full">
-        <div className="flex gap-4 pb-2">
+        <div className="flex gap-3 pb-2">
           {aniversariantes.map((person) => (
             <div
               key={person.id}
               className={cn(
-                "flex flex-col items-center gap-1.5 min-w-[80px] p-2 rounded-lg transition-colors",
-                person.hoje ? "gradient-bordo-light" : "hover:bg-muted/40"
+                "relative flex-shrink-0 w-[140px] rounded-xl overflow-hidden shadow-md transition-transform hover:scale-[1.03]",
+                person.hoje ? "ring-2 ring-primary ring-offset-2 ring-offset-card" : ""
               )}
             >
-              <div className="relative">
-                <Avatar className={cn(
-                  "h-14 w-14 border-2",
-                  person.hoje ? "border-primary ring-2 ring-primary/30" : "border-muted"
-                )}>
-                  {person.foto_url && (
-                    <AvatarImage src={person.foto_url} alt={person.nome} className="object-cover" />
-                  )}
-                  <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
-                    {getInitials(person.nome)}
-                  </AvatarFallback>
-                </Avatar>
-                {person.hoje && (
-                  <span className="absolute -top-1 -right-1 text-sm">🎂</span>
+              {/* Foto grande */}
+              <div className="relative w-full h-[160px] bg-muted">
+                {person.foto_url ? (
+                  <img
+                    src={person.foto_url}
+                    alt={person.nome}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-primary/10">
+                    <span className="text-3xl font-bold text-primary/60">
+                      {getInitials(person.nome)}
+                    </span>
+                  </div>
                 )}
+                {person.hoje && (
+                  <span className="absolute top-1.5 right-1.5 text-lg drop-shadow-md">🎂</span>
+                )}
+                {/* Gradient overlay na parte inferior da foto */}
+                <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/70 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 p-2">
+                  <p className="text-[11px] font-bold text-white leading-tight truncate">
+                    {person.nome.split(" ").slice(0, 2).join(" ")}
+                  </p>
+                  <span className="text-[10px] text-white/80 font-medium">
+                    {String(person.dia).padStart(2, "0")}/{String(mesAtual).padStart(2, "0")}
+                  </span>
+                </div>
               </div>
-              <p className="text-[11px] font-medium text-foreground text-center leading-tight max-w-[76px] truncate">
-                {person.nome.split(" ")[0]}
-              </p>
-              <span className="text-[10px] text-muted-foreground font-medium">
-                {String(person.dia).padStart(2, "0")}/{String(mesAtual).padStart(2, "0")}
-              </span>
             </div>
           ))}
         </div>
