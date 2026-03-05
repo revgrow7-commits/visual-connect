@@ -111,8 +111,20 @@ const OuvidoriaForm = () => {
   const isFormValid = tipoRelato && titulo.trim().length >= 3 && descricao.trim().length >= 10 && categoria;
 
   const handleSubmit = async () => {
-    if (!isFormValid) {
-      toast({ title: "Preencha todos os campos obrigatórios", description: "Tipo, título (mín. 3 chars), descrição (mín. 10 chars) e categoria são obrigatórios.", variant: "destructive" });
+    if (!tipoRelato) {
+      toast({ title: "Campo obrigatório", description: "Selecione o tipo do relato.", variant: "destructive" });
+      return;
+    }
+    if (titulo.trim().length < 3) {
+      toast({ title: "Campo obrigatório", description: "O título deve ter no mínimo 3 caracteres.", variant: "destructive" });
+      return;
+    }
+    if (descricao.trim().length < 10) {
+      toast({ title: "Campo obrigatório", description: "A descrição deve ter no mínimo 10 caracteres.", variant: "destructive" });
+      return;
+    }
+    if (!categoria) {
+      toast({ title: "Campo obrigatório", description: "Selecione uma categoria.", variant: "destructive" });
       return;
     }
     setSubmitting(true);
@@ -374,7 +386,7 @@ const OuvidoriaForm = () => {
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={submitting || !isFormValid}
+              disabled={submitting}
               className="gap-2 bg-blue-500 hover:bg-blue-600 text-white"
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
