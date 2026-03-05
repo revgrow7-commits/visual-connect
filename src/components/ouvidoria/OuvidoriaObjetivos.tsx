@@ -31,14 +31,6 @@ const OuvidoriaObjetivos = () => (
       ))}
     </div>
 
-    <div className="rounded-lg border-2 border-warning bg-warning/10 p-4 text-sm text-foreground">
-      <p className="font-semibold mb-1">⚠️ Atenção</p>
-      <p>
-        Este canal <strong>NÃO</strong> é para demandas operacionais do dia a dia.
-        <br />
-        Trata-se de um canal de <strong>inteligência estratégica</strong>.
-      </p>
-    </div>
   </section>
 );
 
