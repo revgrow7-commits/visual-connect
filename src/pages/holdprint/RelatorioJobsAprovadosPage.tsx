@@ -98,7 +98,7 @@ function parseJobFromCache(raw: Record<string, unknown>): ApprovedJob | null {
     paymentStatus = "parcial";
   }
 
-  const products = (j.products || []) as Record<string, unknown>[];
+  const products = Array.isArray(j.products) ? (j.products as Record<string, unknown>[]) : [];
   const productDetails = extractProductDetails(products);
   const totalM2 = productDetails.reduce((sum, d) => sum + d.m2, 0);
 
