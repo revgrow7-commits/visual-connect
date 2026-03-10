@@ -122,6 +122,8 @@ export default function HoldprintRelatoriosPage() {
           </div>
         </div>
       ))}
+
+      <BudgetAgentChat />
     </div>
   );
 }
