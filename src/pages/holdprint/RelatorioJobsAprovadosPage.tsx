@@ -549,9 +549,9 @@ export default function RelatorioJobsAprovadosPage() {
                             <TableCell>
                               <div className="flex items-center gap-1.5">
                                 <Badge variant="outline" className="text-[10px] px-1.5">
-                                  {j.productDetails.length} {j.productDetails.length === 1 ? "item" : "itens"}
+                                  {(j.productDetails?.length || 0)} {(j.productDetails?.length || 0) === 1 ? "item" : "itens"}
                                 </Badge>
-                                {j.productDetails.length > 0 && (
+                                {(j.productDetails?.length || 0) > 0 && (
                                   <span className="text-xs text-muted-foreground truncate max-w-[150px]">
                                     {j.productDetails[0].name}
                                     {j.productDetails.length > 1 ? ` +${j.productDetails.length - 1}` : ""}
