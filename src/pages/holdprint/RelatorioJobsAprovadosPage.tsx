@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Download, FileText, Filter } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, Download, FileText, Filter, RefreshCw } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemo, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -124,10 +124,22 @@ function useApprovedJobs() {
 }
 
 export default function RelatorioJobsAprovadosPage() {
-  const { data: jobs, isLoading, error } = useApprovedJobs();
+  const queryClient = useQueryClient();
+  const { data: jobs, isLoading, isFetching, error } = useApprovedJobs();
   const [filterUnit, setFilterUnit] = useState<string>("todas");
   const [filterStatus, setFilterStatus] = useState<string>("todos");
   const [search, setSearch] = useState("");
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await queryClient.invalidateQueries({ queryKey: ["holdprint-approved-jobs-report"] });
+      await queryClient.refetchQueries({ queryKey: ["holdprint-approved-jobs-report"] });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     if (!jobs) return [];
@@ -194,9 +206,20 @@ export default function RelatorioJobsAprovadosPage() {
           <h1 className="text-2xl font-bold tracking-tight">Relatório de Jobs Aprovados</h1>
           <p className="text-muted-foreground text-sm">Jobs aprovados das unidades POA e SP</p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!filtered.length}>
-          <Download className="h-4 w-4 mr-2" /> Exportar CSV
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSync}
+            disabled={syncing || isFetching}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${syncing || isFetching ? "animate-spin" : ""}`} />
+            Sincronizar
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!filtered.length}>
+            <Download className="h-4 w-4 mr-2" /> Exportar CSV
+          </Button>
+        </div>
       </div>
 
       {/* KPIs */}
