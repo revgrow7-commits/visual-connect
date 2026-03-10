@@ -26,7 +26,7 @@ export default function BudgetAgentChat() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [llmProvider, setLlmProvider] = useState<LLMProvider>("gemini");
+  
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
