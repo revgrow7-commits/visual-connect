@@ -206,9 +206,20 @@ export default function RelatorioJobsAprovadosPage() {
           <h1 className="text-2xl font-bold tracking-tight">Relatório de Jobs Aprovados</h1>
           <p className="text-muted-foreground text-sm">Jobs aprovados das unidades POA e SP</p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!filtered.length}>
-          <Download className="h-4 w-4 mr-2" /> Exportar CSV
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSync}
+            disabled={syncing || isFetching}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${syncing || isFetching ? "animate-spin" : ""}`} />
+            Sincronizar
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!filtered.length}>
+            <Download className="h-4 w-4 mr-2" /> Exportar CSV
+          </Button>
+        </div>
       </div>
 
       {/* KPIs */}
