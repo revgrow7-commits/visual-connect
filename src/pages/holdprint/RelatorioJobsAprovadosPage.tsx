@@ -98,7 +98,7 @@ function parseJobFromCache(raw: Record<string, unknown>): ApprovedJob | null {
     paymentStatus = "parcial";
   }
 
-  const products = (j.products || []) as Record<string, unknown>[];
+  const products = Array.isArray(j.products) ? (j.products as Record<string, unknown>[]) : [];
   const productDetails = extractProductDetails(products);
   const totalM2 = productDetails.reduce((sum, d) => sum + d.m2, 0);
 
@@ -156,7 +156,7 @@ function useApprovedJobs() {
 }
 
 function JobExpandedRow({ job }: { job: ApprovedJob }) {
-  if (job.productDetails.length === 0) {
+  if (!job.productDetails || job.productDetails.length === 0) {
     return (
       <TableRow className="bg-muted/30">
         <TableCell colSpan={12} className="py-3 pl-12 text-sm text-muted-foreground italic">
@@ -549,9 +549,9 @@ export default function RelatorioJobsAprovadosPage() {
                             <TableCell>
                               <div className="flex items-center gap-1.5">
                                 <Badge variant="outline" className="text-[10px] px-1.5">
-                                  {j.productDetails.length} {j.productDetails.length === 1 ? "item" : "itens"}
+                                  {(j.productDetails?.length || 0)} {(j.productDetails?.length || 0) === 1 ? "item" : "itens"}
                                 </Badge>
-                                {j.productDetails.length > 0 && (
+                                {(j.productDetails?.length || 0) > 0 && (
                                   <span className="text-xs text-muted-foreground truncate max-w-[150px]">
                                     {j.productDetails[0].name}
                                     {j.productDetails.length > 1 ? ` +${j.productDetails.length - 1}` : ""}
