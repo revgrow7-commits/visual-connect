@@ -234,8 +234,14 @@ export default function RelatorioJobsAprovadosPage() {
   const [filterUnit, setFilterUnit] = useState<string>("todas");
   const [filterStatus, setFilterStatus] = useState<string>("todos");
   const [search, setSearch] = useState("");
-  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
-  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 2);
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+  const [dateTo, setDateTo] = useState<Date | undefined>(new Date());
   const [syncing, setSyncing] = useState(false);
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
 
