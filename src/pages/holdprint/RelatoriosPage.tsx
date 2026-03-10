@@ -1,10 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 import {
   BarChart3, DollarSign, FileText, TrendingUp,
   Calculator, PieChart, ArrowRightLeft, ClipboardCheck,
-  Activity, Receipt,
+  Activity, Receipt, RefreshCw,
 } from "lucide-react";
 
 interface ReportCard {
@@ -53,14 +56,47 @@ const categories: { label: string; emoji: string; cards: ReportCard[] }[] = [
 ];
 
 export default function HoldprintRelatoriosPage() {
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("holdprint-sync", {
+        body: { trigger: "manual" },
+      });
+      if (error) throw error;
+      toast({
+        title: "Sincronização iniciada",
+        description: data?.message || "Os dados estão sendo importados da Holdprint.",
+      });
+    } catch (err: unknown) {
+      toast({
+        title: "Erro na sincronização",
+        description: (err as Error).message || "Não foi possível sincronizar.",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-3">
         <BarChart3 className="h-6 w-6 text-primary" />
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold tracking-tight">Relatórios</h1>
           <p className="text-muted-foreground text-sm">Hub de relatórios do Holdprint ERP</p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleSync}
+          disabled={syncing}
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
+          {syncing ? "Importando..." : "Importar da Holdprint"}
+        </Button>
       </div>
 
       {categories.map((cat) => (
