@@ -16,6 +16,13 @@ interface ReportCard {
 
 const categories: { label: string; emoji: string; cards: ReportCard[] }[] = [
   {
+    label: "Produção",
+    emoji: "🏭",
+    cards: [
+      { title: "Relatório de Jobs", description: "Jobs aprovados POA e SP com status financeiro", icon: FileText, path: "/holdprint/relatorios/jobs-aprovados" },
+    ],
+  },
+  {
     label: "Financeiro",
     emoji: "💰",
     cards: [
