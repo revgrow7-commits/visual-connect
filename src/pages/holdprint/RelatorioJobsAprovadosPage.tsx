@@ -610,6 +610,7 @@ export default function RelatorioJobsAprovadosPage() {
           </CardContent>
         </Card>
       )}
+      <BudgetAgentChat />
     </div>
   );
 }
