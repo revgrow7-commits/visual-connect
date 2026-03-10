@@ -124,10 +124,22 @@ function useApprovedJobs() {
 }
 
 export default function RelatorioJobsAprovadosPage() {
-  const { data: jobs, isLoading, error } = useApprovedJobs();
+  const queryClient = useQueryClient();
+  const { data: jobs, isLoading, isFetching, error } = useApprovedJobs();
   const [filterUnit, setFilterUnit] = useState<string>("todas");
   const [filterStatus, setFilterStatus] = useState<string>("todos");
   const [search, setSearch] = useState("");
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await queryClient.invalidateQueries({ queryKey: ["holdprint-approved-jobs-report"] });
+      await queryClient.refetchQueries({ queryKey: ["holdprint-approved-jobs-report"] });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     if (!jobs) return [];
