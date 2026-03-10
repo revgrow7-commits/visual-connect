@@ -90,7 +90,7 @@ export default function BudgetAgentChat() {
         }
       }
     }
-  }, [llmProvider]);
+  }, []);
 
   const handleSend = async (text?: string) => {
     const trimmed = (text || input).trim();
