@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import LLMModelSelector, { type LLMProvider } from "@/components/ai-agent/LLMModelSelector";
+
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -26,7 +26,7 @@ export default function BudgetAgentChat() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [llmProvider, setLlmProvider] = useState<LLMProvider>("gemini");
+  
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,7 +40,7 @@ export default function BudgetAgentChat() {
         "Content-Type": "application/json",
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ messages: allMessages, provider: llmProvider }),
+      body: JSON.stringify({ messages: allMessages, provider: "claude" }),
     });
 
     if (resp.status === 429) {
@@ -90,7 +90,7 @@ export default function BudgetAgentChat() {
         }
       }
     }
-  }, [llmProvider]);
+  }, []);
 
   const handleSend = async (text?: string) => {
     const trimmed = (text || input).trim();
@@ -141,7 +141,7 @@ export default function BudgetAgentChat() {
           <h3 className="text-sm font-semibold text-foreground truncate">Agente de Orçamentos</h3>
           <p className="text-xs text-muted-foreground">Especialista em análise de orçamentos</p>
         </div>
-        <LLMModelSelector value={llmProvider} onChange={setLlmProvider} disabled={isLoading} />
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">Claude</span>
         {messages.length > 0 && (
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMessages([])} title="Limpar">
             <Trash2 className="h-4 w-4 text-muted-foreground" />

@@ -6,11 +6,10 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const PROVIDER_CONFIG: Record<string, { url: string; model: string; envKey: string }> = {
-  gemini: { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: "gemini-2.5-flash", envKey: "GOOGLE_GEMINI_API_KEY" },
-  openai: { url: "https://api.openai.com/v1/chat/completions", model: "gpt-4o", envKey: "OPENAI_API_KEY" },
-  claude: { url: "https://api.anthropic.com/v1/messages", model: "claude-sonnet-4-20250514", envKey: "ANTHROPIC_API_KEY" },
-  perplexity: { url: "https://api.perplexity.ai/chat/completions", model: "sonar-pro", envKey: "PERPLEXITY_API_KEY" },
+const CLAUDE_CONFIG = {
+  url: "https://api.anthropic.com/v1/messages",
+  model: "claude-sonnet-4-20250514",
+  envKey: "ANTHROPIC_API_KEY",
 };
 
 const SYSTEM_PROMPT = `Você é o **Agente Especialista em Orçamentos** da Indústria Visual 📊🎯
@@ -270,56 +269,33 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { messages, provider: reqProvider } = await req.json();
+    const { messages } = await req.json();
     if (!messages || !Array.isArray(messages)) {
       return jsonResponse({ error: "Campo 'messages' é obrigatório" }, 400);
     }
 
-    const provider = reqProvider || "gemini";
-    const providerCfg = PROVIDER_CONFIG[provider] || PROVIDER_CONFIG.gemini;
-    const apiKey = Deno.env.get(providerCfg.envKey);
-    if (!apiKey) throw new Error(`${providerCfg.envKey} não configurada`);
+    const apiKey = Deno.env.get(CLAUDE_CONFIG.envKey);
+    if (!apiKey) throw new Error(`${CLAUDE_CONFIG.envKey} não configurada`);
 
     // Fetch budget context
     const budgetContext = await fetchBudgetContext();
     const systemContent = `${SYSTEM_PROMPT}\n\n## DADOS DISPONÍVEIS:\n${budgetContext}`;
 
-    // Claude uses a different API format
-    if (provider === "claude") {
-      const claudeMsgs = messages
-        .filter((m: { role: string }) => m.role !== "system")
-        .map((m: { role: string; content: string }) => ({ role: m.role, content: m.content }));
-      const response = await fetch(providerCfg.url, {
-        method: "POST",
-        headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
-        body: JSON.stringify({ model: providerCfg.model, max_tokens: 4096, system: systemContent, messages: claudeMsgs, stream: true }),
-      });
-      if (!response.ok) {
-        if (response.status === 429) return jsonResponse({ error: "Limite de requisições excedido." }, 429);
-        throw new Error("Erro ao comunicar com Claude");
-      }
-      return new Response(response.body, {
-        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-      });
-    }
+    const claudeMsgs = messages
+      .filter((m: { role: string }) => m.role !== "system")
+      .map((m: { role: string; content: string }) => ({ role: m.role, content: m.content }));
 
-    // OpenAI-compatible (Gemini, OpenAI, Perplexity)
-    const apiMessages = [
-      { role: "system", content: systemContent },
-      ...messages.filter((m: { role: string }) => m.role !== "system"),
-    ];
-
-    const response = await fetch(providerCfg.url, {
+    const response = await fetch(CLAUDE_CONFIG.url, {
       method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: providerCfg.model, max_tokens: 4096, messages: apiMessages, stream: true }),
+      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+      body: JSON.stringify({ model: CLAUDE_CONFIG.model, max_tokens: 4096, system: systemContent, messages: claudeMsgs, stream: true }),
     });
 
     if (!response.ok) {
       if (response.status === 429) return jsonResponse({ error: "Limite de requisições excedido." }, 429);
       const t = await response.text();
-      console.error(`[budget-agent] ${provider} error:`, response.status, t);
-      throw new Error(`Erro ao comunicar com ${provider}`);
+      console.error("[budget-agent] Claude error:", response.status, t);
+      throw new Error("Erro ao comunicar com Claude");
     }
 
     return new Response(response.body, {
