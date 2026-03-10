@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.holdprint-daily-sync]
 verify_jwt = false
+
+[functions.budget-agent]
+verify_jwt = false

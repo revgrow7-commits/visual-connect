@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import BudgetAgentChat from "@/components/holdprint/BudgetAgentChat";
 
 interface ProductDetail {
   name: string;
@@ -609,6 +610,7 @@ export default function RelatorioJobsAprovadosPage() {
           </CardContent>
         </Card>
       )}
+      <BudgetAgentChat />
     </div>
   );
 }
