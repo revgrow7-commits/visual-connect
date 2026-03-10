@@ -141,7 +141,7 @@ export default function BudgetAgentChat() {
           <h3 className="text-sm font-semibold text-foreground truncate">Agente de Orçamentos</h3>
           <p className="text-xs text-muted-foreground">Especialista em análise de orçamentos</p>
         </div>
-        <LLMModelSelector value={llmProvider} onChange={setLlmProvider} disabled={isLoading} />
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">Claude</span>
         {messages.length > 0 && (
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMessages([])} title="Limpar">
             <Trash2 className="h-4 w-4 text-muted-foreground" />
