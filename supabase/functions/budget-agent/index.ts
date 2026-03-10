@@ -6,11 +6,10 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const PROVIDER_CONFIG: Record<string, { url: string; model: string; envKey: string }> = {
-  gemini: { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: "gemini-2.5-flash", envKey: "GOOGLE_GEMINI_API_KEY" },
-  openai: { url: "https://api.openai.com/v1/chat/completions", model: "gpt-4o", envKey: "OPENAI_API_KEY" },
-  claude: { url: "https://api.anthropic.com/v1/messages", model: "claude-sonnet-4-20250514", envKey: "ANTHROPIC_API_KEY" },
-  perplexity: { url: "https://api.perplexity.ai/chat/completions", model: "sonar-pro", envKey: "PERPLEXITY_API_KEY" },
+const CLAUDE_CONFIG = {
+  url: "https://api.anthropic.com/v1/messages",
+  model: "claude-sonnet-4-20250514",
+  envKey: "ANTHROPIC_API_KEY",
 };
 
 const SYSTEM_PROMPT = `Você é o **Agente Especialista em Orçamentos** da Indústria Visual 📊🎯

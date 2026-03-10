@@ -40,7 +40,7 @@ export default function BudgetAgentChat() {
         "Content-Type": "application/json",
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ messages: allMessages, provider: llmProvider }),
+      body: JSON.stringify({ messages: allMessages, provider: "claude" }),
     });
 
     if (resp.status === 429) {
