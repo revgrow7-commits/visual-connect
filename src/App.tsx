@@ -51,6 +51,7 @@ const HoldprintClientes = lazy(() => import("./pages/holdprint/ClientesPage"));
 const HoldprintOportunidades = lazy(() => import("./pages/holdprint/OportunidadesPage"));
 const HoldprintRelatorios = lazy(() => import("./pages/holdprint/RelatoriosPage"));
 const HoldprintRelatorioDetalhe = lazy(() => import("./pages/holdprint/RelatorioDetalhePage"));
+const HoldprintRelatorioJobsAprovados = lazy(() => import("./pages/holdprint/RelatorioJobsAprovadosPage"));
 const HoldprintConfiguracoes = lazy(() => import("./pages/holdprint/ConfiguracoesPage"));
 const JobsPage = lazy(() => import("./pages/JobsPage"));
 const JobsFullscreenPage = lazy(() => import("./pages/JobsFullscreenPage"));
