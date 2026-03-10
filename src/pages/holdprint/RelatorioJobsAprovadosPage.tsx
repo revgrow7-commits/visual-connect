@@ -379,6 +379,11 @@ export default function RelatorioJobsAprovadosPage() {
       </div>
 
       {/* KPIs */}
+      {(dateFrom || dateTo) && (
+        <p className="text-xs text-muted-foreground">
+          Totais do período: {dateFrom ? format(dateFrom, "dd/MM/yyyy") : "..."} até {dateTo ? format(dateTo, "dd/MM/yyyy") : "..."}
+        </p>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
         <Card>
           <CardContent className="pt-5">
