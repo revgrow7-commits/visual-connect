@@ -100,7 +100,7 @@ function useApprovedJobs() {
           return {
             code: Number(j.code || 0),
             id: String(j.id || ""),
-            customerName: String(j.customerName || j.customer?.name || "—"),
+            customerName: String(j.customerName || (j.customer as Record<string, unknown>)?.name || "—"),
             title: String(j.title || ""),
             description: String(j.description || j.title || "—").slice(0, 120),
             items: itemNames,
