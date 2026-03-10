@@ -156,7 +156,7 @@ function useApprovedJobs() {
 }
 
 function JobExpandedRow({ job }: { job: ApprovedJob }) {
-  if (job.productDetails.length === 0) {
+  if (!job.productDetails || job.productDetails.length === 0) {
     return (
       <TableRow className="bg-muted/30">
         <TableCell colSpan={12} className="py-3 pl-12 text-sm text-muted-foreground italic">
