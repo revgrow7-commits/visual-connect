@@ -4,12 +4,17 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Download, FileText, Filter, RefreshCw } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ArrowLeft, CalendarIcon, Download, FileText, Filter, RefreshCw } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemo, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 interface ApprovedJob {
   code: number;
@@ -25,10 +30,39 @@ interface ApprovedJob {
   approvedBy: string;
   unidade: string;
   creationTime: string;
+  totalM2: number;
 }
 
 function fmtBRL(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+/**
+ * Extract m² from product descriptions.
+ * Pattern: Largura: <span ...>Xm</span> ... Altura: <span ...>Ym</span> ... Cópias: <span ...>N</span>
+ * m² per product = largura * altura * cópias * quantity
+ */
+function extractM2FromProducts(products: Record<string, unknown>[]): number {
+  let totalM2 = 0;
+
+  for (const p of products) {
+    const desc = String(p.description || "");
+    const quantity = Number(p.quantity || p.saleQuantity || 1);
+
+    // Extract all dimension blocks from description
+    const larguraMatch = desc.match(/Largura:\s*<span[^>]*>(\d+[.,]?\d*)\s*m<\/span>/i);
+    const alturaMatch = desc.match(/Altura:\s*<span[^>]*>(\d+[.,]?\d*)\s*m<\/span>/i);
+    const copiasMatch = desc.match(/C[oó]pias:\s*<span[^>]*>(\d+)<\/span>/i);
+
+    if (larguraMatch && alturaMatch) {
+      const largura = parseFloat(larguraMatch[1].replace(",", "."));
+      const altura = parseFloat(alturaMatch[1].replace(",", "."));
+      const copias = copiasMatch ? parseInt(copiasMatch[1]) : 1;
+      totalM2 += largura * altura * copias * quantity;
+    }
+  }
+
+  return totalM2;
 }
 
 function parseJobFromCache(raw: Record<string, unknown>): ApprovedJob | null {
@@ -66,6 +100,9 @@ function parseJobFromCache(raw: Record<string, unknown>): ApprovedJob | null {
       ? prodItems.map(p => String(p.name || "Item"))
       : [];
 
+  // Calculate m² from products descriptions
+  const totalM2 = extractM2FromProducts(products);
+
   const approvedBy = String(
     j.approvedBy || j.commercialResponsible || j.sellerName ||
     j.responsibleName || j.createdBy || "Sistema"
@@ -85,6 +122,7 @@ function parseJobFromCache(raw: Record<string, unknown>): ApprovedJob | null {
     approvedBy,
     unidade: String(j._unit_key || j._unidade || "poa").toUpperCase(),
     creationTime: String(j.creationTime || j.createdAt || ""),
+    totalM2,
   };
 }
 
@@ -92,7 +130,6 @@ function useApprovedJobs() {
   return useQuery<ApprovedJob[]>({
     queryKey: ["holdprint-approved-jobs-cache"],
     queryFn: async () => {
-      // Read from local cache (holdprint_cache) - much faster than API calls
       const { data, error } = await supabase
         .from("holdprint_cache")
         .select("raw_data")
@@ -125,6 +162,8 @@ export default function RelatorioJobsAprovadosPage() {
   const [filterUnit, setFilterUnit] = useState<string>("todas");
   const [filterStatus, setFilterStatus] = useState<string>("todos");
   const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [syncing, setSyncing] = useState(false);
 
   const handleSync = async () => {
@@ -134,7 +173,6 @@ export default function RelatorioJobsAprovadosPage() {
         body: { trigger_type: "manual", endpoints: ["jobs"] },
       });
       if (error) throw error;
-      // Wait a bit for background processing then refetch cache
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ["holdprint-approved-jobs-cache"] });
         setSyncing(false);
@@ -149,6 +187,19 @@ export default function RelatorioJobsAprovadosPage() {
     return jobs.filter((j) => {
       if (filterUnit !== "todas" && j.unidade !== filterUnit) return false;
       if (filterStatus !== "todos" && j.paymentStatus !== filterStatus) return false;
+
+      // Date filter
+      if (dateFrom || dateTo) {
+        const jobDate = j.creationTime ? new Date(j.creationTime) : null;
+        if (!jobDate || isNaN(jobDate.getTime())) return false;
+        if (dateFrom && jobDate < dateFrom) return false;
+        if (dateTo) {
+          const endOfDay = new Date(dateTo);
+          endOfDay.setHours(23, 59, 59, 999);
+          if (jobDate > endOfDay) return false;
+        }
+      }
+
       if (search) {
         const q = search.toLowerCase();
         return (
@@ -159,7 +210,7 @@ export default function RelatorioJobsAprovadosPage() {
       }
       return true;
     });
-  }, [jobs, filterUnit, filterStatus, search]);
+  }, [jobs, filterUnit, filterStatus, search, dateFrom, dateTo]);
 
   const totals = useMemo(() => {
     return filtered.reduce(
@@ -167,25 +218,28 @@ export default function RelatorioJobsAprovadosPage() {
         total: acc.total + j.totalValue,
         pago: acc.pago + j.paidValue,
         aberto: acc.aberto + j.openValue,
+        m2: acc.m2 + j.totalM2,
       }),
-      { total: 0, pago: 0, aberto: 0 }
+      { total: 0, pago: 0, aberto: 0, m2: 0 }
     );
   }, [filtered]);
 
   const handleExportCSV = () => {
     if (!filtered.length) return;
-    const headers = ["Job", "Cliente", "Descrição", "Itens", "Valor Total", "Valor Pago", "Valor Aberto", "Status", "Aprovado Por", "Unidade"];
+    const headers = ["Job", "Cliente", "Descrição", "Itens", "m²", "Valor Total", "Valor Pago", "Valor Aberto", "Status", "Aprovado Por", "Unidade", "Data"];
     const rows = filtered.map((j) => [
       j.code,
       `"${j.customerName}"`,
       `"${j.description}"`,
       `"${j.items.join("; ")}"`,
+      j.totalM2.toFixed(2),
       j.totalValue.toFixed(2),
       j.paidValue.toFixed(2),
       j.openValue.toFixed(2),
       j.paymentStatus,
       `"${j.approvedBy}"`,
       j.unidade,
+      j.creationTime ? new Date(j.creationTime).toLocaleDateString("pt-BR") : "",
     ]);
     const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
@@ -195,6 +249,11 @@ export default function RelatorioJobsAprovadosPage() {
     a.download = `relatorio-jobs-aprovados-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const clearDates = () => {
+    setDateFrom(undefined);
+    setDateTo(undefined);
   };
 
   return (
@@ -224,7 +283,8 @@ export default function RelatorioJobsAprovadosPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      {/* KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
         <Card>
           <CardContent className="pt-5">
             <p className="text-sm text-muted-foreground">Total Jobs</p>
@@ -249,8 +309,15 @@ export default function RelatorioJobsAprovadosPage() {
             <span className="text-2xl font-bold text-amber-600">{fmtBRL(totals.aberto)}</span>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="pt-5">
+            <p className="text-sm text-muted-foreground">Total m²</p>
+            <span className="text-2xl font-bold text-blue-600">{totals.m2.toFixed(2)} m²</span>
+          </CardContent>
+        </Card>
       </div>
 
+      {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
         <Filter className="h-4 w-4 text-muted-foreground" />
         <Input
@@ -259,6 +326,67 @@ export default function RelatorioJobsAprovadosPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="w-64"
         />
+
+        {/* Date From */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "w-[150px] justify-start text-left font-normal",
+                !dateFrom && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {dateFrom ? format(dateFrom, "dd/MM/yyyy") : "Data início"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={dateFrom}
+              onSelect={setDateFrom}
+              initialFocus
+              locale={ptBR}
+              className={cn("p-3 pointer-events-auto")}
+            />
+          </PopoverContent>
+        </Popover>
+
+        {/* Date To */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "w-[150px] justify-start text-left font-normal",
+                !dateTo && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {dateTo ? format(dateTo, "dd/MM/yyyy") : "Data fim"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={dateTo}
+              onSelect={setDateTo}
+              initialFocus
+              locale={ptBR}
+              className={cn("p-3 pointer-events-auto")}
+            />
+          </PopoverContent>
+        </Popover>
+
+        {(dateFrom || dateTo) && (
+          <Button variant="ghost" size="sm" onClick={clearDates} className="text-xs">
+            Limpar datas
+          </Button>
+        )}
+
         <Select value={filterUnit} onValueChange={setFilterUnit}>
           <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -278,6 +406,7 @@ export default function RelatorioJobsAprovadosPage() {
         </Select>
       </div>
 
+      {/* Table */}
       {isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
@@ -294,18 +423,20 @@ export default function RelatorioJobsAprovadosPage() {
                     <TableHead className="w-20">Job</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead className="max-w-[200px]">Descrição / Itens</TableHead>
+                    <TableHead className="text-right">m²</TableHead>
                     <TableHead className="text-right">Valor Total</TableHead>
                     <TableHead className="text-right">Valor Pago</TableHead>
                     <TableHead className="text-right">Em Aberto</TableHead>
                     <TableHead className="text-center">Status</TableHead>
                     <TableHead>Aprovado por</TableHead>
                     <TableHead className="text-center">Unidade</TableHead>
+                    <TableHead className="text-center">Data</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                         Nenhum job encontrado com os filtros aplicados.
                       </TableCell>
                     </TableRow>
@@ -321,6 +452,9 @@ export default function RelatorioJobsAprovadosPage() {
                               {j.items.slice(0, 3).join(", ")}{j.items.length > 3 ? ` +${j.items.length - 3}` : ""}
                             </p>
                           )}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          {j.totalM2 > 0 ? `${j.totalM2.toFixed(2)}` : "—"}
                         </TableCell>
                         <TableCell className="text-right font-medium">{fmtBRL(j.totalValue)}</TableCell>
                         <TableCell className="text-right text-green-600">{fmtBRL(j.paidValue)}</TableCell>
@@ -342,6 +476,9 @@ export default function RelatorioJobsAprovadosPage() {
                         <TableCell className="text-sm">{j.approvedBy}</TableCell>
                         <TableCell className="text-center">
                           <Badge variant="outline" className="text-xs">{j.unidade}</Badge>
+                        </TableCell>
+                        <TableCell className="text-center text-sm text-muted-foreground whitespace-nowrap">
+                          {j.creationTime ? new Date(j.creationTime).toLocaleDateString("pt-BR") : "—"}
                         </TableCell>
                       </TableRow>
                     ))
