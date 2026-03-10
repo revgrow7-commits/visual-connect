@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import LLMModelSelector, { type LLMProvider } from "@/components/ai-agent/LLMModelSelector";
+
 
 type Msg = { role: "user" | "assistant"; content: string };
 
