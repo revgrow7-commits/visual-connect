@@ -639,7 +639,6 @@ export default function RelatorioJobsAprovadosPage() {
               </Table>
             </div>
           </CardContent>
-        </Card>
       )}
       <BudgetAgentChat />
     </div>
