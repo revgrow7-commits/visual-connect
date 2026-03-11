@@ -53,6 +53,7 @@ const HoldprintRelatorios = lazy(() => import("./pages/holdprint/RelatoriosPage"
 const HoldprintRelatorioDetalhe = lazy(() => import("./pages/holdprint/RelatorioDetalhePage"));
 const HoldprintRelatorioJobsAprovados = lazy(() => import("./pages/holdprint/RelatorioJobsAprovadosPage"));
 const HoldprintConfiguracoes = lazy(() => import("./pages/holdprint/ConfiguracoesPage"));
+const HoldprintVendasDashboard = lazy(() => import("./pages/holdprint/VendasDashboardPage"));
 const JobsPage = lazy(() => import("./pages/JobsPage"));
 const JobsFullscreenPage = lazy(() => import("./pages/JobsFullscreenPage"));
 const AdminBoardsPage = lazy(() => import("./pages/AdminBoardsPage"));
