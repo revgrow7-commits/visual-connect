@@ -108,7 +108,14 @@ export default function HoldprintRelatoriosPage() {
         </Button>
       </div>
 
-      <BudgetAgentChat embedded />
+      {showAgent ? (
+        <BudgetAgentChat embedded onClose={() => setShowAgent(false)} />
+      ) : (
+        <Button variant="outline" size="sm" onClick={() => setShowAgent(true)} className="gap-2">
+          <Sparkles className="h-4 w-4" />
+          Abrir Agente de Orçamentos
+        </Button>
+      )}
 
       {categories.map((cat) => (
         <div key={cat.label}>
