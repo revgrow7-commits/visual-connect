@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, CalendarIcon, ChevronDown, ChevronRight, Download, FileText, Filter, RefreshCw, Ruler } from "lucide-react";
+import { ArrowLeft, CalendarIcon, ChevronDown, ChevronRight, Download, FileText, Filter, RefreshCw, Ruler, FileSpreadsheet } from "lucide-react";
+import * as XLSX from "xlsx";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemo, useState, Fragment, useRef, useCallback } from "react";
@@ -332,39 +333,40 @@ export default function RelatorioJobsAprovadosPage() {
     );
   }, [filtered]);
 
-  const handleExportCSV = () => {
+  const handleExportExcel = () => {
     if (!filtered.length) return;
     const headers = ["Job", "Cliente", "Item", "Qtd", "Largura(m)", "Altura(m)", "Cópias", "m²", "Unitário", "Total Item", "Valor Job", "Valor Pago", "Em Aberto", "Status", "Aprovado Por", "Unidade", "Data"];
-    const rows: string[][] = [];
+    const rows: (string | number)[][] = [];
     for (const j of filtered) {
       if (j.productDetails.length === 0) {
         rows.push([
-          String(j.code), `"${j.customerName}"`, '""', "", "", "", "", "",
-          "", "", j.totalValue.toFixed(2), j.paidValue.toFixed(2), j.openValue.toFixed(2),
-          j.paymentStatus, `"${j.approvedBy}"`, j.unidade,
+          j.code, j.customerName, "", "", "", "", "", "",
+          "", "", j.totalValue, j.paidValue, j.openValue,
+          j.paymentStatus, j.approvedBy, j.unidade,
           j.creationTime ? new Date(j.creationTime).toLocaleDateString("pt-BR") : "",
         ]);
       } else {
         for (const item of j.productDetails) {
           rows.push([
-            String(j.code), `"${j.customerName}"`, `"${item.name}"`,
-            String(item.quantity), item.largura.toFixed(2), item.altura.toFixed(2),
-            String(item.copias), item.m2.toFixed(2), item.unitPrice.toFixed(2),
-            item.totalValue.toFixed(2), j.totalValue.toFixed(2), j.paidValue.toFixed(2),
-            j.openValue.toFixed(2), j.paymentStatus, `"${j.approvedBy}"`, j.unidade,
+            j.code, j.customerName, item.name,
+            item.quantity, item.largura, item.altura,
+            item.copias, item.m2, item.unitPrice,
+            item.totalValue, j.totalValue, j.paidValue,
+            j.openValue, j.paymentStatus, j.approvedBy, j.unidade,
             j.creationTime ? new Date(j.creationTime).toLocaleDateString("pt-BR") : "",
           ]);
         }
       }
     }
-    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `relatorio-jobs-aprovados-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const wsData = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    // Auto-size columns
+    ws["!cols"] = headers.map((h, i) => ({
+      wch: Math.max(h.length, ...rows.map(r => String(r[i] ?? "").length).slice(0, 50)) + 2,
+    }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Jobs Aprovados");
+    XLSX.writeFile(wb, `relatorio-jobs-aprovados-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   const clearDates = () => {
@@ -396,8 +398,8 @@ export default function RelatorioJobsAprovadosPage() {
             <RefreshCw className={`h-3 w-3 mr-1 ${syncing || isFetching ? "animate-spin" : ""}`} />
             {syncing ? "Sync..." : "Sincronizar"}
           </Button>
-          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleExportCSV} disabled={!filtered.length}>
-            <Download className="h-3 w-3 mr-1" /> CSV
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleExportExcel} disabled={!filtered.length}>
+            <FileSpreadsheet className="h-3 w-3 mr-1" /> Excel
           </Button>
           {!isFullscreen && (
             <Link to="/holdprint/relatorios/jobs-aprovados/fullscreen" target="_blank">
