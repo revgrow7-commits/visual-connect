@@ -654,7 +654,13 @@ export default function RelatorioJobsAprovadosPage() {
           </CardContent>
         </Card>
       )}
-      <BudgetAgentChat />
+      {showAgent ? (
+        <BudgetAgentChat embedded onClose={() => setShowAgent(false)} />
+      ) : (
+        <Button variant="outline" size="sm" onClick={() => setShowAgent(true)} className="fixed bottom-6 right-6 z-50 gap-2 shadow-lg">
+          <Sparkles className="h-4 w-4" /> Agente de Orçamentos
+        </Button>
+      )}
     </div>
   );
 }
