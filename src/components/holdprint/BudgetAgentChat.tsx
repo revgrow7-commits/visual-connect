@@ -22,6 +22,7 @@ const SUGGESTIONS = [
 
 interface Props {
   embedded?: boolean;
+  onClose?: () => void;
 }
 
 export default function BudgetAgentChat({ embedded = false }: Props) {
