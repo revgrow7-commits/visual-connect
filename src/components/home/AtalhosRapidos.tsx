@@ -1,7 +1,7 @@
 import {
-  Heart, BookOpen, Award, Newspaper,
-  FolderOpen, GraduationCap, Clock, Megaphone, ShieldAlert,
-  ClipboardList, MessageSquarePlus, Briefcase, Kanban, Users,
+  Heart, BookOpen, Award, Target,
+  GraduationCap, Clock, Megaphone, ShieldAlert,
+  ClipboardList, MessageSquarePlus, Briefcase, Kanban,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
