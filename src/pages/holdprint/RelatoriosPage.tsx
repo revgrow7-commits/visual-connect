@@ -8,7 +8,7 @@ import BudgetAgentChat from "@/components/holdprint/BudgetAgentChat";
 import {
   BarChart3, DollarSign, FileText, TrendingUp,
   Calculator, PieChart, ArrowRightLeft, ClipboardCheck,
-  Activity, Receipt, RefreshCw,
+  Activity, Receipt, RefreshCw, Sparkles,
 } from "lucide-react";
 
 interface ReportCard {
