@@ -59,6 +59,21 @@ const JobsFullscreenPage = lazy(() => import("./pages/JobsFullscreenPage"));
 const AdminBoardsPage = lazy(() => import("./pages/AdminBoardsPage"));
 const AutomacoesPage = lazy(() => import("./pages/AutomacoesPage"));
 
+// CRM pages
+const CRMDashboard = lazy(() => import("./pages/crm/DashboardPage"));
+const CRMContatos = lazy(() => import("./pages/crm/ContatosPage"));
+const CRMEmpresas = lazy(() => import("./pages/crm/EmpresasPage"));
+const CRMPipeline = lazy(() => import("./pages/crm/PipelinePage"));
+const CRMPropostas = lazy(() => import("./pages/crm/PropostasPage"));
+const CRMTarefas = lazy(() => import("./pages/crm/TarefasPage"));
+const CRMCalendario = lazy(() => import("./pages/crm/CalendarioPage"));
+const CRMInbox = lazy(() => import("./pages/crm/InboxPage"));
+const CRMCS = lazy(() => import("./pages/crm/CSPage"));
+const CRMRelatorios = lazy(() => import("./pages/crm/RelatoriosPage"));
+const CRMAuditoria = lazy(() => import("./pages/crm/AuditoriaPage"));
+const CRMWorkspaceAI = lazy(() => import("./pages/crm/WorkspaceAIPage"));
+const CRMConfiguracoes = lazy(() => import("./pages/crm/ConfiguracoesPage"));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -124,6 +139,20 @@ const App = () => (
               <Route path="/gestao/juridico" element={<JuridicoPage />} />
               <Route path="/gestao/cs/whatsapp-test" element={<WhatsAppTestPage />} />
               <Route path="/orquestrador" element={<OrquestradorPage />} />
+              {/* CRM */}
+              <Route path="/crm/dashboard" element={<CRMDashboard />} />
+              <Route path="/crm/contatos" element={<CRMContatos />} />
+              <Route path="/crm/empresas" element={<CRMEmpresas />} />
+              <Route path="/crm/pipeline" element={<CRMPipeline />} />
+              <Route path="/crm/propostas" element={<CRMPropostas />} />
+              <Route path="/crm/tarefas" element={<CRMTarefas />} />
+              <Route path="/crm/calendario" element={<CRMCalendario />} />
+              <Route path="/crm/inbox" element={<CRMInbox />} />
+              <Route path="/crm/cs" element={<CRMCS />} />
+              <Route path="/crm/relatorios" element={<CRMRelatorios />} />
+              <Route path="/crm/auditoria" element={<CRMAuditoria />} />
+              <Route path="/crm/workspace-ai" element={<CRMWorkspaceAI />} />
+              <Route path="/crm/configuracoes" element={<CRMConfiguracoes />} />
               {/* Holdprint ERP */}
               <Route path="/holdprint/processos" element={<HoldprintProcessos />} />
               <Route path="/holdprint/clientes" element={<HoldprintClientes />} />
