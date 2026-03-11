@@ -154,10 +154,10 @@ export default function BudgetAgentChat({ embedded = false, onClose }: Props) {
           <div className="flex flex-col items-center py-6">
             <Bot className="h-12 w-12 text-muted-foreground/30 mb-3" />
             <p className="text-sm text-muted-foreground text-center mb-1">
-              Olá! Sou o especialista em <span className="font-semibold text-primary">orçamentos</span>.
+              Olá! Sou o agente <span className="font-semibold text-primary">financeiro & comercial</span>.
             </p>
             <p className="text-xs text-muted-foreground text-center mb-4">
-              Analiso materiais, produtos, taxa de conversão e tendências.
+              Analiso orçamentos, jobs, contas a receber e contas a pagar.
             </p>
             <div className="flex flex-wrap gap-1.5 justify-center">
               {SUGGESTIONS.map((s, i) => (
