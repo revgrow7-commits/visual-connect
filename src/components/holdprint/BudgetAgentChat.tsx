@@ -122,7 +122,7 @@ export default function BudgetAgentChat({ embedded = false }: Props) {
   return (
     <div className={cn(
       "flex flex-col bg-card rounded-2xl border border-border shadow-lg overflow-hidden",
-      embedded ? "h-[calc(100vh-10rem)] min-h-[500px]" : "fixed bottom-6 right-6 z-50 w-[420px] h-[600px] shadow-2xl"
+      embedded ? "h-[500px] w-full" : "fixed bottom-6 right-6 z-50 w-[420px] h-[600px] shadow-2xl"
     )}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-muted/30">
