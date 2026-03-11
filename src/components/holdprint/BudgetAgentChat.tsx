@@ -12,12 +12,12 @@ type Msg = { role: "user" | "assistant"; content: string };
 const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/budget-agent`;
 
 const SUGGESTIONS = [
-  "Quais materiais aparecem nos orçamentos perdidos?",
-  "Quais produtos são mais solicitados?",
+  "Resumo financeiro geral (receber vs pagar)",
+  "Quais jobs estão com estouro de custo?",
   "Qual a taxa de conversão por vendedor?",
-  "Compare as unidades POA e SP",
-  "Quais clientes mais solicitam orçamentos?",
-  "Qual a tendência mensal de conversão?",
+  "Maiores inadimplências por cliente",
+  "Contas a pagar vencidas por unidade",
+  "Compare POA e SP: orçamentos, jobs e financeiro",
 ];
 
 interface Props {
@@ -131,8 +131,8 @@ export default function BudgetAgentChat({ embedded = false, onClose }: Props) {
           <Sparkles className="h-5 w-5 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-foreground truncate">Agente de Orçamentos</h3>
-          <p className="text-xs text-muted-foreground">Especialista em análise · Claude</p>
+          <h3 className="text-sm font-semibold text-foreground truncate">Agente Financeiro & Comercial</h3>
+          <p className="text-xs text-muted-foreground">Orçamentos · Jobs · Financeiro · Claude</p>
         </div>
         <div className="flex items-center gap-1">
           {messages.length > 0 && (
@@ -154,10 +154,10 @@ export default function BudgetAgentChat({ embedded = false, onClose }: Props) {
           <div className="flex flex-col items-center py-6">
             <Bot className="h-12 w-12 text-muted-foreground/30 mb-3" />
             <p className="text-sm text-muted-foreground text-center mb-1">
-              Olá! Sou o especialista em <span className="font-semibold text-primary">orçamentos</span>.
+              Olá! Sou o agente <span className="font-semibold text-primary">financeiro & comercial</span>.
             </p>
             <p className="text-xs text-muted-foreground text-center mb-4">
-              Analiso materiais, produtos, taxa de conversão e tendências.
+              Analiso orçamentos, jobs, contas a receber e contas a pagar.
             </p>
             <div className="flex flex-wrap gap-1.5 justify-center">
               {SUGGESTIONS.map((s, i) => (
