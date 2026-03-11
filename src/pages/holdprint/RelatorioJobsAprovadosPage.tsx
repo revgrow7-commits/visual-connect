@@ -245,6 +245,26 @@ export default function RelatorioJobsAprovadosPage() {
   const [dateTo, setDateTo] = useState<Date | undefined>(new Date());
   const [syncing, setSyncing] = useState(false);
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [scrollPercent, setScrollPercent] = useState(0);
+
+  const handleScrollSlider = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = Number(e.target.value);
+    setScrollPercent(val);
+    const el = scrollContainerRef.current;
+    if (el) {
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      el.scrollLeft = (val / 100) * maxScroll;
+    }
+  }, []);
+
+  const handleTableScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (el) {
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      setScrollPercent(maxScroll > 0 ? (el.scrollLeft / maxScroll) * 100 : 0);
+    }
+  }, []);
 
   const toggleExpand = (jobKey: string) => {
     setExpandedJobs((prev) => {
