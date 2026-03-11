@@ -248,6 +248,7 @@ export default function RelatorioJobsAprovadosPage() {
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [scrollPercent, setScrollPercent] = useState(0);
+  const [showAgent, setShowAgent] = useState(false);
 
   const handleScrollSlider = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const val = Number(e.target.value);
