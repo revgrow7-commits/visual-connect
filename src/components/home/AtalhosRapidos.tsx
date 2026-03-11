@@ -1,14 +1,14 @@
 import {
-  Heart, BookOpen, Award, Newspaper,
-  FolderOpen, GraduationCap, Clock, Megaphone, ShieldAlert,
-  ClipboardList, MessageSquarePlus, Briefcase, Kanban, Users,
+  Heart, BookOpen, Award, Target,
+  GraduationCap, Clock, Megaphone, ShieldAlert,
+  ClipboardList, MessageSquarePlus, Briefcase, Kanban,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const atalhos = [
   { label: "Processos", icon: BookOpen, path: "/processos" },
   { label: "Faixa Preta", icon: Award, path: "/faixa-preta" },
-  { label: "Documentos", icon: FolderOpen, path: "/perfil" },
+  { label: "CRM", icon: Target, path: "/crm/dashboard" },
   { label: "Treinamentos", icon: GraduationCap, path: "/onboarding" },
   { label: "Endomarketing", icon: Megaphone, path: "/endomarketing" },
   { label: "Ouvidoria", icon: ShieldAlert, path: "/ouvidoria" },
