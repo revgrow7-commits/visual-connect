@@ -534,18 +534,19 @@ export default function RelatorioJobsAprovadosPage() {
         <Card><CardContent className="py-8 text-center text-destructive">Erro: {(error as Error).message}</CardContent></Card>
       ) : (
         <Card>
-           <div className="px-4 py-2 border-b border-border flex items-center gap-3">
-              <span className="text-xs text-muted-foreground shrink-0">◀</span>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={scrollPercent}
-                onChange={handleScrollSlider}
-                className="w-full h-1.5 accent-primary cursor-pointer"
-              />
-              <span className="text-xs text-muted-foreground shrink-0">▶</span>
-            </div>
+          <div className="px-4 py-2 border-b border-border flex items-center gap-3">
+            <span className="text-xs text-muted-foreground shrink-0">◀</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={scrollPercent}
+              onChange={handleScrollSlider}
+              className="w-full h-1.5 accent-primary cursor-pointer"
+            />
+            <span className="text-xs text-muted-foreground shrink-0">▶</span>
+          </div>
+          <CardContent className="p-0">
             <div className="overflow-x-auto" ref={scrollContainerRef} onScroll={handleTableScroll}>
               <Table>
                 <TableHeader>
