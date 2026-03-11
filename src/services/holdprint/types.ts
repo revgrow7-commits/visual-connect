@@ -80,21 +80,34 @@ export interface HoldprintBudget {
   title?: string;
   customerName?: string;
   budgetState?: number;
+  budgetStep?: string; // rascunho, emitido, enviado, negociacao, aceite_verbal
+  budgetStepName?: string;
+  commercialResponsible?: string;
   creationDate?: string;
   wonDate?: string;
   lostDate?: string;
+  lostReason?: string;
   deliveryNeed?: string;
+  lastInteractionDate?: string;
+  followUpDate?: string;
+  proposalLink?: string;
+  proposalViewedAt?: string;
   proposes?: Array<{
+    id?: string;
+    name?: string;
     totalPrice?: number;
     productionCost?: number;
     sellingCost?: number;
     totalProfitPercentual?: number;
     paymentOption?: string;
+    sentDate?: string;
+    viewedDate?: string;
     proposeItems?: Array<{
       itemName?: string;
       totalPrice?: number;
       quantity?: number;
       unitPrice?: number;
+      productionCost?: number;
     }>;
   }>;
 }
