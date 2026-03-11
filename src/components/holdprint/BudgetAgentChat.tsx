@@ -25,7 +25,7 @@ interface Props {
   onClose?: () => void;
 }
 
-export default function BudgetAgentChat({ embedded = false }: Props) {
+export default function BudgetAgentChat({ embedded = false, onClose }: Props) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
