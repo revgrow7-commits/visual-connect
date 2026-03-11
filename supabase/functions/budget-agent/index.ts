@@ -97,6 +97,7 @@ async function fetchBudgetContext(): Promise<string> {
         const unitKey = String(raw._unit_key || "poa").toUpperCase();
         const creationDate = String(raw.creationTime || raw.createdAt || "");
         const monthKey = creationDate ? creationDate.slice(0, 7) : "N/A";
+        const budgetCode = String(raw.code || raw.budgetCode || b.record_id || "N/A");
 
         const proposals = Array.isArray(raw.proposals) ? raw.proposals : [];
         let budgetValue = 0;
