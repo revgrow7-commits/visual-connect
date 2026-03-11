@@ -75,6 +75,25 @@ const groups: NavGroup[] = [
     collapsible: true,
   },
   {
+    label: "CRM",
+    items: [
+      { label: "Dashboard", icon: LayoutDashboard, path: "/crm/dashboard", highlight: true, badge: "Novo" },
+      { label: "Contatos", icon: Contact, path: "/crm/contatos" },
+      { label: "Empresas", icon: Building2, path: "/crm/empresas" },
+      { label: "Pipeline", icon: Target, path: "/crm/pipeline", highlight: true, badge: "Novo" },
+      { label: "Propostas", icon: Send, path: "/crm/propostas" },
+      { label: "Tarefas", icon: ClipboardList, path: "/crm/tarefas" },
+      { label: "Calendário", icon: CalendarDays, path: "/crm/calendario" },
+      { label: "Inbox", icon: Inbox, path: "/crm/inbox" },
+      { label: "Sucesso do Cliente", icon: HeadphonesIcon, path: "/crm/cs" },
+      { label: "Relatórios", icon: BarChart3, path: "/crm/relatorios" },
+      { label: "Auditoria", icon: Shield, path: "/crm/auditoria" },
+      { label: "Workspace AI", icon: Sparkles, path: "/crm/workspace-ai", highlight: true, badge: "IA" },
+      { label: "Configurações", icon: SettingsIcon, path: "/crm/configuracoes" },
+    ],
+    collapsible: true,
+  },
+  {
     label: "Holdprint ERP",
     items: [
       { label: "Processos", icon: Database, path: "/holdprint/processos", highlight: true, badge: "ERP" },
