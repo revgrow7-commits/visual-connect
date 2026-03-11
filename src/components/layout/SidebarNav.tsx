@@ -8,6 +8,7 @@ import {
   Factory, TrendingUp, ShoppingCart, Wallet, Receipt,
   Calculator, Landmark, HeadphonesIcon, Scale, Brain,
   Building2, Database, Users as UsersIcon, Target, BarChart3, Settings as SettingsIcon,
+  LayoutDashboard, Contact, Briefcase, Send, CalendarDays, Inbox, Shield, Sparkles,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
