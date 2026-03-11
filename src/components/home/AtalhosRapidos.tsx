@@ -8,7 +8,7 @@ import { useNavigate } from "react-router-dom";
 const atalhos = [
   { label: "Processos", icon: BookOpen, path: "/processos" },
   { label: "Faixa Preta", icon: Award, path: "/faixa-preta" },
-  { label: "Documentos", icon: FolderOpen, path: "/perfil" },
+  { label: "CRM", icon: Target, path: "/crm/dashboard" },
   { label: "Treinamentos", icon: GraduationCap, path: "/onboarding" },
   { label: "Endomarketing", icon: Megaphone, path: "/endomarketing" },
   { label: "Ouvidoria", icon: ShieldAlert, path: "/ouvidoria" },
