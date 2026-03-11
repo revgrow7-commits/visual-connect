@@ -19,7 +19,7 @@ const SECTOR_ENDPOINTS: Record<string, string[]> = {
   comercial: ["customers", "budgets"],
   compras: ["suppliers", "expenses"],
   financeiro: ["expenses", "incomes"],
-  faturamento: ["incomes", "budgets"],
+  faturamento: ["incomes", "expenses", "budgets", "jobs", "customers"],
   contabil: ["expenses", "incomes"],
   fiscal: ["incomes", "expenses"],
   marketing: ["customers", "budgets"],
