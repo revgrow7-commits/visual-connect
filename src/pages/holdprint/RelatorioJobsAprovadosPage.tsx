@@ -398,8 +398,8 @@ export default function RelatorioJobsAprovadosPage() {
             <RefreshCw className={`h-3 w-3 mr-1 ${syncing || isFetching ? "animate-spin" : ""}`} />
             {syncing ? "Sync..." : "Sincronizar"}
           </Button>
-          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleExportCSV} disabled={!filtered.length}>
-            <Download className="h-3 w-3 mr-1" /> CSV
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleExportExcel} disabled={!filtered.length}>
+            <FileSpreadsheet className="h-3 w-3 mr-1" /> Excel
           </Button>
           {!isFullscreen && (
             <Link to="/holdprint/relatorios/jobs-aprovados/fullscreen" target="_blank">
