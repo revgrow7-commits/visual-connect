@@ -1,14 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import BudgetAgentChat from "@/components/holdprint/BudgetAgentChat";
 import {
   BarChart3, DollarSign, FileText, TrendingUp,
   Calculator, PieChart, ArrowRightLeft, ClipboardCheck,
-  Activity, Receipt, RefreshCw,
+  Activity, Receipt, RefreshCw, Sparkles,
 } from "lucide-react";
 
 interface ReportCard {
@@ -65,6 +65,7 @@ const categories: { label: string; emoji: string; cards: ReportCard[] }[] = [
 
 export default function HoldprintRelatoriosPage() {
   const [syncing, setSyncing] = useState(false);
+  const [showAgent, setShowAgent] = useState(true);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -107,7 +108,14 @@ export default function HoldprintRelatoriosPage() {
         </Button>
       </div>
 
-      <BudgetAgentChat embedded />
+      {showAgent ? (
+        <BudgetAgentChat embedded onClose={() => setShowAgent(false)} />
+      ) : (
+        <Button variant="outline" size="sm" onClick={() => setShowAgent(true)} className="gap-2">
+          <Sparkles className="h-4 w-4" />
+          Abrir Agente de Orçamentos
+        </Button>
+      )}
 
       {categories.map((cat) => (
         <div key={cat.label}>

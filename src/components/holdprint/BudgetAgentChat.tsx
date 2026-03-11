@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Bot, User, Loader2, Trash2, Sparkles } from "lucide-react";
+import { Send, Bot, User, Loader2, Trash2, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -22,9 +22,10 @@ const SUGGESTIONS = [
 
 interface Props {
   embedded?: boolean;
+  onClose?: () => void;
 }
 
-export default function BudgetAgentChat({ embedded = false }: Props) {
+export default function BudgetAgentChat({ embedded = false, onClose }: Props) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -133,11 +134,18 @@ export default function BudgetAgentChat({ embedded = false }: Props) {
           <h3 className="text-sm font-semibold text-foreground truncate">Agente de Orçamentos</h3>
           <p className="text-xs text-muted-foreground">Especialista em análise · Claude</p>
         </div>
-        {messages.length > 0 && (
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMessages([])} title="Limpar conversa">
-            <Trash2 className="h-4 w-4 text-muted-foreground" />
-          </Button>
-        )}
+        <div className="flex items-center gap-1">
+          {messages.length > 0 && (
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMessages([])} title="Limpar conversa">
+              <Trash2 className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          )}
+          {onClose && (
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose} title="Fechar agente">
+              <X className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Messages */}
