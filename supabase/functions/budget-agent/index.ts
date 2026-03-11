@@ -171,7 +171,11 @@ async function fetchBudgetContext(): Promise<string> {
 
         // Lost details
         if (state === 2 && budgetValue > 0) {
-          lostDetails.push({ customer, products: budgetProducts.slice(0, 3), value: budgetValue });
+          lostDetails.push({ customer, products: budgetProducts.slice(0, 3), value: budgetValue, code: budgetCode, unit: unitKey });
+        }
+        // Won details
+        if (state === 3 && budgetValue > 0) {
+          wonDetails.push({ code: budgetCode, customer, value: budgetValue, unit: unitKey, products: budgetProducts.slice(0, 3) });
         }
       }
 
