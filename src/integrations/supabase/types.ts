@@ -600,6 +600,388 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_activities: {
+        Row: {
+          activity_date: string
+          contact_id: string | null
+          created_at: string
+          deal_id: string | null
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          owner_name: string
+          subject: string
+          type: string
+        }
+        Insert: {
+          activity_date?: string
+          contact_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          owner_name?: string
+          subject: string
+          type?: string
+        }
+        Update: {
+          activity_date?: string
+          contact_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          owner_name?: string
+          subject?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_activities_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_activities_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "crm_deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_audit_logs: {
+        Row: {
+          action: string
+          changes: Json | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          ip_address: string | null
+          user_agent: string | null
+          user_name: string
+        }
+        Insert: {
+          action: string
+          changes?: Json | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_name?: string
+        }
+        Update: {
+          action?: string
+          changes?: Json | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_name?: string
+        }
+        Relationships: []
+      }
+      crm_companies: {
+        Row: {
+          address: string | null
+          cnae: string | null
+          created_at: string
+          id: string
+          name: string
+          phone: string | null
+          segment: string | null
+          tags: string[] | null
+          unit: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          cnae?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          phone?: string | null
+          segment?: string | null
+          tags?: string[] | null
+          unit?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          cnae?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          segment?: string | null
+          tags?: string[] | null
+          unit?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      crm_contacts: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          email: string | null
+          id: string
+          last_interaction: string | null
+          name: string
+          notes: string | null
+          phone: string | null
+          position: string | null
+          score: number
+          tags: string[] | null
+          temperature: string
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          last_interaction?: string | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          position?: string | null
+          score?: number
+          tags?: string[] | null
+          temperature?: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          last_interaction?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          position?: string | null
+          score?: number
+          tags?: string[] | null
+          temperature?: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_contacts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_deals: {
+        Row: {
+          close_date: string | null
+          company_id: string | null
+          contact_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          owner_name: string
+          probability: number
+          stage: string
+          status: string
+          tags: string[] | null
+          title: string
+          updated_at: string
+          value: number
+          weighted_value: number
+        }
+        Insert: {
+          close_date?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          owner_name?: string
+          probability?: number
+          stage?: string
+          status?: string
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          value?: number
+          weighted_value?: number
+        }
+        Update: {
+          close_date?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          owner_name?: string
+          probability?: number
+          stage?: string
+          status?: string
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          value?: number
+          weighted_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_deals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_deals_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_proposals: {
+        Row: {
+          created_at: string
+          deal_id: string | null
+          discount_percent: number | null
+          final_value: number
+          id: string
+          items: Json
+          notes: string | null
+          number: string
+          sent_date: string | null
+          status: string
+          terms: string | null
+          updated_at: string
+          valid_until: string | null
+          value: number
+          viewed_date: string | null
+        }
+        Insert: {
+          created_at?: string
+          deal_id?: string | null
+          discount_percent?: number | null
+          final_value?: number
+          id?: string
+          items?: Json
+          notes?: string | null
+          number?: string
+          sent_date?: string | null
+          status?: string
+          terms?: string | null
+          updated_at?: string
+          valid_until?: string | null
+          value?: number
+          viewed_date?: string | null
+        }
+        Update: {
+          created_at?: string
+          deal_id?: string | null
+          discount_percent?: number | null
+          final_value?: number
+          id?: string
+          items?: Json
+          notes?: string | null
+          number?: string
+          sent_date?: string | null
+          status?: string
+          terms?: string | null
+          updated_at?: string
+          valid_until?: string | null
+          value?: number
+          viewed_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_proposals_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "crm_deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_tasks: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          contact_id: string | null
+          created_at: string
+          deal_id: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          owner_name: string
+          priority: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          contact_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          owner_name?: string
+          priority?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          contact_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          owner_name?: string
+          priority?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_tasks_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_tasks_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "crm_deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cs_oportunidades: {
         Row: {
           context: string | null
