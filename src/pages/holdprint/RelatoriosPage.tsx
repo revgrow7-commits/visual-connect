@@ -65,6 +65,7 @@ const categories: { label: string; emoji: string; cards: ReportCard[] }[] = [
 
 export default function HoldprintRelatoriosPage() {
   const [syncing, setSyncing] = useState(false);
+  const [showAgent, setShowAgent] = useState(true);
 
   const handleSync = async () => {
     setSyncing(true);
