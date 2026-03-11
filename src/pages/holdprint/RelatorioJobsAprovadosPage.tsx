@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ArrowLeft, CalendarIcon, ChevronDown, ChevronRight, Download, FileText, Filter, RefreshCw, Ruler } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useMemo, useState, Fragment } from "react";
+import { useMemo, useState, Fragment, useRef, useCallback } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
@@ -245,6 +245,26 @@ export default function RelatorioJobsAprovadosPage() {
   const [dateTo, setDateTo] = useState<Date | undefined>(new Date());
   const [syncing, setSyncing] = useState(false);
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [scrollPercent, setScrollPercent] = useState(0);
+
+  const handleScrollSlider = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = Number(e.target.value);
+    setScrollPercent(val);
+    const el = scrollContainerRef.current;
+    if (el) {
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      el.scrollLeft = (val / 100) * maxScroll;
+    }
+  }, []);
+
+  const handleTableScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (el) {
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      setScrollPercent(maxScroll > 0 ? (el.scrollLeft / maxScroll) * 100 : 0);
+    }
+  }, []);
 
   const toggleExpand = (jobKey: string) => {
     setExpandedJobs((prev) => {
@@ -514,8 +534,20 @@ export default function RelatorioJobsAprovadosPage() {
         <Card><CardContent className="py-8 text-center text-destructive">Erro: {(error as Error).message}</CardContent></Card>
       ) : (
         <Card>
+          <div className="px-4 py-2 border-b border-border flex items-center gap-3">
+            <span className="text-xs text-muted-foreground shrink-0">◀</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={scrollPercent}
+              onChange={handleScrollSlider}
+              className="w-full h-1.5 accent-primary cursor-pointer"
+            />
+            <span className="text-xs text-muted-foreground shrink-0">▶</span>
+          </div>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" ref={scrollContainerRef} onScroll={handleTableScroll}>
               <Table>
                 <TableHeader>
                   <TableRow>
