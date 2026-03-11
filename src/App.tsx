@@ -59,6 +59,21 @@ const JobsFullscreenPage = lazy(() => import("./pages/JobsFullscreenPage"));
 const AdminBoardsPage = lazy(() => import("./pages/AdminBoardsPage"));
 const AutomacoesPage = lazy(() => import("./pages/AutomacoesPage"));
 
+// CRM pages
+const CRMDashboard = lazy(() => import("./pages/crm/DashboardPage"));
+const CRMContatos = lazy(() => import("./pages/crm/ContatosPage"));
+const CRMEmpresas = lazy(() => import("./pages/crm/EmpresasPage"));
+const CRMPipeline = lazy(() => import("./pages/crm/PipelinePage"));
+const CRMPropostas = lazy(() => import("./pages/crm/PropostasPage"));
+const CRMTarefas = lazy(() => import("./pages/crm/TarefasPage"));
+const CRMCalendario = lazy(() => import("./pages/crm/CalendarioPage"));
+const CRMInbox = lazy(() => import("./pages/crm/InboxPage"));
+const CRMCS = lazy(() => import("./pages/crm/CSPage"));
+const CRMRelatorios = lazy(() => import("./pages/crm/RelatoriosPage"));
+const CRMAuditoria = lazy(() => import("./pages/crm/AuditoriaPage"));
+const CRMWorkspaceAI = lazy(() => import("./pages/crm/WorkspaceAIPage"));
+const CRMConfiguracoes = lazy(() => import("./pages/crm/ConfiguracoesPage"));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
