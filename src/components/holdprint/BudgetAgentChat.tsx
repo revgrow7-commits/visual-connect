@@ -1,12 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Bot, User, Loader2, Trash2, MessageSquare, X, Sparkles } from "lucide-react";
+import { Send, Bot, User, Loader2, Trash2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -21,12 +20,14 @@ const SUGGESTIONS = [
   "Qual a tendência mensal de conversão?",
 ];
 
-export default function BudgetAgentChat() {
-  const [open, setOpen] = useState(false);
+interface Props {
+  embedded?: boolean;
+}
+
+export default function BudgetAgentChat({ embedded = false }: Props) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -118,38 +119,25 @@ export default function BudgetAgentChat() {
     }
   };
 
-  if (!open) {
-    return (
-      <Button
-        onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90"
-        size="icon"
-      >
-        <Sparkles className="h-6 w-6" />
-      </Button>
-    );
-  }
-
   return (
-    <div className="fixed bottom-6 right-6 z-50 w-[420px] h-[600px] flex flex-col bg-card rounded-2xl border border-border shadow-2xl overflow-hidden">
+    <div className={cn(
+      "flex flex-col bg-card rounded-2xl border border-border shadow-lg overflow-hidden",
+      embedded ? "h-[calc(100vh-10rem)] min-h-[500px]" : "fixed bottom-6 right-6 z-50 w-[420px] h-[600px] shadow-2xl"
+    )}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-muted/30">
         <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
-          <Bot className="h-5 w-5 text-primary" />
+          <Sparkles className="h-5 w-5 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-semibold text-foreground truncate">Agente de Orçamentos</h3>
-          <p className="text-xs text-muted-foreground">Especialista em análise de orçamentos</p>
+          <p className="text-xs text-muted-foreground">Especialista em análise · Claude</p>
         </div>
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">Claude</span>
         {messages.length > 0 && (
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMessages([])} title="Limpar">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMessages([])} title="Limpar conversa">
             <Trash2 className="h-4 w-4 text-muted-foreground" />
           </Button>
         )}
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setOpen(false)}>
-          <X className="h-4 w-4 text-muted-foreground" />
-        </Button>
       </div>
 
       {/* Messages */}
@@ -185,7 +173,7 @@ export default function BudgetAgentChat() {
               {msg.role === "user" ? <User className="h-4 w-4 text-primary" /> : <Bot className="h-4 w-4 text-muted-foreground" />}
             </div>
             <div className={cn(
-              "max-w-[80%] px-3.5 py-2.5 rounded-xl text-sm",
+              "max-w-[85%] px-3.5 py-2.5 rounded-xl text-sm",
               msg.role === "user"
                 ? "bg-primary text-primary-foreground rounded-tr-sm"
                 : "bg-muted text-foreground rounded-tl-sm"
