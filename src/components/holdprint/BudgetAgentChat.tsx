@@ -12,12 +12,12 @@ type Msg = { role: "user" | "assistant"; content: string };
 const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/budget-agent`;
 
 const SUGGESTIONS = [
-  "Quais materiais aparecem nos orçamentos perdidos?",
-  "Quais produtos são mais solicitados?",
+  "Resumo financeiro geral (receber vs pagar)",
+  "Quais jobs estão com estouro de custo?",
   "Qual a taxa de conversão por vendedor?",
-  "Compare as unidades POA e SP",
-  "Quais clientes mais solicitam orçamentos?",
-  "Qual a tendência mensal de conversão?",
+  "Maiores inadimplências por cliente",
+  "Contas a pagar vencidas por unidade",
+  "Compare POA e SP: orçamentos, jobs e financeiro",
 ];
 
 interface Props {
