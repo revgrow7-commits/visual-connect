@@ -53,6 +53,7 @@ const HoldprintRelatorios = lazy(() => import("./pages/holdprint/RelatoriosPage"
 const HoldprintRelatorioDetalhe = lazy(() => import("./pages/holdprint/RelatorioDetalhePage"));
 const HoldprintRelatorioJobsAprovados = lazy(() => import("./pages/holdprint/RelatorioJobsAprovadosPage"));
 const HoldprintConfiguracoes = lazy(() => import("./pages/holdprint/ConfiguracoesPage"));
+const HoldprintVendasDashboard = lazy(() => import("./pages/holdprint/VendasDashboardPage"));
 const JobsPage = lazy(() => import("./pages/JobsPage"));
 const JobsFullscreenPage = lazy(() => import("./pages/JobsFullscreenPage"));
 const AdminBoardsPage = lazy(() => import("./pages/AdminBoardsPage"));
@@ -130,6 +131,7 @@ const App = () => (
               <Route path="/holdprint/relatorios" element={<HoldprintRelatorios />} />
               <Route path="/holdprint/relatorios/jobs-aprovados" element={<HoldprintRelatorioJobsAprovados />} />
               <Route path="/holdprint/relatorios/:slug" element={<HoldprintRelatorioDetalhe />} />
+              <Route path="/holdprint/relatorios/vendas-dashboard" element={<HoldprintVendasDashboard />} />
               <Route path="/holdprint/configuracoes" element={<HoldprintConfiguracoes />} />
             </Route>
             <Route path="*" element={<NotFound />} />
