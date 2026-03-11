@@ -131,8 +131,8 @@ export default function BudgetAgentChat({ embedded = false, onClose }: Props) {
           <Sparkles className="h-5 w-5 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-foreground truncate">Agente de Orçamentos</h3>
-          <p className="text-xs text-muted-foreground">Especialista em análise · Claude</p>
+          <h3 className="text-sm font-semibold text-foreground truncate">Agente Financeiro & Comercial</h3>
+          <p className="text-xs text-muted-foreground">Orçamentos · Jobs · Financeiro · Claude</p>
         </div>
         <div className="flex items-center gap-1">
           {messages.length > 0 && (
