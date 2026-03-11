@@ -255,15 +255,103 @@ async function fetchBudgetContext(): Promise<string> {
         sections.push(`## 📅 TENDÊNCIA MENSAL (últimos 6 meses)\n${monthStr}`);
       }
 
-      // Lost budgets details
+      // Lost budgets details with job code
       const topLost = lostDetails
         .sort((a, b) => b.value - a.value)
         .slice(0, 15);
       if (topLost.length > 0) {
         const lostStr = topLost.map(l =>
-          `- ${l.customer}: ${l.products.join(", ") || "sem produtos"} | Valor: ${fmtBRL(l.value)}`
+          `- Job #${l.code} (${l.unit}) | ${l.customer}: ${l.products.join(", ") || "sem produtos"} | Valor: ${fmtBRL(l.value)}`
         ).join("\n");
         sections.push(`## ❌ ORÇAMENTOS PERDIDOS (top por valor)\n${lostStr}`);
+      }
+
+      // Won budgets details with job code
+      const topWon = wonDetails
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 20);
+      if (topWon.length > 0) {
+        const wonStr = topWon.map(w =>
+          `- Job #${w.code} (${w.unit}) | ${w.customer}: ${w.products.join(", ") || "sem produtos"} | Valor orçado: ${fmtBRL(w.value)}`
+        ).join("\n");
+        sections.push(`## ✅ ORÇAMENTOS GANHOS (top por valor)\n${wonStr}`);
+      }
+    }
+
+    // Fetch receivables (contas a receber) from holdprint_cache
+    const { data: receivables, error: rErr } = await sb
+      .from("holdprint_cache")
+      .select("raw_data, record_id")
+      .eq("endpoint", "receivables")
+      .order("last_synced", { ascending: false })
+      .limit(500);
+
+    if (!rErr && receivables && receivables.length > 0) {
+      let totalReceived = 0, totalPending = 0, totalOverdue = 0;
+      const receivablesByCustomer: Record<string, { received: number; pending: number; overdue: number }> = {};
+      const receivablesByUnit: Record<string, { received: number; pending: number; overdue: number }> = {};
+      const receivableDetails: { code: string; customer: string; value: number; unit: string; status: string; dueDate: string }[] = [];
+
+      for (const r of receivables) {
+        const raw = r.raw_data as Record<string, any>;
+        const value = Number(raw.value || raw.totalValue || raw.amount || 0);
+        const customer = String(raw.customerName || raw.customer?.name || "Desconhecido");
+        const unitKey = String(raw._unit_key || "poa").toUpperCase();
+        const jobCode = String(raw.jobCode || raw.code || raw.documentNumber || r.record_id || "N/A");
+        const dueDate = String(raw.dueDate || raw.expirationDate || "");
+        const isPaid = raw.paid === true || raw.status === "paid" || raw.status === "received" || Number(raw.receivedValue || 0) > 0;
+        const isOverdue = !isPaid && dueDate && new Date(dueDate) < new Date();
+
+        if (isPaid) { totalReceived += value; }
+        else if (isOverdue) { totalOverdue += value; }
+        else { totalPending += value; }
+
+        const statusLabel = isPaid ? "recebido" : isOverdue ? "vencido" : "pendente";
+
+        if (!receivablesByCustomer[customer]) receivablesByCustomer[customer] = { received: 0, pending: 0, overdue: 0 };
+        if (isPaid) receivablesByCustomer[customer].received += value;
+        else if (isOverdue) receivablesByCustomer[customer].overdue += value;
+        else receivablesByCustomer[customer].pending += value;
+
+        if (!receivablesByUnit[unitKey]) receivablesByUnit[unitKey] = { received: 0, pending: 0, overdue: 0 };
+        if (isPaid) receivablesByUnit[unitKey].received += value;
+        else if (isOverdue) receivablesByUnit[unitKey].overdue += value;
+        else receivablesByUnit[unitKey].pending += value;
+
+        receivableDetails.push({ code: jobCode, customer, value, unit: unitKey, status: statusLabel, dueDate });
+      }
+
+      const fmtBRL2 = (v: number) => `R$${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+
+      sections.push(`## 💰 CONTAS A RECEBER (${receivables.length} registros)
+- Total Recebido: ${fmtBRL2(totalReceived)}
+- Total Pendente: ${fmtBRL2(totalPending)}
+- Total Vencido/Inadimplente: ${fmtBRL2(totalOverdue)}`);
+
+      const recUnitStr = Object.entries(receivablesByUnit).map(([u, c]) =>
+        `- ${u}: Recebido ${fmtBRL2(c.received)} | Pendente ${fmtBRL2(c.pending)} | Vencido ${fmtBRL2(c.overdue)}`
+      ).join("\n");
+      sections.push(`## 💰 CONTAS A RECEBER POR UNIDADE\n${recUnitStr}`);
+
+      const topRecCustomers = Object.entries(receivablesByCustomer)
+        .sort((a, b) => (b[1].received + b[1].pending + b[1].overdue) - (a[1].received + a[1].pending + a[1].overdue))
+        .slice(0, 15);
+      if (topRecCustomers.length > 0) {
+        const recCustStr = topRecCustomers.map(([name, c]) =>
+          `- ${name}: Recebido ${fmtBRL2(c.received)} | Pendente ${fmtBRL2(c.pending)} | Vencido ${fmtBRL2(c.overdue)}`
+        ).join("\n");
+        sections.push(`## 💰 CONTAS A RECEBER POR CLIENTE (top)\n${recCustStr}`);
+      }
+
+      const topOverdue = receivableDetails
+        .filter(r => r.status === "vencido")
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10);
+      if (topOverdue.length > 0) {
+        const overdueStr = topOverdue.map(r =>
+          `- Job #${r.code} (${r.unit}) | ${r.customer} | Valor: ${fmtBRL2(r.value)} | Vencimento: ${r.dueDate || "N/A"}`
+        ).join("\n");
+        sections.push(`## 🚨 MAIORES INADIMPLÊNCIAS\n${overdueStr}`);
       }
     }
 
