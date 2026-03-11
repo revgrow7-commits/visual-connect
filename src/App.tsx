@@ -131,6 +131,7 @@ const App = () => (
               <Route path="/holdprint/relatorios" element={<HoldprintRelatorios />} />
               <Route path="/holdprint/relatorios/jobs-aprovados" element={<HoldprintRelatorioJobsAprovados />} />
               <Route path="/holdprint/relatorios/:slug" element={<HoldprintRelatorioDetalhe />} />
+              <Route path="/holdprint/relatorios/vendas-dashboard" element={<HoldprintVendasDashboard />} />
               <Route path="/holdprint/configuracoes" element={<HoldprintConfiguracoes />} />
             </Route>
             <Route path="*" element={<NotFound />} />

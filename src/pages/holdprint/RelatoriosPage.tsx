@@ -27,6 +27,13 @@ const categories: { label: string; emoji: string; cards: ReportCard[] }[] = [
     ],
   },
   {
+    label: "Dashboards",
+    emoji: "📊",
+    cards: [
+      { title: "Dashboard de Vendas", description: "KPIs, receita, conversão e ranking de clientes em tempo real", icon: TrendingUp, path: "/holdprint/relatorios/vendas-dashboard" },
+    ],
+  },
+  {
     label: "Financeiro",
     emoji: "💰",
     cards: [
