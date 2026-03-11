@@ -100,30 +100,40 @@ export default function HoldprintRelatoriosPage() {
         </Button>
       </div>
 
-      {categories.map((cat) => (
-        <div key={cat.label}>
-          <h2 className="text-lg font-semibold mb-3">{cat.emoji} {cat.label}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {cat.cards.map((c) => (
-              <Link key={c.path} to={c.path}>
-                <Card className="hover:shadow-md transition-shadow cursor-pointer group h-full">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base flex items-center gap-2 group-hover:text-primary transition-colors">
-                      <c.icon className="h-5 w-5 text-primary" />
-                      {c.title}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">{c.description}</p>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Report cards - left 2 cols */}
+        <div className="lg:col-span-2 space-y-8">
+          {categories.map((cat) => (
+            <div key={cat.label}>
+              <h2 className="text-lg font-semibold mb-3">{cat.emoji} {cat.label}</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {cat.cards.map((c) => (
+                  <Link key={c.path} to={c.path}>
+                    <Card className="hover:shadow-md transition-shadow cursor-pointer group h-full">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base flex items-center gap-2 group-hover:text-primary transition-colors">
+                          <c.icon className="h-5 w-5 text-primary" />
+                          {c.title}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground">{c.description}</p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Agent - fixed right col */}
+        <div className="lg:col-span-1">
+          <div className="lg:sticky lg:top-20">
+            <BudgetAgentChat embedded />
           </div>
         </div>
-      ))}
-
-      <BudgetAgentChat />
+      </div>
     </div>
   );
 }
