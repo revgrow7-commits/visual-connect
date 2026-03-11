@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, CalendarIcon, ChevronDown, ChevronRight, Download, FileText, Filter, RefreshCw, Ruler, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, CalendarIcon, ChevronDown, ChevronRight, Download, FileText, Filter, RefreshCw, Ruler, FileSpreadsheet, Sparkles } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -248,6 +248,7 @@ export default function RelatorioJobsAprovadosPage() {
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [scrollPercent, setScrollPercent] = useState(0);
+  const [showAgent, setShowAgent] = useState(false);
 
   const handleScrollSlider = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const val = Number(e.target.value);
@@ -654,7 +655,13 @@ export default function RelatorioJobsAprovadosPage() {
           </CardContent>
         </Card>
       )}
-      <BudgetAgentChat />
+      {showAgent ? (
+        <BudgetAgentChat embedded onClose={() => setShowAgent(false)} />
+      ) : (
+        <Button variant="outline" size="sm" onClick={() => setShowAgent(true)} className="fixed bottom-6 right-6 z-50 gap-2 shadow-lg">
+          <Sparkles className="h-4 w-4" /> Agente de Orçamentos
+        </Button>
+      )}
     </div>
   );
 }
