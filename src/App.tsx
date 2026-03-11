@@ -85,6 +85,7 @@ const App = () => (
           <Routes>
             <Route path="/gateway-login" element={<GatewayLogin />} />
             <Route path="/jobs-fullscreen" element={<JobsFullscreenPage />} />
+            <Route path="/holdprint/relatorios/jobs-aprovados/fullscreen" element={<HoldprintRelatorioJobsAprovados />} />
             <Route path="/pesquisa/:token" element={<PesquisaSatisfacao />} />
             <Route path="/formulario/:token" element={<FormularioCandidato />} />
             <Route element={<AppLayout />}>

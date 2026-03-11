@@ -372,30 +372,40 @@ export default function RelatorioJobsAprovadosPage() {
     setDateTo(undefined);
   };
 
+  const isFullscreen = window.location.pathname.includes("/fullscreen");
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Link to="/holdprint/relatorios">
-          <Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button>
-        </Link>
-        <FileText className="h-6 w-6 text-primary" />
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">Relatório de Jobs Aprovados</h1>
-          <p className="text-muted-foreground text-sm">Jobs aprovados POA e SP • Clique em um job para ver itens e medidas</p>
-        </div>
-        <div className="flex gap-2">
+    <div className={cn("space-y-4", isFullscreen && "min-h-screen bg-background p-3")}>
+      <div className="flex items-center gap-2">
+        {!isFullscreen && (
+          <Link to="/holdprint/relatorios">
+            <Button variant="ghost" size="icon" className="h-8 w-8"><ArrowLeft className="h-4 w-4" /></Button>
+          </Link>
+        )}
+        <FileText className="h-4 w-4 text-primary" />
+        <h1 className="text-base font-bold tracking-tight">Jobs Aprovados</h1>
+        <span className="text-muted-foreground text-xs hidden sm:inline">POA e SP • Clique para ver itens</span>
+        <div className="flex gap-2 ml-auto">
           <Button
             variant="outline"
             size="sm"
+            className="h-7 text-xs"
             onClick={handleSync}
             disabled={syncing || isFetching}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${syncing || isFetching ? "animate-spin" : ""}`} />
-            {syncing ? "Sincronizando..." : "Sincronizar"}
+            <RefreshCw className={`h-3 w-3 mr-1 ${syncing || isFetching ? "animate-spin" : ""}`} />
+            {syncing ? "Sync..." : "Sincronizar"}
           </Button>
-          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!filtered.length}>
-            <Download className="h-4 w-4 mr-2" /> Exportar CSV
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleExportCSV} disabled={!filtered.length}>
+            <Download className="h-3 w-3 mr-1" /> CSV
           </Button>
+          {!isFullscreen && (
+            <Link to="/holdprint/relatorios/jobs-aprovados/fullscreen" target="_blank">
+              <Button variant="outline" size="sm" className="h-7 text-xs">
+                Fullscreen ↗
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 
