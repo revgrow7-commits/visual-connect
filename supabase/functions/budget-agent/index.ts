@@ -32,8 +32,14 @@ Você é um analista estratégico de orçamentos para uma empresa de comunicaç�
 6. **Tendências sazonais** de demanda
 7. **Análise de perdas**: motivos, padrões, materiais/produtos que mais perdem
 8. **Comparativo entre unidades** POA vs SP
+9. **Contas a Receber**: valores recebidos, pendentes e inadimplência por cliente/unidade
+10. **Rastreabilidade por Job**: número do job vinculado a cada orçamento/receita
+
+## ⚠️ REGRA CRÍTICA: Jobs duplicados entre unidades
+A empresa possui duas unidades (POA e SP) com **numeração de jobs INDEPENDENTE**. Isso significa que o job #1234 de POA é DIFERENTE do job #1234 de SP. SEMPRE que mencionar um número de job, você DEVE incluir a unidade de origem. Exemplo: "Job #1234 (POA)" ou "Job #1234 (SP)". Ao listar jobs, SEMPRE inclua a coluna/indicação de unidade para evitar confusão.
 
 ## Regras de Resposta
+- **SEMPRE inclua o número do job** (code/budgetCode) nos relatórios e análises. Nunca omita o número do job.
 - Sempre forneça dados quantitativos quando disponíveis
 - Use tabelas markdown para comparações
 - Inclua percentuais e tendências
@@ -41,11 +47,18 @@ Você é um analista estratégico de orçamentos para uma empresa de comunicaç�
 - Seja direto e analítico
 - Formate valores em R$ (BRL)
 - Indique quando dados são insuficientes para uma conclusão
+- Ao listar orçamentos ganhos, inclua também o valor recebido (contas a receber) quando disponível
+- Diferencie sempre "valor orçado" vs "valor recebido/faturado"
 
 ## Estados dos Orçamentos
 - Estado 1 = Aberto/Em negociação
 - Estado 2 = Perdido/Rejeitado  
 - Estado 3 = Ganho/Aprovado
+
+## Contas a Receber
+- Os dados de contas a receber (receivables) mostram os valores efetivamente faturados e recebidos
+- Use esses dados para calcular inadimplência, prazo médio de recebimento e comparar com valores orçados
+- Cruze o número do job entre orçamentos e contas a receber para análise completa
 
 ## Data de hoje: ${new Date().toISOString().split("T")[0]}`;
 
@@ -74,8 +87,8 @@ async function fetchBudgetContext(): Promise<string> {
       const sellerCounts: Record<string, { total: number; won: number; totalValue: number }> = {};
       const unitCounts: Record<string, { total: number; won: number; lost: number }> = {};
       const monthCounts: Record<string, { total: number; won: number; lost: number }> = {};
-      const lostDetails: { customer: string; products: string[]; value: number }[] = [];
-
+      const lostDetails: { customer: string; products: string[]; value: number; code: string; unit: string }[] = [];
+      const wonDetails: { code: string; customer: string; value: number; unit: string; products: string[] }[] = [];
       for (const b of budgets) {
         const raw = b.raw_data as Record<string, any>;
         const state = Number(raw.budgetState || raw.state || 0);
@@ -84,6 +97,7 @@ async function fetchBudgetContext(): Promise<string> {
         const unitKey = String(raw._unit_key || "poa").toUpperCase();
         const creationDate = String(raw.creationTime || raw.createdAt || "");
         const monthKey = creationDate ? creationDate.slice(0, 7) : "N/A";
+        const budgetCode = String(raw.code || raw.budgetCode || b.record_id || "N/A");
 
         const proposals = Array.isArray(raw.proposals) ? raw.proposals : [];
         let budgetValue = 0;
@@ -157,7 +171,11 @@ async function fetchBudgetContext(): Promise<string> {
 
         // Lost details
         if (state === 2 && budgetValue > 0) {
-          lostDetails.push({ customer, products: budgetProducts.slice(0, 3), value: budgetValue });
+          lostDetails.push({ customer, products: budgetProducts.slice(0, 3), value: budgetValue, code: budgetCode, unit: unitKey });
+        }
+        // Won details
+        if (state === 3 && budgetValue > 0) {
+          wonDetails.push({ code: budgetCode, customer, value: budgetValue, unit: unitKey, products: budgetProducts.slice(0, 3) });
         }
       }
 
@@ -237,15 +255,103 @@ async function fetchBudgetContext(): Promise<string> {
         sections.push(`## 📅 TENDÊNCIA MENSAL (últimos 6 meses)\n${monthStr}`);
       }
 
-      // Lost budgets details
+      // Lost budgets details with job code
       const topLost = lostDetails
         .sort((a, b) => b.value - a.value)
         .slice(0, 15);
       if (topLost.length > 0) {
         const lostStr = topLost.map(l =>
-          `- ${l.customer}: ${l.products.join(", ") || "sem produtos"} | Valor: ${fmtBRL(l.value)}`
+          `- Job #${l.code} (${l.unit}) | ${l.customer}: ${l.products.join(", ") || "sem produtos"} | Valor: ${fmtBRL(l.value)}`
         ).join("\n");
         sections.push(`## ❌ ORÇAMENTOS PERDIDOS (top por valor)\n${lostStr}`);
+      }
+
+      // Won budgets details with job code
+      const topWon = wonDetails
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 20);
+      if (topWon.length > 0) {
+        const wonStr = topWon.map(w =>
+          `- Job #${w.code} (${w.unit}) | ${w.customer}: ${w.products.join(", ") || "sem produtos"} | Valor orçado: ${fmtBRL(w.value)}`
+        ).join("\n");
+        sections.push(`## ✅ ORÇAMENTOS GANHOS (top por valor)\n${wonStr}`);
+      }
+    }
+
+    // Fetch receivables (contas a receber) from holdprint_cache
+    const { data: receivables, error: rErr } = await sb
+      .from("holdprint_cache")
+      .select("raw_data, record_id")
+      .eq("endpoint", "receivables")
+      .order("last_synced", { ascending: false })
+      .limit(500);
+
+    if (!rErr && receivables && receivables.length > 0) {
+      let totalReceived = 0, totalPending = 0, totalOverdue = 0;
+      const receivablesByCustomer: Record<string, { received: number; pending: number; overdue: number }> = {};
+      const receivablesByUnit: Record<string, { received: number; pending: number; overdue: number }> = {};
+      const receivableDetails: { code: string; customer: string; value: number; unit: string; status: string; dueDate: string }[] = [];
+
+      for (const r of receivables) {
+        const raw = r.raw_data as Record<string, any>;
+        const value = Number(raw.value || raw.totalValue || raw.amount || 0);
+        const customer = String(raw.customerName || raw.customer?.name || "Desconhecido");
+        const unitKey = String(raw._unit_key || "poa").toUpperCase();
+        const jobCode = String(raw.jobCode || raw.code || raw.documentNumber || r.record_id || "N/A");
+        const dueDate = String(raw.dueDate || raw.expirationDate || "");
+        const isPaid = raw.paid === true || raw.status === "paid" || raw.status === "received" || Number(raw.receivedValue || 0) > 0;
+        const isOverdue = !isPaid && dueDate && new Date(dueDate) < new Date();
+
+        if (isPaid) { totalReceived += value; }
+        else if (isOverdue) { totalOverdue += value; }
+        else { totalPending += value; }
+
+        const statusLabel = isPaid ? "recebido" : isOverdue ? "vencido" : "pendente";
+
+        if (!receivablesByCustomer[customer]) receivablesByCustomer[customer] = { received: 0, pending: 0, overdue: 0 };
+        if (isPaid) receivablesByCustomer[customer].received += value;
+        else if (isOverdue) receivablesByCustomer[customer].overdue += value;
+        else receivablesByCustomer[customer].pending += value;
+
+        if (!receivablesByUnit[unitKey]) receivablesByUnit[unitKey] = { received: 0, pending: 0, overdue: 0 };
+        if (isPaid) receivablesByUnit[unitKey].received += value;
+        else if (isOverdue) receivablesByUnit[unitKey].overdue += value;
+        else receivablesByUnit[unitKey].pending += value;
+
+        receivableDetails.push({ code: jobCode, customer, value, unit: unitKey, status: statusLabel, dueDate });
+      }
+
+      const fmtBRL2 = (v: number) => `R$${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+
+      sections.push(`## 💰 CONTAS A RECEBER (${receivables.length} registros)
+- Total Recebido: ${fmtBRL2(totalReceived)}
+- Total Pendente: ${fmtBRL2(totalPending)}
+- Total Vencido/Inadimplente: ${fmtBRL2(totalOverdue)}`);
+
+      const recUnitStr = Object.entries(receivablesByUnit).map(([u, c]) =>
+        `- ${u}: Recebido ${fmtBRL2(c.received)} | Pendente ${fmtBRL2(c.pending)} | Vencido ${fmtBRL2(c.overdue)}`
+      ).join("\n");
+      sections.push(`## 💰 CONTAS A RECEBER POR UNIDADE\n${recUnitStr}`);
+
+      const topRecCustomers = Object.entries(receivablesByCustomer)
+        .sort((a, b) => (b[1].received + b[1].pending + b[1].overdue) - (a[1].received + a[1].pending + a[1].overdue))
+        .slice(0, 15);
+      if (topRecCustomers.length > 0) {
+        const recCustStr = topRecCustomers.map(([name, c]) =>
+          `- ${name}: Recebido ${fmtBRL2(c.received)} | Pendente ${fmtBRL2(c.pending)} | Vencido ${fmtBRL2(c.overdue)}`
+        ).join("\n");
+        sections.push(`## 💰 CONTAS A RECEBER POR CLIENTE (top)\n${recCustStr}`);
+      }
+
+      const topOverdue = receivableDetails
+        .filter(r => r.status === "vencido")
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10);
+      if (topOverdue.length > 0) {
+        const overdueStr = topOverdue.map(r =>
+          `- Job #${r.code} (${r.unit}) | ${r.customer} | Valor: ${fmtBRL2(r.value)} | Vencimento: ${r.dueDate || "N/A"}`
+        ).join("\n");
+        sections.push(`## 🚨 MAIORES INADIMPLÊNCIAS\n${overdueStr}`);
       }
     }
 
