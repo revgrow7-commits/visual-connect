@@ -87,8 +87,8 @@ async function fetchBudgetContext(): Promise<string> {
       const sellerCounts: Record<string, { total: number; won: number; totalValue: number }> = {};
       const unitCounts: Record<string, { total: number; won: number; lost: number }> = {};
       const monthCounts: Record<string, { total: number; won: number; lost: number }> = {};
-      const lostDetails: { customer: string; products: string[]; value: number }[] = [];
-
+      const lostDetails: { customer: string; products: string[]; value: number; code: string; unit: string }[] = [];
+      const wonDetails: { code: string; customer: string; value: number; unit: string; products: string[] }[] = [];
       for (const b of budgets) {
         const raw = b.raw_data as Record<string, any>;
         const state = Number(raw.budgetState || raw.state || 0);
