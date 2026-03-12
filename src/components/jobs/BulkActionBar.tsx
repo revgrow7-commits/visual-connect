@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Archive, Trash2, Pencil, X, CheckSquare, Square } from "lucide-react";
+import { Archive, Trash2, Pencil, X, CheckSquare, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -9,6 +9,11 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useActiveBoards } from "@/hooks/useBoards";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "@/hooks/use-toast";
 import type { Job } from "./types";
 
 interface Props {
@@ -30,7 +35,13 @@ const BulkActionBar: React.FC<Props> = ({
 }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
+  const [showMirrorDialog, setShowMirrorDialog] = useState(false);
   const [renameValue, setRenameValue] = useState("");
+  const [mirrorBoardIds, setMirrorBoardIds] = useState<Set<string>>(new Set());
+  const [isMirroring, setIsMirroring] = useState(false);
+
+  const { data: activeBoards = [] } = useActiveBoards();
+  const queryClient = useQueryClient();
 
   const selectedArr = Array.from(selectedIds);
   const count = selectedArr.length;
@@ -51,6 +62,83 @@ const BulkActionBar: React.FC<Props> = ({
     }
     setShowRenameDialog(false);
     setRenameValue("");
+  };
+
+  const toggleMirrorBoard = (boardId: string) => {
+    setMirrorBoardIds(prev => {
+      const next = new Set(prev);
+      if (next.has(boardId)) next.delete(boardId);
+      else next.add(boardId);
+      return next;
+    });
+  };
+
+  const handleMirrorOpen = () => {
+    setMirrorBoardIds(new Set());
+    setShowMirrorDialog(true);
+  };
+
+  const handleMirrorConfirm = async () => {
+    if (mirrorBoardIds.size === 0) return;
+    setIsMirroring(true);
+
+    try {
+      const selectedJobs = allJobs.filter(j => selectedIds.has(j.id));
+      const targetBoards = activeBoards.filter(b => mirrorBoardIds.has(b.id));
+
+      const rows = selectedJobs.flatMap(job =>
+        targetBoards.map(board => ({
+          job_id: job.id,
+          job_code: job.code || null,
+          job_title: job.description || job.title || null,
+          customer_name: job.client_name || null,
+          board_id: board.id,
+          board_name: board.name,
+          stage_id: board.stages[0]?.id || null,
+          stage_name: board.stages[0]?.name || null,
+          assigned_by: "Sistema",
+          is_active: true,
+        }))
+      );
+
+      // Check existing active assignments to avoid duplicates
+      const { data: existing } = await supabase
+        .from("job_board_assignments")
+        .select("job_id, board_id")
+        .eq("is_active", true)
+        .in("job_id", selectedJobs.map(j => j.id))
+        .in("board_id", targetBoards.map(b => b.id));
+
+      const existingSet = new Set(
+        (existing || []).map(e => `${e.job_id}__${e.board_id}`)
+      );
+      const newRows = rows.filter(r => !existingSet.has(`${r.job_id}__${r.board_id}`));
+
+      if (newRows.length > 0) {
+        const { error } = await supabase
+          .from("job_board_assignments")
+          .insert(newRows);
+        if (error) throw error;
+      }
+
+      const skipped = rows.length - newRows.length;
+      toast({
+        title: "Espelhamento concluído",
+        description: `${newRows.length} atribuição(ões) criada(s)${skipped > 0 ? `, ${skipped} já existiam` : ""}.`,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["all-board-assignments-badges"] });
+      queryClient.invalidateQueries({ queryKey: ["board-assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["job-assignments"] });
+
+      setShowMirrorDialog(false);
+      onClearSelection();
+    } catch (err) {
+      console.error("Mirror error:", err);
+      toast({ title: "Erro ao espelhar", description: "Tente novamente.", variant: "destructive" });
+    } finally {
+      setIsMirroring(false);
+    }
   };
 
   return (
@@ -74,6 +162,12 @@ const BulkActionBar: React.FC<Props> = ({
           <div className="w-px h-6 bg-white/20" />
 
           {/* Actions */}
+          <Button variant="ghost" size="sm" onClick={handleMirrorOpen}
+            className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 h-8 gap-1 text-xs">
+            <Copy className="h-3.5 w-3.5" />
+            Espelhar Board
+          </Button>
+
           <Button variant="ghost" size="sm" onClick={() => onBulkArchive(selectedArr)}
             disabled={isArchiving}
             className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 h-8 gap-1 text-xs">
@@ -144,6 +238,55 @@ const BulkActionBar: React.FC<Props> = ({
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowRenameDialog(false)}>Cancelar</Button>
             <Button onClick={handleRenameConfirm} disabled={!renameValue.trim()}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mirror Board Dialog */}
+      <Dialog open={showMirrorDialog} onOpenChange={setShowMirrorDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Espelhar para Boards</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-xs text-muted-foreground">
+              Selecione os boards para onde os {count} job{count > 1 ? "s" : ""} selecionado{count > 1 ? "s" : ""} serão espelhados. Os jobs aparecerão na primeira etapa de cada board selecionado.
+            </p>
+            <div className="max-h-64 overflow-y-auto space-y-1">
+              {activeBoards.map(board => (
+                <label
+                  key={board.id}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
+                >
+                  <Checkbox
+                    checked={mirrorBoardIds.has(board.id)}
+                    onCheckedChange={() => toggleMirrorBoard(board.id)}
+                  />
+                  <div
+                    className="w-3 h-3 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: board.color }}
+                  />
+                  <span className="text-sm font-medium">{board.name}</span>
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {board.stages.length} etapas
+                  </span>
+                </label>
+              ))}
+              {activeBoards.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Nenhum board ativo encontrado.
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowMirrorDialog(false)}>Cancelar</Button>
+            <Button
+              onClick={handleMirrorConfirm}
+              disabled={mirrorBoardIds.size === 0 || isMirroring}
+            >
+              {isMirroring ? "Espelhando..." : `Espelhar para ${mirrorBoardIds.size} board${mirrorBoardIds.size !== 1 ? "s" : ""}`}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
