@@ -7,6 +7,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Wrench, Play, Square, Timer, Check } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { Job } from "../types";
+import { useJobAssignments } from "@/hooks/useJobBoardAssignments";
+import { getActiveBoards } from "@/stores/boardsStore";
 import {
   EQUIPMENT_OPTIONS,
   useJobEquipment,
