@@ -6,6 +6,7 @@ import { formatBRL, DEFAULT_STAGES } from "./types";
 import { getActiveBoards, getActiveMicroBoards, type Board } from "@/stores/boardsStore";
 import MicroBoardKanban from "./MicroBoardKanban";
 import JobCard from "./JobCard";
+import type { JobAssignmentBadge, JobCollabBadge } from "./JobCard";
 import JobDetailDialog from "./JobDetailDialog";
 import BulkActionBar from "./BulkActionBar";
 import MovementsFeed from "./MovementsFeed";
@@ -30,7 +31,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { Link, useSearchParams } from "react-router-dom";
 import { useRecordMovement } from "@/hooks/useJobStageMovements";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useArchivedJobIds, useArchiveJob, useDeleteJobFromCache } from "@/hooks/useJobArchives";
 
 // Drill-down state types
