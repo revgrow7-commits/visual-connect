@@ -141,7 +141,14 @@ const EquipmentSection: React.FC<Props> = ({ job }) => {
                 <Timer className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium truncate">{a.equipment}</p>
-                  <LiveTimer startedAt={a.started_at} />
+                  <div className="flex items-center gap-1.5">
+                    <LiveTimer startedAt={a.started_at} />
+                    {a.board_name && (
+                      <span className="text-[9px] bg-primary/20 text-primary rounded px-1 py-0.5">
+                        {a.stage_name || a.board_name}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <Button
                   size="icon"
