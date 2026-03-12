@@ -7,6 +7,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Wrench, Play, Square, Timer, Check } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { Job } from "../types";
+import { useJobAssignments } from "@/hooks/useJobBoardAssignments";
+import { getActiveBoards } from "@/stores/boardsStore";
 import {
   EQUIPMENT_OPTIONS,
   useJobEquipment,
@@ -49,6 +51,12 @@ const EquipmentSection: React.FC<Props> = ({ job }) => {
   const { data: assignments = [] } = useJobEquipment(jobId);
   const assignEquip = useAssignEquipment(jobId);
   const stopEquip = useStopEquipment(jobId);
+  const { data: jobAssignments = [] } = useJobAssignments(jobId);
+  const boards = React.useMemo(() => getActiveBoards(), []);
+
+  // Get current board context
+  const currentAssignment = jobAssignments.find(a => a.is_active && !a.item_id);
+  const currentBoard = currentAssignment ? boards.find(b => b.id === currentAssignment.board_id) : null;
 
   const activeAssignments = assignments.filter((a) => a.is_active);
   const activeEquipNames = new Set(activeAssignments.map((a) => a.equipment));
@@ -60,6 +68,9 @@ const EquipmentSection: React.FC<Props> = ({ job }) => {
         job_code: job.code,
         job_title: job.description || job.client_name,
         customer_name: job.client_name,
+        board_id: currentBoard?.id,
+        board_name: currentBoard?.name,
+        stage_name: currentAssignment?.stage_name || currentBoard?.stages[0]?.name,
       },
       {
         onSuccess: () =>
@@ -130,7 +141,14 @@ const EquipmentSection: React.FC<Props> = ({ job }) => {
                 <Timer className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium truncate">{a.equipment}</p>
-                  <LiveTimer startedAt={a.started_at} />
+                  <div className="flex items-center gap-1.5">
+                    <LiveTimer startedAt={a.started_at} />
+                    {a.board_name && (
+                      <span className="text-[9px] bg-primary/20 text-primary rounded px-1 py-0.5">
+                        {a.stage_name || a.board_name}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <Button
                   size="icon"
@@ -174,13 +192,30 @@ const EquipmentSection: React.FC<Props> = ({ job }) => {
           </div>
         </ScrollArea>
 
-        {/* History summary */}
-        {totalSeconds > 0 && (
-          <div className="mt-2 pt-2 border-t text-[11px] text-muted-foreground flex justify-between">
-            <span>Tempo total acumulado:</span>
-            <span className="font-mono font-semibold">
-              {formatDuration(totalSeconds)}
-            </span>
+        {/* History summary with entries */}
+        {assignments.filter(a => !a.is_active && a.duration_seconds > 0).length > 0 && (
+          <div className="mt-2 pt-2 border-t space-y-1">
+            <div className="text-[11px] text-muted-foreground flex justify-between">
+              <span className="font-semibold">Histórico</span>
+              <span className="font-mono font-semibold">
+                Total: {formatDuration(totalSeconds)}
+              </span>
+            </div>
+            {assignments.filter(a => !a.is_active && a.duration_seconds > 0).slice(0, 5).map(a => (
+              <div key={a.id} className="flex items-center justify-between text-[10px] py-0.5">
+                <div className="flex items-center gap-1 min-w-0 flex-1">
+                  <span className="truncate">{a.equipment}</span>
+                  {a.board_name && (
+                    <span className="text-[8px] bg-muted text-muted-foreground rounded px-1 py-0.5 flex-shrink-0">
+                      {a.stage_name || a.board_name}
+                    </span>
+                  )}
+                </div>
+                <span className="font-mono text-muted-foreground ml-1">
+                  {formatDuration(a.duration_seconds)}
+                </span>
+              </div>
+            ))}
           </div>
         )}
       </PopoverContent>

@@ -28,6 +28,9 @@ export interface EquipmentAssignment {
   duration_seconds: number;
   is_active: boolean;
   created_at: string;
+  board_id: string | null;
+  board_name: string | null;
+  stage_name: string | null;
 }
 
 export function useJobEquipment(jobId: string | null) {
@@ -54,6 +57,9 @@ export function useAssignEquipment(jobId: string) {
       job_code?: number;
       job_title?: string;
       customer_name?: string;
+      board_id?: string;
+      board_name?: string;
+      stage_name?: string;
     }) => {
       // Deactivate any previous active assignment for this equipment on this job
       await supabase
@@ -73,6 +79,9 @@ export function useAssignEquipment(jobId: string) {
           equipment: params.equipment,
           started_at: new Date().toISOString(),
           is_active: true,
+          board_id: params.board_id ?? null,
+          board_name: params.board_name ?? null,
+          stage_name: params.stage_name ?? null,
         } as any)
         .select()
         .single();
@@ -81,7 +90,26 @@ export function useAssignEquipment(jobId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["job-equipment", jobId] });
+      qc.invalidateQueries({ queryKey: ["all-active-equipment"] });
     },
+  });
+}
+
+// ── Global active equipment query (for card badges) ──
+export function useAllActiveEquipment() {
+  return useQuery({
+    queryKey: ["all-active-equipment"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("job_equipment_assignments")
+        .select("job_id, equipment, started_at, board_name, stage_name, is_active")
+        .eq("is_active", true)
+        .order("started_at", { ascending: false });
+      if (error) throw error;
+      return (data || []) as { job_id: string; equipment: string; started_at: string; board_name: string | null; stage_name: string | null; is_active: boolean }[];
+    },
+    staleTime: 15_000,
+    refetchInterval: 30_000,
   });
 }
 
@@ -112,6 +140,7 @@ export function useStopEquipment(jobId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["job-equipment", jobId] });
+      qc.invalidateQueries({ queryKey: ["all-active-equipment"] });
     },
   });
 }

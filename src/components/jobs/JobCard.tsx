@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import type { Job } from "./types";
 import { formatBRL, formatDateBR, formatTimeMins, isOverdue } from "./types";
-import { Zap, Users, Clock, Check, Ruler, Archive, Trash2, CalendarClock, LayoutGrid } from "lucide-react";
+import { Zap, Users, Clock, Check, Ruler, Archive, Trash2, CalendarClock, LayoutGrid, Timer } from "lucide-react";
 import type { FlexField } from "@/stores/boardsStore";
 
 export interface JobAssignmentBadge {
@@ -17,6 +17,13 @@ export interface JobCollabBadge {
   item_name: string;
 }
 
+export interface JobEquipmentBadge {
+  equipment: string;
+  started_at: string;
+  board_name: string | null;
+  stage_name: string | null;
+}
+
 interface Props {
   job: Job;
   onClick: () => void;
@@ -29,9 +36,34 @@ interface Props {
   onDelete?: (jobId: string) => void;
   boardAssignments?: JobAssignmentBadge[];
   collabAssignments?: JobCollabBadge[];
+  equipmentAssignments?: JobEquipmentBadge[];
 }
 
-const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visibleFlexfields, selectionMode, isSelected, onToggleSelect, onArchive, onDelete, boardAssignments, collabAssignments }) => {
+// Live timer badge for equipment on cards
+const CardEquipmentBadge: React.FC<{ eq: JobEquipmentBadge }> = ({ eq }) => {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const start = new Date(eq.started_at).getTime();
+    const tick = () => setElapsed(Math.floor((Date.now() - start) / 1000));
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [eq.started_at]);
+  const h = Math.floor(elapsed / 3600);
+  const m = Math.floor((elapsed % 3600) / 60);
+  const s = elapsed % 60;
+  const timeStr = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return (
+    <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded px-1.5 py-0.5 animate-pulse">
+      <Timer className="h-2.5 w-2.5" />
+      {eq.equipment.length > 15 ? eq.equipment.substring(0, 15) + "…" : eq.equipment}
+      <span className="font-mono ml-0.5">{timeStr}</span>
+      {eq.board_name && <span className="opacity-60 ml-0.5">| {eq.stage_name || eq.board_name}</span>}
+    </span>
+  );
+};
+
+const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visibleFlexfields, selectionMode, isSelected, onToggleSelect, onArchive, onDelete, boardAssignments, collabAssignments, equipmentAssignments }) => {
   const overdue = isOverdue(job.delivery_date);
 
   const handleClick = (e: React.MouseEvent) => {
@@ -145,8 +177,8 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
           </div>
         )}
 
-        {/* Board & Collaborator assignment badges */}
-        {((boardAssignments && boardAssignments.length > 0) || (collabAssignments && collabAssignments.length > 0)) && (
+        {/* Board & Collaborator & Equipment assignment badges */}
+        {((boardAssignments && boardAssignments.length > 0) || (collabAssignments && collabAssignments.length > 0) || (equipmentAssignments && equipmentAssignments.length > 0)) && (
           <div className="flex flex-wrap gap-1">
             {boardAssignments?.map((a, i) => (
               <span
@@ -168,6 +200,9 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
                 }
               </span>
             )}
+            {equipmentAssignments?.map((eq, i) => (
+              <CardEquipmentBadge key={`eq-${i}`} eq={eq} />
+            ))}
           </div>
         )}
 

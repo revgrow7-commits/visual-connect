@@ -6,7 +6,7 @@ import { formatBRL, DEFAULT_STAGES } from "./types";
 import { getActiveBoards, getActiveMicroBoards, type Board } from "@/stores/boardsStore";
 import MicroBoardKanban from "./MicroBoardKanban";
 import JobCard from "./JobCard";
-import type { JobAssignmentBadge, JobCollabBadge } from "./JobCard";
+import type { JobAssignmentBadge, JobCollabBadge, JobEquipmentBadge } from "./JobCard";
 import JobDetailDialog from "./JobDetailDialog";
 import BulkActionBar from "./BulkActionBar";
 import MovementsFeed from "./MovementsFeed";
@@ -33,6 +33,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useRecordMovement } from "@/hooks/useJobStageMovements";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useArchivedJobIds, useArchiveJob, useDeleteJobFromCache } from "@/hooks/useJobArchives";
+import { useAllActiveEquipment } from "@/hooks/useJobEquipment";
 
 // Drill-down state types
 interface DrillDownState {
@@ -132,6 +133,22 @@ const JobsKanban: React.FC = () => {
     }
     return map;
   }, [allItemAssignments]);
+
+  // ── Active equipment assignments for badge display ──
+  const { data: allActiveEquipment = [] } = useAllActiveEquipment();
+  const equipmentByJob = useMemo(() => {
+    const map = new Map<string, JobEquipmentBadge[]>();
+    for (const eq of allActiveEquipment) {
+      if (!map.has(eq.job_id)) map.set(eq.job_id, []);
+      map.get(eq.job_id)!.push({
+        equipment: eq.equipment,
+        started_at: eq.started_at,
+        board_name: eq.board_name,
+        stage_name: eq.stage_name,
+      });
+    }
+    return map;
+  }, [allActiveEquipment]);
 
   // Multi-select state
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
@@ -682,6 +699,7 @@ const JobsKanban: React.FC = () => {
                                     onDelete={(id) => deleteJob.mutate(id)}
                                     boardAssignments={boardAssignmentsByJob.get(job.id)}
                                     collabAssignments={collabAssignmentsByJob.get(job.id)}
+                                    equipmentAssignments={equipmentByJob.get(job.id)}
                                   />
                                 </div>
                               )}

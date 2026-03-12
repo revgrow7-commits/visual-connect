@@ -1667,6 +1667,8 @@ export type Database = {
       job_equipment_assignments: {
         Row: {
           assigned_by: string | null
+          board_id: string | null
+          board_name: string | null
           created_at: string
           customer_name: string | null
           duration_seconds: number | null
@@ -1677,11 +1679,14 @@ export type Database = {
           job_code: number | null
           job_id: string
           job_title: string | null
+          stage_name: string | null
           started_at: string
           updated_at: string
         }
         Insert: {
           assigned_by?: string | null
+          board_id?: string | null
+          board_name?: string | null
           created_at?: string
           customer_name?: string | null
           duration_seconds?: number | null
@@ -1692,11 +1697,14 @@ export type Database = {
           job_code?: number | null
           job_id: string
           job_title?: string | null
+          stage_name?: string | null
           started_at?: string
           updated_at?: string
         }
         Update: {
           assigned_by?: string | null
+          board_id?: string | null
+          board_name?: string | null
           created_at?: string
           customer_name?: string | null
           duration_seconds?: number | null
@@ -1707,6 +1715,7 @@ export type Database = {
           job_code?: number | null
           job_id?: string
           job_title?: string | null
+          stage_name?: string | null
           started_at?: string
           updated_at?: string
         }
