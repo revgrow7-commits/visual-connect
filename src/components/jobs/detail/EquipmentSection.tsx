@@ -192,13 +192,30 @@ const EquipmentSection: React.FC<Props> = ({ job }) => {
           </div>
         </ScrollArea>
 
-        {/* History summary */}
-        {totalSeconds > 0 && (
-          <div className="mt-2 pt-2 border-t text-[11px] text-muted-foreground flex justify-between">
-            <span>Tempo total acumulado:</span>
-            <span className="font-mono font-semibold">
-              {formatDuration(totalSeconds)}
-            </span>
+        {/* History summary with entries */}
+        {assignments.filter(a => !a.is_active && a.duration_seconds > 0).length > 0 && (
+          <div className="mt-2 pt-2 border-t space-y-1">
+            <div className="text-[11px] text-muted-foreground flex justify-between">
+              <span className="font-semibold">Histórico</span>
+              <span className="font-mono font-semibold">
+                Total: {formatDuration(totalSeconds)}
+              </span>
+            </div>
+            {assignments.filter(a => !a.is_active && a.duration_seconds > 0).slice(0, 5).map(a => (
+              <div key={a.id} className="flex items-center justify-between text-[10px] py-0.5">
+                <div className="flex items-center gap-1 min-w-0 flex-1">
+                  <span className="truncate">{a.equipment}</span>
+                  {a.board_name && (
+                    <span className="text-[8px] bg-muted text-muted-foreground rounded px-1 py-0.5 flex-shrink-0">
+                      {a.stage_name || a.board_name}
+                    </span>
+                  )}
+                </div>
+                <span className="font-mono text-muted-foreground ml-1">
+                  {formatDuration(a.duration_seconds)}
+                </span>
+              </div>
+            ))}
           </div>
         )}
       </PopoverContent>
