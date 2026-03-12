@@ -145,6 +145,32 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
           </div>
         )}
 
+        {/* Board & Collaborator assignment badges */}
+        {((boardAssignments && boardAssignments.length > 0) || (collabAssignments && collabAssignments.length > 0)) && (
+          <div className="flex flex-wrap gap-1">
+            {boardAssignments?.map((a, i) => (
+              <span
+                key={`ba-${i}`}
+                className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-white rounded px-1.5 py-0.5"
+                style={{ backgroundColor: a.board_color || "#6366f1" }}
+              >
+                <LayoutGrid className="h-2.5 w-2.5" />
+                {a.stage_name ? `${a.stage_name}` : a.board_name}
+                {a.item_name && <span className="opacity-75 ml-0.5">({a.item_name})</span>}
+              </span>
+            ))}
+            {collabAssignments && collabAssignments.length > 0 && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded px-1.5 py-0.5">
+                <Users className="h-2.5 w-2.5" />
+                {collabAssignments.length <= 2
+                  ? [...new Set(collabAssignments.map(c => c.collaborator_name))].join(", ")
+                  : `${collabAssignments[0].collaborator_name} +${new Set(collabAssignments.map(c => c.collaborator_name)).size - 1}`
+                }
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Value + m² */}
         <div className="flex items-center justify-between">
           <p className="text-sm font-bold text-emerald-400">{formatBRL(job.value)}</p>
