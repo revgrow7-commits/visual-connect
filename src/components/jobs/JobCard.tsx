@@ -1,8 +1,21 @@
 import React from "react";
 import type { Job } from "./types";
 import { formatBRL, formatDateBR, formatTimeMins, isOverdue } from "./types";
-import { Zap, Users, Clock, Check, Ruler, Archive, Trash2, CalendarClock } from "lucide-react";
+import { Zap, Users, Clock, Check, Ruler, Archive, Trash2, CalendarClock, LayoutGrid } from "lucide-react";
 import type { FlexField } from "@/stores/boardsStore";
+
+export interface JobAssignmentBadge {
+  board_name: string;
+  board_id: string;
+  board_color?: string;
+  stage_name: string | null;
+  item_name?: string | null;
+}
+
+export interface JobCollabBadge {
+  collaborator_name: string;
+  item_name: string;
+}
 
 interface Props {
   job: Job;
@@ -14,6 +27,8 @@ interface Props {
   onToggleSelect?: (jobId: string, e: React.MouseEvent) => void;
   onArchive?: (jobId: string) => void;
   onDelete?: (jobId: string) => void;
+  boardAssignments?: JobAssignmentBadge[];
+  collabAssignments?: JobCollabBadge[];
 }
 
 const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visibleFlexfields, selectionMode, isSelected, onToggleSelect, onArchive, onDelete }) => {
