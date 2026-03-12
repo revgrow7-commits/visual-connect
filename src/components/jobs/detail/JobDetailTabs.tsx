@@ -34,7 +34,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { getActiveBoards, type Board } from "@/stores/boardsStore";
+import { type Board } from "@/stores/boardsStore";
+import { useActiveBoards } from "@/hooks/useBoards";
 import { useAssignToBoard, useJobAssignments } from "@/hooks/useJobBoardAssignments";
 import { useItemAssignments, useAssignItemsToCollaborators } from "@/hooks/useJobItemAssignments";
 import {
