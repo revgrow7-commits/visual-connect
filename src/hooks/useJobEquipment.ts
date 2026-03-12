@@ -140,6 +140,7 @@ export function useStopEquipment(jobId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["job-equipment", jobId] });
+      qc.invalidateQueries({ queryKey: ["all-active-equipment"] });
     },
   });
 }

@@ -68,6 +68,9 @@ const EquipmentSection: React.FC<Props> = ({ job }) => {
         job_code: job.code,
         job_title: job.description || job.client_name,
         customer_name: job.client_name,
+        board_id: currentBoard?.id,
+        board_name: currentBoard?.name,
+        stage_name: currentAssignment?.stage_name || currentBoard?.stages[0]?.name,
       },
       {
         onSuccess: () =>
