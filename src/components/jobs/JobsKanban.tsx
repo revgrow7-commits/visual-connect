@@ -11,6 +11,16 @@ import type { JobAssignmentBadge, JobCollabBadge, JobEquipmentBadge, JobEtiqueta
 import BulkActionBar from "./BulkActionBar";
 import DrillDownBreadcrumb, { type DrillDownLevel } from "./DrillDownBreadcrumb";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+
+// Lazy-loaded heavy components
+const JobDetailDialog = lazy(() => import("./JobDetailDialog"));
+const StageDrillDown = lazy(() => import("./StageDrillDown"));
+const ItemDrillDown = lazy(() => import("./ItemDrillDown"));
+const MicroBoardKanban = lazy(() => import("./MicroBoardKanban"));
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
