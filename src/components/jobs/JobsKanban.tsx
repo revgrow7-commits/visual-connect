@@ -883,6 +883,8 @@ const JobsKanban: React.FC = () => {
           toast({ title: "Etapa atualizada" });
         }}
       />
+      </Suspense>
+      )}
     </div>
   );
 };
