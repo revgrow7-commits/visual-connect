@@ -181,26 +181,35 @@ const JobDetailDialog: React.FC<Props> = ({ job, open, onOpenChange, onStageChan
               <PopoverTrigger asChild>
                 <Button size="sm" variant="outline" className="gap-1.5 text-xs border-white/20 text-white hover:bg-white/10 hover:text-white">
                   <LayoutGrid className="h-3.5 w-3.5" />
-                  {currentBoard ? `Board: ${currentBoard.name}` : "Atribuir a Board"}
+                  {activeAssignments.length > 0 ? `Boards (${activeAssignments.length})` : "Atribuir a Board"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-56 p-1" align="start">
-                <p className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Selecionar Board</p>
-                {boards.map(b => (
-                  <button key={b.id} onClick={() => handleAssignBoard(b)} className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover:bg-accent text-left">
-                    <span className="h-3 w-3 rounded-sm flex-shrink-0" style={{ backgroundColor: b.color }} />
-                    <span className="flex-1">{b.name}</span>
-                    {currentAssignment?.board_id === b.id && <Check className="h-3.5 w-3.5 text-primary" />}
-                  </button>
-                ))}
+                <p className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Selecionar Boards</p>
+                {boards.map(b => {
+                  const isAssigned = assignedBoardIds.has(b.id);
+                  return (
+                    <button key={b.id} onClick={() => handleToggleBoard(b)} className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover:bg-accent text-left">
+                      <span className={`h-4 w-4 rounded border flex items-center justify-center flex-shrink-0 ${isAssigned ? 'bg-primary border-primary' : 'border-muted-foreground/40'}`}>
+                        {isAssigned && <Check className="h-3 w-3 text-primary-foreground" />}
+                      </span>
+                      <span className="h-3 w-3 rounded-sm flex-shrink-0" style={{ backgroundColor: b.color }} />
+                      <span className="flex-1">{b.name}</span>
+                    </button>
+                  );
+                })}
               </PopoverContent>
             </Popover>
 
-            {currentBoard && currentAssignment && (
-              <Badge className="text-[10px] text-white border-white/20" style={{ backgroundColor: currentBoard.color }}>
-                {currentAssignment.stage_name || currentBoard.stages[0]?.name}
-              </Badge>
-            )}
+            {activeAssignments.map(a => {
+              const board = boards.find(b => b.id === a.board_id);
+              if (!board) return null;
+              return (
+                <Badge key={a.id} className="text-[10px] text-white border-white/20" style={{ backgroundColor: board.color }}>
+                  {board.name}: {a.stage_name || board.stages[0]?.name}
+                </Badge>
+              );
+            })}
 
             <MicroBoardButton
               job={job}
