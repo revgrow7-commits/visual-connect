@@ -6,7 +6,7 @@ import { formatBRL, DEFAULT_STAGES } from "./types";
 import { getActiveBoards, getActiveMicroBoards, type Board } from "@/stores/boardsStore";
 import MicroBoardKanban from "./MicroBoardKanban";
 import JobCard from "./JobCard";
-import type { JobAssignmentBadge, JobCollabBadge } from "./JobCard";
+import type { JobAssignmentBadge, JobCollabBadge, JobEquipmentBadge } from "./JobCard";
 import JobDetailDialog from "./JobDetailDialog";
 import BulkActionBar from "./BulkActionBar";
 import MovementsFeed from "./MovementsFeed";
