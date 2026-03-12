@@ -254,6 +254,14 @@ const JobsKanban: React.FC = () => {
 
   const visibleFlexfields = useMemo(() => activeBoard?.flexfields.filter(f => f.show_on_card) || [], [activeBoard]);
 
+  // Stable callback refs for KanbanColumn
+  const handleArchiveJob = useCallback((job: Job) => {
+    archiveJob.mutate({ job_id: job.id, job_code: job.code, job_title: job.description, customer_name: job.client_name });
+  }, [archiveJob]);
+  const handleDeleteJob = useCallback((jobId: string) => {
+    deleteJob.mutate(jobId);
+  }, [deleteJob]);
+
   const { inputValue: searchInput, debouncedValue: search, setSearch } = useDebouncedSearch(350);
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [status, setStatus] = useState<string>("aberto");
