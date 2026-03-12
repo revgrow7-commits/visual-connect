@@ -248,6 +248,7 @@ export default function AdminBoardsPage() {
     try {
       await saveBoardToDB(board);
       toast.success(editingBoard ? "Board atualizado com sucesso" : "Board criado com sucesso");
+      queryClient.invalidateQueries({ queryKey: ["kanban-boards"] });
     } catch {
       toast.error("Erro ao salvar board no banco de dados");
     }
