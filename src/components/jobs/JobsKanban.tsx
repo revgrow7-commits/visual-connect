@@ -699,6 +699,7 @@ const JobsKanban: React.FC = () => {
                                     onDelete={(id) => deleteJob.mutate(id)}
                                     boardAssignments={boardAssignmentsByJob.get(job.id)}
                                     collabAssignments={collabAssignmentsByJob.get(job.id)}
+                                    equipmentAssignments={equipmentByJob.get(job.id)}
                                   />
                                 </div>
                               )}
