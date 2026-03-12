@@ -203,6 +203,9 @@ export async function saveBoardToDB(board: Board): Promise<void> {
     stages: JSON.parse(JSON.stringify(board.stages)),
     flexfields: JSON.parse(JSON.stringify(board.flexfields)),
     members: JSON.parse(JSON.stringify(board.members)),
+    board_type: board.board_type || "main",
+    parent_board_id: board.parent_board_id || null,
+    linked_stage_id: board.linked_stage_id || null,
   };
 
   // Try update first, then insert

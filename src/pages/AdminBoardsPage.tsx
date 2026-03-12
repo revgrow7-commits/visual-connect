@@ -236,7 +236,7 @@ export default function AdminBoardsPage() {
     });
   }, []);
 
-  const persist = (next: Board[]) => { setBoards(next); saveBoards(next); };
+  const persist = (next: Board[]) => { setBoards(next); saveBoards(next); queryClient.setQueryData(["kanban-boards"], next); };
 
   const handleNew = () => { setEditingBoard(null); setDialogOpen(true); };
   const handleEdit = (board: Board) => { setEditingBoard(board); setDialogOpen(true); };
