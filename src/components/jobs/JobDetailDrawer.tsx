@@ -37,49 +37,54 @@ const JobDetailDrawer: React.FC<Props> = ({ job, open, onOpenChange, onStageChan
 
   if (!job) return null;
 
-  // Get the most recent job-level board assignment
-  const currentAssignment = jobAssignments.find(a => a.is_active && !a.item_id);
+  // Multi-board: get ALL active job-level assignments
+  const activeAssignments = useMemo(() => jobAssignments.filter(a => a.is_active && !a.item_id), [jobAssignments]);
+  const assignedBoardIds = useMemo(() => new Set(activeAssignments.map(a => a.board_id)), [activeAssignments]);
+  const currentAssignment = activeAssignments[0] || null;
   const currentBoard = currentAssignment ? boards.find(b => b.id === currentAssignment.board_id) : null;
 
   const stageCfg = DEFAULT_STAGES.find(s => s.id === job.stage);
   const overdue = isOverdue(job.delivery_date);
 
-  const handleAssignBoard = async (board: Board) => {
-    setBoardPopoverOpen(false);
-    const firstStage = board.stages[0];
+  const handleToggleBoard = async (board: Board) => {
+    const isAssigned = assignedBoardIds.has(board.id);
     try {
-      await supabase
-        .from("job_board_assignments")
-        .update({ is_active: false })
-        .eq("job_id", job.id)
-        .eq("is_active", true);
-
-      await supabase.from("job_board_assignments").insert({
-        job_id: job.id,
-        job_code: job.code || null,
-        job_title: job.description || job.client_name || null,
-        customer_name: job.client_name || null,
-        board_id: board.id,
-        board_name: board.name,
-        stage_id: firstStage?.id || null,
-        stage_name: firstStage?.name || null,
-        assigned_by: "Sistema",
-        is_active: true,
-      });
-
+      if (isAssigned) {
+        await supabase
+          .from("job_board_assignments")
+          .update({ is_active: false })
+          .eq("job_id", job.id)
+          .eq("board_id", board.id)
+          .eq("is_active", true);
+        await logHistory(job.id, "job_removed_from_board", `Job removido da board "${board.name}"`, { board_id: board.id, board_name: board.name });
+        toast({ title: "Removido da Board", description: `Job removido de "${board.name}"` });
+      } else {
+        const firstStage = board.stages[0];
+        await supabase.from("job_board_assignments").insert({
+          job_id: job.id,
+          job_code: job.code || null,
+          job_title: job.description || job.client_name || null,
+          customer_name: job.client_name || null,
+          board_id: board.id,
+          board_name: board.name,
+          stage_id: firstStage?.id || null,
+          stage_name: firstStage?.name || null,
+          assigned_by: "Sistema",
+          is_active: true,
+        });
+        if (firstStage && onStageChange) onStageChange(job.id, firstStage.id);
+        await logHistory(job.id, "job_assigned_to_board", `Job atribuído à board "${board.name}" → ${firstStage?.name || "primeira etapa"}`, {
+          board_id: board.id, board_name: board.name, stage: firstStage?.id || "",
+        });
+        toast({ title: "Atribuído à Board", description: `Job adicionado a "${board.name}" → ${firstStage?.name || "primeira etapa"}` });
+      }
       queryClient.invalidateQueries({ queryKey: ["job-assignments", job.id] });
       queryClient.invalidateQueries({ queryKey: ["board-assignments"] });
       queryClient.invalidateQueries({ queryKey: ["holdprint-jobs-kanban"] });
     } catch (err: any) {
-      console.error("[assign-board] error:", err);
+      console.error("[toggle-board] error:", err);
       toast({ title: "Erro", description: err.message, variant: "destructive" });
-      return;
     }
-    if (firstStage && onStageChange) onStageChange(job.id, firstStage.id);
-    await logHistory(job.id, "job_assigned_to_board", `Job atribuído à board "${board.name}" → ${firstStage?.name || "primeira etapa"}`, {
-      board_id: board.id, board_name: board.name, stage: firstStage?.id || "",
-    });
-    toast({ title: "Atribuído à Board", description: `Job movido para "${board.name}" → ${firstStage?.name || "primeira etapa"}` });
   };
 
   return (
