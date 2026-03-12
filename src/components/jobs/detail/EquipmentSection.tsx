@@ -8,7 +8,7 @@ import { Wrench, Play, Square, Timer, Check } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { Job } from "../types";
 import { useJobAssignments } from "@/hooks/useJobBoardAssignments";
-import { getActiveBoards } from "@/stores/boardsStore";
+import { useActiveBoards } from "@/hooks/useBoards";
 import {
   EQUIPMENT_OPTIONS,
   useJobEquipment,
