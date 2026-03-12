@@ -679,6 +679,8 @@ const JobsKanban: React.FC = () => {
                                       if (j) archiveJob.mutate({ job_id: j.id, job_code: j.code, job_title: j.description, customer_name: j.client_name });
                                     }}
                                     onDelete={(id) => deleteJob.mutate(id)}
+                                    boardAssignments={boardAssignmentsByJob.get(job.id)}
+                                    collabAssignments={collabAssignmentsByJob.get(job.id)}
                                   />
                                 </div>
                               )}
