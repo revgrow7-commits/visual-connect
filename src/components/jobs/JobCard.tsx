@@ -46,20 +46,19 @@ interface Props {
   etiquetas?: JobEtiquetaBadge[];
 }
 
-// Live timer badge for equipment on cards
-const CardEquipmentBadge: React.FC<{ eq: JobEquipmentBadge }> = ({ eq }) => {
+// Live timer badge for equipment on cards — update every 30s to reduce re-renders
+const CardEquipmentBadge: React.FC<{ eq: JobEquipmentBadge }> = React.memo(({ eq }) => {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     const start = new Date(eq.started_at).getTime();
     const tick = () => setElapsed(Math.floor((Date.now() - start) / 1000));
     tick();
-    const interval = setInterval(tick, 1000);
+    const interval = setInterval(tick, 30_000);
     return () => clearInterval(interval);
   }, [eq.started_at]);
   const h = Math.floor(elapsed / 3600);
   const m = Math.floor((elapsed % 3600) / 60);
-  const s = elapsed % 60;
-  const timeStr = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  const timeStr = `${String(h).padStart(2, "0")}h${String(m).padStart(2, "0")}m`;
   return (
     <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded px-1.5 py-0.5 animate-pulse">
       <Timer className="h-2.5 w-2.5" />
@@ -68,7 +67,7 @@ const CardEquipmentBadge: React.FC<{ eq: JobEquipmentBadge }> = ({ eq }) => {
       {eq.board_name && <span className="opacity-60 ml-0.5">| {eq.stage_name || eq.board_name}</span>}
     </span>
   );
-};
+});
 
 const ETIQUETA_BG_MAP: Record<string, string> = {
   green: "#22c55e", yellow: "#facc15", orange: "#f97316", red: "#ef4444",
