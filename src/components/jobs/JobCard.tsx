@@ -36,6 +36,7 @@ interface Props {
   onDelete?: (jobId: string) => void;
   boardAssignments?: JobAssignmentBadge[];
   collabAssignments?: JobCollabBadge[];
+  equipmentAssignments?: JobEquipmentBadge[];
 }
 
 const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visibleFlexfields, selectionMode, isSelected, onToggleSelect, onArchive, onDelete, boardAssignments, collabAssignments }) => {
