@@ -28,6 +28,9 @@ export interface EquipmentAssignment {
   duration_seconds: number;
   is_active: boolean;
   created_at: string;
+  board_id: string | null;
+  board_name: string | null;
+  stage_name: string | null;
 }
 
 export function useJobEquipment(jobId: string | null) {
