@@ -838,6 +838,8 @@ const JobsKanban: React.FC = () => {
         isDeleting={bulkDeleting}
       />
 
+      {selectedJob && (
+      <Suspense fallback={null}>
       <JobDetailDialog
         job={selectedJob}
         open={!!selectedJob}
