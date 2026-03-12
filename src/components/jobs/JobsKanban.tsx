@@ -134,6 +134,22 @@ const JobsKanban: React.FC = () => {
     return map;
   }, [allItemAssignments]);
 
+  // ── Active equipment assignments for badge display ──
+  const { data: allActiveEquipment = [] } = useAllActiveEquipment();
+  const equipmentByJob = useMemo(() => {
+    const map = new Map<string, JobEquipmentBadge[]>();
+    for (const eq of allActiveEquipment) {
+      if (!map.has(eq.job_id)) map.set(eq.job_id, []);
+      map.get(eq.job_id)!.push({
+        equipment: eq.equipment,
+        started_at: eq.started_at,
+        board_name: eq.board_name,
+        stage_name: eq.stage_name,
+      });
+    }
+    return map;
+  }, [allActiveEquipment]);
+
   // Multi-select state
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
