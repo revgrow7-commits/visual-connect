@@ -17,6 +17,13 @@ export interface JobCollabBadge {
   item_name: string;
 }
 
+export interface JobEquipmentBadge {
+  equipment: string;
+  started_at: string;
+  board_name: string | null;
+  stage_name: string | null;
+}
+
 interface Props {
   job: Job;
   onClick: () => void;
