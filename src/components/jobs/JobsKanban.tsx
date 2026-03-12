@@ -6,7 +6,7 @@ import { formatBRL, DEFAULT_STAGES } from "./types";
 import { getActiveBoards, getActiveMicroBoards, type Board } from "@/stores/boardsStore";
 import MicroBoardKanban from "./MicroBoardKanban";
 import JobCard from "./JobCard";
-import type { JobAssignmentBadge, JobCollabBadge, JobEquipmentBadge } from "./JobCard";
+import type { JobAssignmentBadge, JobCollabBadge, JobEquipmentBadge, JobEtiquetaBadge } from "./JobCard";
 import JobDetailDialog from "./JobDetailDialog";
 import BulkActionBar from "./BulkActionBar";
 import MovementsFeed from "./MovementsFeed";
@@ -149,6 +149,44 @@ const JobsKanban: React.FC = () => {
     }
     return map;
   }, [allActiveEquipment]);
+
+  // ── Etiquetas for badge display on cards ──
+  const { data: allEtiquetas = [] } = useQuery({
+    queryKey: ["etiquetas"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("etiquetas").select("*");
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: allJobExtensions = [] } = useQuery({
+    queryKey: ["all-job-extensions-tags"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("job_extensions")
+        .select("holdprint_job_id, tags");
+      if (error) throw error;
+      return (data || []).filter((d: any) => d.tags && d.tags.length > 0);
+    },
+    staleTime: 30_000,
+  });
+
+  const etiquetasByJob = useMemo(() => {
+    const etMap = new Map<string, { id: string; nome: string; cor: string }>();
+    for (const et of allEtiquetas) etMap.set(et.id, { id: et.id, nome: et.nome, cor: et.cor });
+    const map = new Map<string, JobEtiquetaBadge[]>();
+    for (const ext of allJobExtensions) {
+      const badges: JobEtiquetaBadge[] = [];
+      for (const tagId of (ext.tags || [])) {
+        const et = etMap.get(tagId);
+        if (et) badges.push(et);
+      }
+      if (badges.length > 0) map.set(ext.holdprint_job_id, badges);
+    }
+    return map;
+  }, [allEtiquetas, allJobExtensions]);
 
   // Multi-select state
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
@@ -700,6 +738,7 @@ const JobsKanban: React.FC = () => {
                                     boardAssignments={boardAssignmentsByJob.get(job.id)}
                                     collabAssignments={collabAssignmentsByJob.get(job.id)}
                                     equipmentAssignments={equipmentByJob.get(job.id)}
+                                    etiquetas={etiquetasByJob.get(job.id)}
                                   />
                                 </div>
                               )}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import type { Job } from "./types";
 import { formatBRL, formatDateBR, formatTimeMins, isOverdue } from "./types";
-import { Zap, Users, Clock, Check, Ruler, Archive, Trash2, CalendarClock, LayoutGrid, Timer } from "lucide-react";
+import { Zap, Users, Clock, Check, Ruler, Archive, Trash2, CalendarClock, LayoutGrid, Timer, Tag } from "lucide-react";
 import type { FlexField } from "@/stores/boardsStore";
 
 export interface JobAssignmentBadge {
@@ -24,6 +24,12 @@ export interface JobEquipmentBadge {
   stage_name: string | null;
 }
 
+export interface JobEtiquetaBadge {
+  id: string;
+  nome: string;
+  cor: string;
+}
+
 interface Props {
   job: Job;
   onClick: () => void;
@@ -37,6 +43,7 @@ interface Props {
   boardAssignments?: JobAssignmentBadge[];
   collabAssignments?: JobCollabBadge[];
   equipmentAssignments?: JobEquipmentBadge[];
+  etiquetas?: JobEtiquetaBadge[];
 }
 
 // Live timer badge for equipment on cards
@@ -63,7 +70,13 @@ const CardEquipmentBadge: React.FC<{ eq: JobEquipmentBadge }> = ({ eq }) => {
   );
 };
 
-const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visibleFlexfields, selectionMode, isSelected, onToggleSelect, onArchive, onDelete, boardAssignments, collabAssignments, equipmentAssignments }) => {
+const ETIQUETA_BG_MAP: Record<string, string> = {
+  green: "#22c55e", yellow: "#facc15", orange: "#f97316", red: "#ef4444",
+  purple: "#a855f7", blue: "#3b82f6", sky: "#38bdf8", lime: "#84cc16",
+  pink: "#ec4899", black: "#1f2937",
+};
+
+const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visibleFlexfields, selectionMode, isSelected, onToggleSelect, onArchive, onDelete, boardAssignments, collabAssignments, equipmentAssignments, etiquetas }) => {
   const overdue = isOverdue(job.delivery_date);
 
   const handleClick = (e: React.MouseEvent) => {
@@ -143,7 +156,21 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
           {job.description || job.title || "Sem título"}
         </p>
 
-        {/* Client */}
+        {/* Etiquetas */}
+        {etiquetas && etiquetas.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {etiquetas.map((et) => (
+              <span
+                key={et.id}
+                className="inline-flex items-center gap-0.5 text-[10px] font-bold text-white rounded px-2 py-0.5 shadow-sm"
+                style={{ backgroundColor: ETIQUETA_BG_MAP[et.cor] || "#6b7280" }}
+              >
+                {et.nome}
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
           <Users className="h-3 w-3 text-gray-500 flex-shrink-0" />
           <span className="truncate">{job.client_name}</span>
