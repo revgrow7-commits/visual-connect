@@ -33,7 +33,7 @@ interface Props {
 }
 
 const JobDetailDialog: React.FC<Props> = ({ job, open, onOpenChange, onStageChange, isArchived }) => {
-  const boards = useMemo(() => getActiveBoards(), []);
+  const { data: boards = [] } = useActiveBoards();
   const [boardPopoverOpen, setBoardPopoverOpen] = useState(false);
   const queryClient = useQueryClient();
   const archiveJob = useArchiveJob();

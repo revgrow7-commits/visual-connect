@@ -71,7 +71,7 @@ const TabItens: React.FC<Props> = ({ job }) => {
   const [selectedCollabs, setSelectedCollabs] = useState<Set<string>>(new Set());
   const [colabList, setColabList] = useState<string[]>([]);
   const [deadlineInput, setDeadlineInput] = useState("");
-  const boards = React.useMemo(() => getActiveBoards(), []);
+  const { data: boards = [] } = useActiveBoards();
 
   // Load collaborator names
   useEffect(() => {

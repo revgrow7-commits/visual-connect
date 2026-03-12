@@ -27,7 +27,7 @@ interface Props {
 }
 
 const JobDetailDrawer: React.FC<Props> = ({ job, open, onOpenChange, onStageChange }) => {
-  const boards = useMemo(() => getActiveBoards(), []);
+  const { data: boards = [] } = useActiveBoards();
   const [boardPopoverOpen, setBoardPopoverOpen] = useState(false);
   const queryClient = useQueryClient();
 

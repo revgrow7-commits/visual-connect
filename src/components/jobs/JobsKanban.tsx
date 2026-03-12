@@ -61,14 +61,19 @@ const KPICard = ({ icon: Icon, value, label, color, bgColor }: {
 
 const JobsKanban: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const boards = useMemo(() => getActiveBoards(), []);
+  const { data: boards = [] } = useActiveBoards();
   const [activeBoardId, setActiveBoardId] = useState(() => {
     const paramBoard = searchParams.get("board");
-    if (paramBoard && boards.some(b => b.id === paramBoard)) return paramBoard;
-    return boards[0]?.id || "";
+    return paramBoard || "";
   });
+  // Auto-select first board when boards load
+  useEffect(() => {
+    if (boards.length > 0 && (!activeBoardId || !boards.some(b => b.id === activeBoardId))) {
+      setActiveBoardId(boards[0].id);
+    }
+  }, [boards, activeBoardId]);
   const activeBoard = useMemo(() => boards.find(b => b.id === activeBoardId) || boards[0] || null, [boards, activeBoardId]);
-  const microBoards = useMemo(() => getActiveMicroBoards(activeBoardId), [activeBoardId]);
+  const { data: microBoards = [] } = useActiveMicroBoards(activeBoardId);
   const [activeMicroBoardId, setActiveMicroBoardId] = useState<string | null>(null);
   const activeMicroBoard = useMemo(() => microBoards.find(b => b.id === activeMicroBoardId) || null, [microBoards, activeMicroBoardId]);
   const recordMovement = useRecordMovement();
