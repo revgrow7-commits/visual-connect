@@ -153,8 +153,8 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
           </div>
         )}
 
-        {/* Board & Collaborator assignment badges */}
-        {((boardAssignments && boardAssignments.length > 0) || (collabAssignments && collabAssignments.length > 0)) && (
+        {/* Board & Collaborator & Equipment assignment badges */}
+        {((boardAssignments && boardAssignments.length > 0) || (collabAssignments && collabAssignments.length > 0) || (equipmentAssignments && equipmentAssignments.length > 0)) && (
           <div className="flex flex-wrap gap-1">
             {boardAssignments?.map((a, i) => (
               <span
@@ -176,6 +176,9 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
                 }
               </span>
             )}
+            {equipmentAssignments?.map((eq, i) => (
+              <CardEquipmentBadge key={`eq-${i}`} eq={eq} />
+            ))}
           </div>
         )}
 
