@@ -584,7 +584,7 @@ const JobsKanban: React.FC = () => {
         <div className="relative flex-1 min-w-[200px] max-w-[320px]">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/50" />
           <Input placeholder="Buscar por título, cliente ou #código..."
-            value={search} onChange={e => setSearch(e.target.value)}
+            value={searchInput} onChange={e => setSearch(e.target.value)}
             className="pl-9 h-9 text-xs bg-[#161b26] border-[#2a2f3d] text-white placeholder:text-white/40 focus:border-rose-500/50 focus:ring-rose-500/20" />
         </div>
 
