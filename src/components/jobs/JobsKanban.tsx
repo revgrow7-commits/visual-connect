@@ -738,6 +738,7 @@ const JobsKanban: React.FC = () => {
                                     boardAssignments={boardAssignmentsByJob.get(job.id)}
                                     collabAssignments={collabAssignmentsByJob.get(job.id)}
                                     equipmentAssignments={equipmentByJob.get(job.id)}
+                                    etiquetas={etiquetasByJob.get(job.id)}
                                   />
                                 </div>
                               )}
