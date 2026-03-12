@@ -43,6 +43,7 @@ interface Props {
   boardAssignments?: JobAssignmentBadge[];
   collabAssignments?: JobCollabBadge[];
   equipmentAssignments?: JobEquipmentBadge[];
+  etiquetas?: JobEtiquetaBadge[];
 }
 
 // Live timer badge for equipment on cards
