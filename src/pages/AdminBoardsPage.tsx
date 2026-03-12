@@ -258,6 +258,7 @@ export default function AdminBoardsPage() {
     try {
       await deleteBoardFromDB(id);
       toast.success("Board removido");
+      queryClient.invalidateQueries({ queryKey: ["kanban-boards"] });
     } catch {
       toast.error("Erro ao remover board do banco");
     }
