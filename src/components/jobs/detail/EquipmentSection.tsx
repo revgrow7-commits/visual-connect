@@ -51,6 +51,12 @@ const EquipmentSection: React.FC<Props> = ({ job }) => {
   const { data: assignments = [] } = useJobEquipment(jobId);
   const assignEquip = useAssignEquipment(jobId);
   const stopEquip = useStopEquipment(jobId);
+  const { data: jobAssignments = [] } = useJobAssignments(jobId);
+  const boards = React.useMemo(() => getActiveBoards(), []);
+
+  // Get current board context
+  const currentAssignment = jobAssignments.find(a => a.is_active && !a.item_id);
+  const currentBoard = currentAssignment ? boards.find(b => b.id === currentAssignment.board_id) : null;
 
   const activeAssignments = assignments.filter((a) => a.is_active);
   const activeEquipNames = new Set(activeAssignments.map((a) => a.equipment));
