@@ -173,6 +173,7 @@ const JobsKanban: React.FC = () => {
       }
       pendingMovesRef.current.delete(job.id);
       queryClient.invalidateQueries({ queryKey: ["holdprint-jobs-kanban"] });
+      queryClient.invalidateQueries({ queryKey: ["all-board-assignments-badges"] });
       supabase.functions.invoke("job-movement-notify", {
         body: { job_id: job.id, job_code: job.code, job_title: job.description, customer_name: job.client_name,
           board_id: boardId, board_name: boardName, from_stage_name: fromStageName || "—", to_stage_name: stageName, moved_by: "Sistema" },
