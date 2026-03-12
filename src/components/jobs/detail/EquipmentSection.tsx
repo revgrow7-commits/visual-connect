@@ -8,7 +8,7 @@ import { Wrench, Play, Square, Timer, Check } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { Job } from "../types";
 import { useJobAssignments } from "@/hooks/useJobBoardAssignments";
-import { getActiveBoards } from "@/stores/boardsStore";
+import { useActiveBoards } from "@/hooks/useBoards";
 import {
   EQUIPMENT_OPTIONS,
   useJobEquipment,
@@ -52,7 +52,7 @@ const EquipmentSection: React.FC<Props> = ({ job }) => {
   const assignEquip = useAssignEquipment(jobId);
   const stopEquip = useStopEquipment(jobId);
   const { data: jobAssignments = [] } = useJobAssignments(jobId);
-  const boards = React.useMemo(() => getActiveBoards(), []);
+  const { data: boards = [] } = useActiveBoards();
 
   // Get current board context
   const currentAssignment = jobAssignments.find(a => a.is_active && !a.item_id);

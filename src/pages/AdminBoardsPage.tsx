@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Pencil, Trash2, GripVertical, LayoutGrid, Settings2, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, X, Users, Check } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -225,6 +226,7 @@ export default function AdminBoardsPage() {
   const [editingBoard, setEditingBoard] = useState<Board | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   // Load from DB on mount
   useEffect(() => {
@@ -246,6 +248,7 @@ export default function AdminBoardsPage() {
     try {
       await saveBoardToDB(board);
       toast.success(editingBoard ? "Board atualizado com sucesso" : "Board criado com sucesso");
+      queryClient.invalidateQueries({ queryKey: ["kanban-boards"] });
     } catch {
       toast.error("Erro ao salvar board no banco de dados");
     }
@@ -255,6 +258,7 @@ export default function AdminBoardsPage() {
     try {
       await deleteBoardFromDB(id);
       toast.success("Board removido");
+      queryClient.invalidateQueries({ queryKey: ["kanban-boards"] });
     } catch {
       toast.error("Erro ao remover board do banco");
     }

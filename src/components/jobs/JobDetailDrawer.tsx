@@ -4,7 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { Job } from "./types";
 import { formatBRL, formatDateBR, isOverdue } from "./types";
 import { DEFAULT_STAGES } from "./types";
-import { getActiveBoards, type Board } from "@/stores/boardsStore";
+import { type Board } from "@/stores/boardsStore";
+import { useActiveBoards } from "@/hooks/useBoards";
 import { useAssignToBoard, useJobAssignments } from "@/hooks/useJobBoardAssignments";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +27,7 @@ interface Props {
 }
 
 const JobDetailDrawer: React.FC<Props> = ({ job, open, onOpenChange, onStageChange }) => {
-  const boards = useMemo(() => getActiveBoards(), []);
+  const { data: boards = [] } = useActiveBoards();
   const [boardPopoverOpen, setBoardPopoverOpen] = useState(false);
   const queryClient = useQueryClient();
 

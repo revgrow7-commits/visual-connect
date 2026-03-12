@@ -4,7 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { Job } from "./types";
 import { formatBRL, formatDateBR, isOverdue } from "./types";
 import { DEFAULT_STAGES } from "./types";
-import { getActiveBoards, type Board } from "@/stores/boardsStore";
+import { type Board } from "@/stores/boardsStore";
+import { useActiveBoards } from "@/hooks/useBoards";
 import { useAssignToBoard, useJobAssignments } from "@/hooks/useJobBoardAssignments";
 import { useArchiveJob, useUnarchiveJob } from "@/hooks/useJobArchives";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -32,7 +33,7 @@ interface Props {
 }
 
 const JobDetailDialog: React.FC<Props> = ({ job, open, onOpenChange, onStageChange, isArchived }) => {
-  const boards = useMemo(() => getActiveBoards(), []);
+  const { data: boards = [] } = useActiveBoards();
   const [boardPopoverOpen, setBoardPopoverOpen] = useState(false);
   const queryClient = useQueryClient();
   const archiveJob = useArchiveJob();
