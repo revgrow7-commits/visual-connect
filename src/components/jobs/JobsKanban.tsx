@@ -663,15 +663,21 @@ const JobsKanban: React.FC = () => {
 
       {/* ── Main content ── */}
       {activeMicroBoard && !isDrilledDown ? (
-        <MicroBoardKanban board={activeMicroBoard} />
+        <Suspense fallback={<BoardSkeleton count={4} />}>
+          <MicroBoardKanban board={activeMicroBoard} />
+        </Suspense>
       ) : isDrilledDown && drillDown.level === "stage" && drillDown.stageId ? (
-        (() => {
-          const stageData = byStage.find(s => s.stage.id === drillDown.stageId);
-          if (!stageData) return <div className="flex-1 flex items-center justify-center text-gray-500">Etapa não encontrada</div>;
-          return <StageDrillDown stageData={stageData} onSelectJob={(job) => drillDownToJob(job)} />;
-        })()
+        <Suspense fallback={<BoardSkeleton count={1} />}>
+          {(() => {
+            const stageData = byStage.find(s => s.stage.id === drillDown.stageId);
+            if (!stageData) return <div className="flex-1 flex items-center justify-center text-gray-500">Etapa não encontrada</div>;
+            return <StageDrillDown stageData={stageData} onSelectJob={(job) => drillDownToJob(job)} />;
+          })()}
+        </Suspense>
       ) : isDrilledDown && drillDown.level === "item" && drillDown.job && drillDown.itemId ? (
-        <ItemDrillDown job={drillDown.job} itemId={drillDown.itemId} />
+        <Suspense fallback={<BoardSkeleton count={1} />}>
+          <ItemDrillDown job={drillDown.job} itemId={drillDown.itemId} />
+        </Suspense>
       ) : isDrilledDown && drillDown.level === "job" && drillDown.job ? null
       : isLoading ? (
         <BoardSkeleton count={stageConfigs.length} />
