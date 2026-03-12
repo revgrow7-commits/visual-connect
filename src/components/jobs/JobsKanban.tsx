@@ -1,28 +1,31 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useRef, lazy, Suspense } from "react";
 import { useJobsData } from "./useJobsData";
 import { supabase } from "@/integrations/supabase/client";
 import type { Job, JobsFilters, JobsByStage } from "./types";
 import { formatBRL, DEFAULT_STAGES } from "./types";
 import { type Board } from "@/stores/boardsStore";
 import { useActiveBoards, useActiveMicroBoards } from "@/hooks/useBoards";
-import MicroBoardKanban from "./MicroBoardKanban";
+import KanbanColumn from "./KanbanColumn";
 import JobCard from "./JobCard";
 import type { JobAssignmentBadge, JobCollabBadge, JobEquipmentBadge, JobEtiquetaBadge } from "./JobCard";
-import JobDetailDialog from "./JobDetailDialog";
 import BulkActionBar from "./BulkActionBar";
-import MovementsFeed from "./MovementsFeed";
 import DrillDownBreadcrumb, { type DrillDownLevel } from "./DrillDownBreadcrumb";
-import StageDrillDown from "./StageDrillDown";
-import ItemDrillDown from "./ItemDrillDown";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+
+// Lazy-loaded heavy components
+const JobDetailDialog = lazy(() => import("./JobDetailDialog"));
+const StageDrillDown = lazy(() => import("./StageDrillDown"));
+const ItemDrillDown = lazy(() => import("./ItemDrillDown"));
+const MicroBoardKanban = lazy(() => import("./MicroBoardKanban"));
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  DragDropContext, Droppable, Draggable, type DropResult,
+  DragDropContext, type DropResult,
 } from "@hello-pangea/dnd";
 import {
   Search, RefreshCw, Loader2, Plus, LayoutGrid, List,
@@ -251,8 +254,16 @@ const JobsKanban: React.FC = () => {
 
   const visibleFlexfields = useMemo(() => activeBoard?.flexfields.filter(f => f.show_on_card) || [], [activeBoard]);
 
+  // Stable callback refs for KanbanColumn
+  const handleArchiveJob = useCallback((job: Job) => {
+    archiveJob.mutate({ job_id: job.id, job_code: job.code, job_title: job.description, customer_name: job.client_name });
+  }, [archiveJob]);
+  const handleDeleteJob = useCallback((jobId: string) => {
+    deleteJob.mutate(jobId);
+  }, [deleteJob]);
+
+  const { inputValue: searchInput, debouncedValue: search, setSearch } = useDebouncedSearch(350);
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
-  const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("aberto");
   const [productionType, setProductionType] = useState("todos");
   const [filterResponsavel, setFilterResponsavel] = useState("todos");
@@ -581,7 +592,7 @@ const JobsKanban: React.FC = () => {
         <div className="relative flex-1 min-w-[200px] max-w-[320px]">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/50" />
           <Input placeholder="Buscar por título, cliente ou #código..."
-            value={search} onChange={e => setSearch(e.target.value)}
+            value={searchInput} onChange={e => setSearch(e.target.value)}
             className="pl-9 h-9 text-xs bg-[#161b26] border-[#2a2f3d] text-white placeholder:text-white/40 focus:border-rose-500/50 focus:ring-rose-500/20" />
         </div>
 
@@ -660,15 +671,21 @@ const JobsKanban: React.FC = () => {
 
       {/* ── Main content ── */}
       {activeMicroBoard && !isDrilledDown ? (
-        <MicroBoardKanban board={activeMicroBoard} />
+        <Suspense fallback={<BoardSkeleton count={4} />}>
+          <MicroBoardKanban board={activeMicroBoard} />
+        </Suspense>
       ) : isDrilledDown && drillDown.level === "stage" && drillDown.stageId ? (
-        (() => {
-          const stageData = byStage.find(s => s.stage.id === drillDown.stageId);
-          if (!stageData) return <div className="flex-1 flex items-center justify-center text-gray-500">Etapa não encontrada</div>;
-          return <StageDrillDown stageData={stageData} onSelectJob={(job) => drillDownToJob(job)} />;
-        })()
+        <Suspense fallback={<BoardSkeleton count={1} />}>
+          {(() => {
+            const stageData = byStage.find(s => s.stage.id === drillDown.stageId);
+            if (!stageData) return <div className="flex-1 flex items-center justify-center text-gray-500">Etapa não encontrada</div>;
+            return <StageDrillDown stageData={stageData} onSelectJob={(job) => drillDownToJob(job)} />;
+          })()}
+        </Suspense>
       ) : isDrilledDown && drillDown.level === "item" && drillDown.job && drillDown.itemId ? (
-        <ItemDrillDown job={drillDown.job} itemId={drillDown.itemId} />
+        <Suspense fallback={<BoardSkeleton count={1} />}>
+          <ItemDrillDown job={drillDown.job} itemId={drillDown.itemId} />
+        </Suspense>
       ) : isDrilledDown && drillDown.level === "job" && drillDown.job ? null
       : isLoading ? (
         <BoardSkeleton count={stageConfigs.length} />
@@ -703,59 +720,22 @@ const JobsKanban: React.FC = () => {
             <div ref={scrollRef} className="overflow-x-auto flex-1 pb-4 scroll-smooth scrollbar-thin">
               <div className="flex gap-2.5 min-h-[calc(100vh-380px)]">
                 {byStage.map(col => (
-                  <div key={col.stage.id} className="min-w-[220px] flex-1 max-w-[260px] flex flex-col">
-                    {/* Column header */}
-                    <div
-                      onClick={() => drillDownToStage(col.stage.id)}
-                      className="bg-[#161b26] rounded-t-xl p-3 border border-[#2a2f3d] border-b-0 cursor-pointer hover:bg-[#1e2330] transition-colors group"
-                      style={{ borderTopWidth: 3, borderTopColor: col.stage.color }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <p className="font-bold text-xs text-gray-200 group-hover:text-gray-100 transition-colors truncate">{col.stage.name}</p>
-                        <Badge className="text-[10px] text-white font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: col.stage.color }}>
-                          {col.jobs.length}
-                        </Badge>
-                      </div>
-                      <p className="text-[10px] text-gray-500 mt-0.5 font-medium">{formatBRL(col.totalValue)}</p>
-                    </div>
-
-                    {/* Column body */}
-                    <Droppable droppableId={col.stage.id} isDropDisabled={selectionMode}>
-                      {(provided, snapshot) => (
-                        <div ref={provided.innerRef} {...provided.droppableProps}
-                          className={`flex-1 bg-[#0f1318] border border-[#2a2f3d] border-t-0 rounded-b-xl p-1.5 space-y-2 transition-colors ${snapshot.isDraggingOver ? "bg-emerald-900/20 border-emerald-500/30" : ""}`}>
-                          {col.jobs.map((job, idx) => (
-                            <Draggable key={job.id} draggableId={job.id} index={idx} isDragDisabled={selectionMode}>
-                              {(prov, snap) => (
-                                <div ref={prov.innerRef} {...prov.draggableProps} {...prov.dragHandleProps}>
-                                  <JobCard
-                                    job={job}
-                                    onClick={() => { if (!selectionMode) drillDownToJob(job); }}
-                                    isDragging={snap.isDragging}
-                                    visibleFlexfields={visibleFlexfields}
-                                    selectionMode={selectionMode}
-                                    isSelected={selectedJobIds.has(job.id)}
-                                    onToggleSelect={toggleSelectJob}
-                                    onArchive={(id) => {
-                                      const j = col.jobs.find(j => j.id === id);
-                                      if (j) archiveJob.mutate({ job_id: j.id, job_code: j.code, job_title: j.description, customer_name: j.client_name });
-                                    }}
-                                    onDelete={(id) => deleteJob.mutate(id)}
-                                    boardAssignments={boardAssignmentsByJob.get(job.id)}
-                                    collabAssignments={collabAssignmentsByJob.get(job.id)}
-                                    equipmentAssignments={equipmentByJob.get(job.id)}
-                                    etiquetas={etiquetasByJob.get(job.id)}
-                                  />
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
-                          {col.jobs.length === 0 && <div className="text-center py-8 text-gray-600 text-xs">Nenhum job</div>}
-                        </div>
-                      )}
-                    </Droppable>
-                  </div>
+                  <KanbanColumn
+                    key={col.stage.id}
+                    col={col}
+                    selectionMode={selectionMode}
+                    selectedJobIds={selectedJobIds}
+                    visibleFlexfields={visibleFlexfields}
+                    onDrillDownToStage={drillDownToStage}
+                    onDrillDownToJob={drillDownToJob}
+                    onToggleSelect={toggleSelectJob}
+                    onArchive={handleArchiveJob}
+                    onDelete={handleDeleteJob}
+                    boardAssignmentsByJob={boardAssignmentsByJob}
+                    collabAssignmentsByJob={collabAssignmentsByJob}
+                    equipmentByJob={equipmentByJob}
+                    etiquetasByJob={etiquetasByJob}
+                  />
                 ))}
               </div>
             </div>
@@ -858,6 +838,8 @@ const JobsKanban: React.FC = () => {
         isDeleting={bulkDeleting}
       />
 
+      {selectedJob && (
+      <Suspense fallback={null}>
       <JobDetailDialog
         job={selectedJob}
         open={!!selectedJob}
@@ -901,6 +883,8 @@ const JobsKanban: React.FC = () => {
           toast({ title: "Etapa atualizada" });
         }}
       />
+      </Suspense>
+      )}
     </div>
   );
 };
