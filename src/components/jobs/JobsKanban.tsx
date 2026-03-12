@@ -76,6 +76,63 @@ const JobsKanban: React.FC = () => {
   const deleteJob = useDeleteJobFromCache();
   const [showArchived, setShowArchived] = useState(false);
 
+  // ── Fetch all active board assignments for badge display ──
+  const { data: allBoardAssignments = [] } = useQuery({
+    queryKey: ["all-board-assignments-badges"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("job_board_assignments")
+        .select("job_id, board_id, board_name, stage_name, item_name")
+        .eq("is_active", true)
+        .order("assigned_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 30_000,
+  });
+
+  const { data: allItemAssignments = [] } = useQuery({
+    queryKey: ["all-item-assignments-badges"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("job_item_assignments")
+        .select("job_id, item_name, collaborator_name")
+        .eq("is_active", true);
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 30_000,
+  });
+
+  // Build lookup maps for quick access per job
+  const boardAssignmentsByJob = useMemo(() => {
+    const map = new Map<string, JobAssignmentBadge[]>();
+    for (const a of allBoardAssignments) {
+      const boardObj = boards.find(b => b.id === a.board_id);
+      if (!map.has(a.job_id)) map.set(a.job_id, []);
+      map.get(a.job_id)!.push({
+        board_name: a.board_name,
+        board_id: a.board_id,
+        board_color: boardObj?.color,
+        stage_name: a.stage_name,
+        item_name: a.item_name,
+      });
+    }
+    return map;
+  }, [allBoardAssignments, boards]);
+
+  const collabAssignmentsByJob = useMemo(() => {
+    const map = new Map<string, JobCollabBadge[]>();
+    for (const a of allItemAssignments) {
+      if (!map.has(a.job_id)) map.set(a.job_id, []);
+      map.get(a.job_id)!.push({
+        collaborator_name: a.collaborator_name,
+        item_name: a.item_name,
+      });
+    }
+    return map;
+  }, [allItemAssignments]);
+
   // Multi-select state
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
