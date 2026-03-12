@@ -70,7 +70,13 @@ const CardEquipmentBadge: React.FC<{ eq: JobEquipmentBadge }> = ({ eq }) => {
   );
 };
 
-const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visibleFlexfields, selectionMode, isSelected, onToggleSelect, onArchive, onDelete, boardAssignments, collabAssignments, equipmentAssignments }) => {
+const ETIQUETA_BG_MAP: Record<string, string> = {
+  green: "#22c55e", yellow: "#facc15", orange: "#f97316", red: "#ef4444",
+  purple: "#a855f7", blue: "#3b82f6", sky: "#38bdf8", lime: "#84cc16",
+  pink: "#ec4899", black: "#1f2937",
+};
+
+const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visibleFlexfields, selectionMode, isSelected, onToggleSelect, onArchive, onDelete, boardAssignments, collabAssignments, equipmentAssignments, etiquetas }) => {
   const overdue = isOverdue(job.delivery_date);
 
   const handleClick = (e: React.MouseEvent) => {
