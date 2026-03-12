@@ -24,6 +24,12 @@ export interface JobEquipmentBadge {
   stage_name: string | null;
 }
 
+export interface JobEtiquetaBadge {
+  id: string;
+  nome: string;
+  cor: string;
+}
+
 interface Props {
   job: Job;
   onClick: () => void;
