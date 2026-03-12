@@ -31,7 +31,7 @@ interface Props {
   collabAssignments?: JobCollabBadge[];
 }
 
-const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visibleFlexfields, selectionMode, isSelected, onToggleSelect, onArchive, onDelete }) => {
+const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visibleFlexfields, selectionMode, isSelected, onToggleSelect, onArchive, onDelete, boardAssignments, collabAssignments }) => {
   const overdue = isOverdue(job.delivery_date);
 
   const handleClick = (e: React.MouseEvent) => {
