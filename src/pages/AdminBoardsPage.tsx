@@ -226,6 +226,7 @@ export default function AdminBoardsPage() {
   const [editingBoard, setEditingBoard] = useState<Board | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   // Load from DB on mount
   useEffect(() => {
