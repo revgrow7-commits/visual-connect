@@ -712,59 +712,22 @@ const JobsKanban: React.FC = () => {
             <div ref={scrollRef} className="overflow-x-auto flex-1 pb-4 scroll-smooth scrollbar-thin">
               <div className="flex gap-2.5 min-h-[calc(100vh-380px)]">
                 {byStage.map(col => (
-                  <div key={col.stage.id} className="min-w-[220px] flex-1 max-w-[260px] flex flex-col">
-                    {/* Column header */}
-                    <div
-                      onClick={() => drillDownToStage(col.stage.id)}
-                      className="bg-[#161b26] rounded-t-xl p-3 border border-[#2a2f3d] border-b-0 cursor-pointer hover:bg-[#1e2330] transition-colors group"
-                      style={{ borderTopWidth: 3, borderTopColor: col.stage.color }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <p className="font-bold text-xs text-gray-200 group-hover:text-gray-100 transition-colors truncate">{col.stage.name}</p>
-                        <Badge className="text-[10px] text-white font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: col.stage.color }}>
-                          {col.jobs.length}
-                        </Badge>
-                      </div>
-                      <p className="text-[10px] text-gray-500 mt-0.5 font-medium">{formatBRL(col.totalValue)}</p>
-                    </div>
-
-                    {/* Column body */}
-                    <Droppable droppableId={col.stage.id} isDropDisabled={selectionMode}>
-                      {(provided, snapshot) => (
-                        <div ref={provided.innerRef} {...provided.droppableProps}
-                          className={`flex-1 bg-[#0f1318] border border-[#2a2f3d] border-t-0 rounded-b-xl p-1.5 space-y-2 transition-colors ${snapshot.isDraggingOver ? "bg-emerald-900/20 border-emerald-500/30" : ""}`}>
-                          {col.jobs.map((job, idx) => (
-                            <Draggable key={job.id} draggableId={job.id} index={idx} isDragDisabled={selectionMode}>
-                              {(prov, snap) => (
-                                <div ref={prov.innerRef} {...prov.draggableProps} {...prov.dragHandleProps}>
-                                  <JobCard
-                                    job={job}
-                                    onClick={() => { if (!selectionMode) drillDownToJob(job); }}
-                                    isDragging={snap.isDragging}
-                                    visibleFlexfields={visibleFlexfields}
-                                    selectionMode={selectionMode}
-                                    isSelected={selectedJobIds.has(job.id)}
-                                    onToggleSelect={toggleSelectJob}
-                                    onArchive={(id) => {
-                                      const j = col.jobs.find(j => j.id === id);
-                                      if (j) archiveJob.mutate({ job_id: j.id, job_code: j.code, job_title: j.description, customer_name: j.client_name });
-                                    }}
-                                    onDelete={(id) => deleteJob.mutate(id)}
-                                    boardAssignments={boardAssignmentsByJob.get(job.id)}
-                                    collabAssignments={collabAssignmentsByJob.get(job.id)}
-                                    equipmentAssignments={equipmentByJob.get(job.id)}
-                                    etiquetas={etiquetasByJob.get(job.id)}
-                                  />
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
-                          {col.jobs.length === 0 && <div className="text-center py-8 text-gray-600 text-xs">Nenhum job</div>}
-                        </div>
-                      )}
-                    </Droppable>
-                  </div>
+                  <KanbanColumn
+                    key={col.stage.id}
+                    col={col}
+                    selectionMode={selectionMode}
+                    selectedJobIds={selectedJobIds}
+                    visibleFlexfields={visibleFlexfields}
+                    onDrillDownToStage={drillDownToStage}
+                    onDrillDownToJob={drillDownToJob}
+                    onToggleSelect={toggleSelectJob}
+                    onArchive={handleArchiveJob}
+                    onDelete={handleDeleteJob}
+                    boardAssignmentsByJob={boardAssignmentsByJob}
+                    collabAssignmentsByJob={collabAssignmentsByJob}
+                    equipmentByJob={equipmentByJob}
+                    etiquetasByJob={etiquetasByJob}
+                  />
                 ))}
               </div>
             </div>
