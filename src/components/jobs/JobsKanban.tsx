@@ -25,7 +25,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  DragDropContext, Droppable, Draggable, type DropResult,
+  DragDropContext, type DropResult,
 } from "@hello-pangea/dnd";
 import {
   Search, RefreshCw, Loader2, Plus, LayoutGrid, List,
