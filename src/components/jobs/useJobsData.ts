@@ -319,6 +319,21 @@ export function useJobsData(filters?: JobsFilters, activeBoard?: Board | null) {
             }
             return j;
           });
+
+          // For specialized boards (not the main production board),
+          // only show jobs that have been explicitly assigned to this board.
+          const isMainBoard = activeBoard.id === "board-producao-completa";
+          if (!isMainBoard) {
+            const assignedJobIds = new Set(stageMap.keys());
+            jobs = jobs.filter(j => assignedJobIds.has(j.id));
+          }
+        } else {
+          // No assignments exist for this board
+          const isMainBoard = activeBoard.id === "board-producao-completa";
+          if (!isMainBoard) {
+            // Specialized board with no assignments → show nothing
+            jobs = [];
+          }
         }
       }
 
