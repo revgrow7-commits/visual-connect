@@ -33,6 +33,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useRecordMovement } from "@/hooks/useJobStageMovements";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useArchivedJobIds, useArchiveJob, useDeleteJobFromCache } from "@/hooks/useJobArchives";
+import { useAllActiveEquipment } from "@/hooks/useJobEquipment";
 
 // Drill-down state types
 interface DrillDownState {
