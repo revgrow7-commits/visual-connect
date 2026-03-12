@@ -6,6 +6,7 @@ import { formatBRL, DEFAULT_STAGES } from "./types";
 import { getActiveBoards, getActiveMicroBoards, type Board } from "@/stores/boardsStore";
 import MicroBoardKanban from "./MicroBoardKanban";
 import JobCard from "./JobCard";
+import type { JobAssignmentBadge, JobCollabBadge } from "./JobCard";
 import JobDetailDialog from "./JobDetailDialog";
 import BulkActionBar from "./BulkActionBar";
 import MovementsFeed from "./MovementsFeed";
@@ -30,7 +31,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { Link, useSearchParams } from "react-router-dom";
 import { useRecordMovement } from "@/hooks/useJobStageMovements";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useArchivedJobIds, useArchiveJob, useDeleteJobFromCache } from "@/hooks/useJobArchives";
 
 // Drill-down state types
@@ -75,6 +76,63 @@ const JobsKanban: React.FC = () => {
   const deleteJob = useDeleteJobFromCache();
   const [showArchived, setShowArchived] = useState(false);
 
+  // ── Fetch all active board assignments for badge display ──
+  const { data: allBoardAssignments = [] } = useQuery({
+    queryKey: ["all-board-assignments-badges"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("job_board_assignments")
+        .select("job_id, board_id, board_name, stage_name, item_name")
+        .eq("is_active", true)
+        .order("assigned_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 30_000,
+  });
+
+  const { data: allItemAssignments = [] } = useQuery({
+    queryKey: ["all-item-assignments-badges"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("job_item_assignments")
+        .select("job_id, item_name, collaborator_name")
+        .eq("is_active", true);
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 30_000,
+  });
+
+  // Build lookup maps for quick access per job
+  const boardAssignmentsByJob = useMemo(() => {
+    const map = new Map<string, JobAssignmentBadge[]>();
+    for (const a of allBoardAssignments) {
+      const boardObj = boards.find(b => b.id === a.board_id);
+      if (!map.has(a.job_id)) map.set(a.job_id, []);
+      map.get(a.job_id)!.push({
+        board_name: a.board_name,
+        board_id: a.board_id,
+        board_color: boardObj?.color,
+        stage_name: a.stage_name,
+        item_name: a.item_name,
+      });
+    }
+    return map;
+  }, [allBoardAssignments, boards]);
+
+  const collabAssignmentsByJob = useMemo(() => {
+    const map = new Map<string, JobCollabBadge[]>();
+    for (const a of allItemAssignments) {
+      if (!map.has(a.job_id)) map.set(a.job_id, []);
+      map.get(a.job_id)!.push({
+        collaborator_name: a.collaborator_name,
+        item_name: a.item_name,
+      });
+    }
+    return map;
+  }, [allItemAssignments]);
+
   // Multi-select state
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
@@ -115,6 +173,7 @@ const JobsKanban: React.FC = () => {
       }
       pendingMovesRef.current.delete(job.id);
       queryClient.invalidateQueries({ queryKey: ["holdprint-jobs-kanban"] });
+      queryClient.invalidateQueries({ queryKey: ["all-board-assignments-badges"] });
       supabase.functions.invoke("job-movement-notify", {
         body: { job_id: job.id, job_code: job.code, job_title: job.description, customer_name: job.client_name,
           board_id: boardId, board_name: boardName, from_stage_name: fromStageName || "—", to_stage_name: stageName, moved_by: "Sistema" },
@@ -621,6 +680,8 @@ const JobsKanban: React.FC = () => {
                                       if (j) archiveJob.mutate({ job_id: j.id, job_code: j.code, job_title: j.description, customer_name: j.client_name });
                                     }}
                                     onDelete={(id) => deleteJob.mutate(id)}
+                                    boardAssignments={boardAssignmentsByJob.get(job.id)}
+                                    collabAssignments={collabAssignmentsByJob.get(job.id)}
                                   />
                                 </div>
                               )}
