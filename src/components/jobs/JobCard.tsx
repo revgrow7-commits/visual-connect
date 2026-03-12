@@ -156,7 +156,21 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
           {job.description || job.title || "Sem título"}
         </p>
 
-        {/* Client */}
+        {/* Etiquetas */}
+        {etiquetas && etiquetas.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {etiquetas.map((et) => (
+              <span
+                key={et.id}
+                className="inline-flex items-center gap-0.5 text-[10px] font-bold text-white rounded px-2 py-0.5 shadow-sm"
+                style={{ backgroundColor: ETIQUETA_BG_MAP[et.cor] || "#6b7280" }}
+              >
+                {et.nome}
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
           <Users className="h-3 w-3 text-gray-500 flex-shrink-0" />
           <span className="truncate">{job.client_name}</span>
