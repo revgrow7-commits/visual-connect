@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import type { Job } from "./types";
 import { formatBRL, formatDateBR, formatTimeMins, isOverdue } from "./types";
-import { Zap, Users, Clock, Check, Ruler, Archive, Trash2, CalendarClock, LayoutGrid, Timer } from "lucide-react";
+import { Zap, Users, Clock, Check, Ruler, Archive, Trash2, CalendarClock, LayoutGrid, Timer, Tag } from "lucide-react";
 import type { FlexField } from "@/stores/boardsStore";
 
 export interface JobAssignmentBadge {
