@@ -161,6 +161,8 @@ function rowToBoard(row: Record<string, unknown>): Board {
 }
 
 export async function loadBoardsFromDB(): Promise<Board[]> {
+  const localBoards = loadBoards();
+
   const { data, error } = await supabase
     .from("kanban_boards")
     .select("*")
@@ -168,19 +170,26 @@ export async function loadBoardsFromDB(): Promise<Board[]> {
 
   if (error) {
     console.error("Error loading boards from DB:", error);
-    return loadBoards();
+    return localBoards;
   }
 
   if (!data || data.length === 0) {
     // Seed DB with localStorage/default boards
-    const localBoards = loadBoards();
-    for (const board of localBoards) {
-      try { await saveBoardToDB(board); } catch { /* ignore */ }
-    }
+    await Promise.allSettled(localBoards.map((board) => saveBoardToDB(board)));
     return localBoards;
   }
 
-  const boards = data.map(rowToBoard);
+  const dbBoards = data.map(rowToBoard);
+  const dbBoardIds = new Set(dbBoards.map((b) => b.id));
+  const localOnlyBoards = localBoards.filter((b) => !dbBoardIds.has(b.id));
+
+  // Keep local-only boards visible immediately (e.g. when DB write is blocked)
+  // and try best-effort sync to DB in background.
+  if (localOnlyBoards.length > 0) {
+    await Promise.allSettled(localOnlyBoards.map((board) => saveBoardToDB(board)));
+  }
+
+  const boards = [...dbBoards, ...localOnlyBoards];
   saveBoards(boards);
   return boards;
 }
