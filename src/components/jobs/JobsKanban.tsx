@@ -254,8 +254,8 @@ const JobsKanban: React.FC = () => {
 
   const visibleFlexfields = useMemo(() => activeBoard?.flexfields.filter(f => f.show_on_card) || [], [activeBoard]);
 
-  const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
-  const [search, setSearch] = useState("");
+  const { inputValue: searchInput, debouncedValue: search, setSearch } = useDebouncedSearch(350);
+  const [status, setStatus] = useState<string>("aberto");
   const [status, setStatus] = useState<string>("aberto");
   const [productionType, setProductionType] = useState("todos");
   const [filterResponsavel, setFilterResponsavel] = useState("todos");
