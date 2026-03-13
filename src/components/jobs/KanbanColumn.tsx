@@ -52,7 +52,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = React.memo(({
         style={{ borderTopWidth: 3, borderTopColor: col.stage.color }}
       >
         <div className="flex items-center justify-between">
-          <p className="font-bold text-xs text-gray-200 group-hover:text-gray-100 transition-colors truncate">{col.stage.name}</p>
+          <p className="font-bold text-sm text-gray-200 group-hover:text-gray-100 transition-colors truncate">{col.stage.name}</p>
           <Badge className="text-[10px] text-gray-900 font-bold px-2 py-0.5 rounded-full bg-white border-2 border-white shadow-md shadow-white/30">
             {col.jobs.length}
           </Badge>
