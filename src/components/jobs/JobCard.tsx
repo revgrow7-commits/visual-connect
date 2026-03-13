@@ -118,8 +118,8 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
         <div
           className={`absolute -top-1.5 -left-1.5 z-10 w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
             isSelected
-              ? "bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/50 scale-110 ring-2 ring-emerald-400/30"
-              : "bg-[#1e2330] border-[#4b5563] hover:border-emerald-400 hover:scale-110"
+              ? "bg-white border-white text-emerald-600 shadow-lg shadow-white/40 scale-110 ring-2 ring-white/30"
+              : "bg-white/90 border-white/80 hover:border-white hover:scale-110"
           }`}
           onClick={(e) => { e.stopPropagation(); onToggleSelect?.(job.id, e); }}
         >
