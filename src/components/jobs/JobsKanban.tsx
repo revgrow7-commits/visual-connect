@@ -545,7 +545,8 @@ const JobsKanban: React.FC = () => {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">Jobs</h1>
-          <p className="text-sm text-white/60">{filteredData?.total || 0} job(s) encontrado(s)</p>
+            <p className="text-sm text-white/60">{filteredData?.total || 0} job(s) encontrado(s)</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => refetch()} disabled={isFetching}
