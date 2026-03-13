@@ -224,7 +224,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
               </span>
             ))}
             {collabAssignments && collabAssignments.length > 0 && (
-              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded px-1.5 py-0.5">
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded px-2 py-0.5">
                 <Users className="h-2.5 w-2.5" />
                 {collabAssignments.length <= 2
                   ? [...new Set(collabAssignments.map(c => c.collaborator_name))].join(", ")
