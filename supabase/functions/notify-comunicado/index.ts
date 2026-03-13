@@ -62,6 +62,7 @@ async function sendEmail(apiKey: string, to: string[], subject: string, html: st
         }),
       });
       const data = await res.json();
+      console.log(`[notify-comunicado] Resend response for ${email}: status=${res.status}`, JSON.stringify(data));
       results.push({ email, success: res.ok, id: data.id, error: data.message });
     } catch (err) {
       results.push({ email, success: false, error: String(err) });

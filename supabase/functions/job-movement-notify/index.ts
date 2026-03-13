@@ -75,6 +75,7 @@ async function sendEmail(apiKey: string, to: string, subject: string, html: stri
     }),
   });
   const data = await res.json();
+  console.log(`[job-movement-notify] Resend response for ${to}: status=${res.status}`, JSON.stringify(data));
   return { success: res.ok, id: data.id, error: data.message };
 }
 
