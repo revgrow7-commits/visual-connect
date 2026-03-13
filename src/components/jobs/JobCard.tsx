@@ -157,7 +157,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
         </div>
 
         {/* Title / Description */}
-        <p className="text-[13px] font-semibold text-gray-100 leading-tight line-clamp-2 tracking-tight">
+        <p className="text-sm font-semibold text-gray-100 leading-snug line-clamp-2 tracking-tight">
           {job.description || job.title || "Sem título"}
         </p>
 
