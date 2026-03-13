@@ -50,6 +50,7 @@ const AdminComunicados = () => {
   const [editing, setEditing] = useState<Comunicado | null>(null);
   const [saving, setSaving] = useState(false);
   const [generatingPoster, setGeneratingPoster] = useState<string | null>(null);
+  const [notifying, setNotifying] = useState<string | null>(null);
   const [posterPreview, setPosterPreview] = useState<{ id: string; url: string } | null>(null);
 
   const [form, setForm] = useState({
