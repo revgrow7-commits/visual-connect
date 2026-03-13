@@ -64,7 +64,7 @@ async function sendEmail(apiKey: string, to: string, subject: string, html: stri
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: "Jobs - Indústria Visual <mayara@industriavisual.com.br>",
+      from: "Indústria Visual <noreply@industriavisual.com.br>",
       to: [to],
       subject,
       html,

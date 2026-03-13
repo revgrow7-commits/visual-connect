@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Loader2, ThumbsUp, MessageCircle, ShieldAlert, Eye, EyeOff, Sparkles, Image as ImageIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, ThumbsUp, MessageCircle, ShieldAlert, Eye, EyeOff, Sparkles, Image as ImageIcon, Send } from "lucide-react";
 
 interface Comunicado {
   id: string;
@@ -50,6 +50,7 @@ const AdminComunicados = () => {
   const [editing, setEditing] = useState<Comunicado | null>(null);
   const [saving, setSaving] = useState(false);
   const [generatingPoster, setGeneratingPoster] = useState<string | null>(null);
+  const [notifying, setNotifying] = useState<string | null>(null);
   const [posterPreview, setPosterPreview] = useState<{ id: string; url: string } | null>(null);
 
   const [form, setForm] = useState({
@@ -110,13 +111,44 @@ const AdminComunicados = () => {
       if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
       else toast({ title: "Comunicado atualizado" });
     } else {
-      const { error } = await supabase.from("comunicados").insert(form);
+      const { data, error } = await supabase.from("comunicados").insert(form).select().single();
       if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-      else toast({ title: "Comunicado criado" });
+      else {
+        toast({ title: "Comunicado criado" });
+        // Auto-notify on creation if active
+        if (form.status === "ativo" && data) {
+          handleNotify(data as Comunicado);
+        }
+      }
     }
     setSaving(false);
     setDialogOpen(false);
     fetchComunicados();
+  };
+
+  const handleNotify = async (c: Comunicado) => {
+    setNotifying(c.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("notify-comunicado", {
+        body: {
+          comunicado_id: c.id,
+          titulo: c.titulo,
+          conteudo: c.conteudo,
+          categoria: c.categoria,
+          unidade: c.unidade,
+        },
+      });
+      if (error) throw error;
+      toast({
+        title: "Notificações enviadas!",
+        description: `${data?.notified || 0} colaboradores notificados por e-mail.`,
+      });
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: "Erro ao notificar", description: e.message, variant: "destructive" });
+    } finally {
+      setNotifying(null);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -332,6 +364,15 @@ const AdminComunicados = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Enviar notificação por e-mail"
+                            onClick={() => handleNotify(c)}
+                            disabled={notifying === c.id || c.status !== "ativo"}
+                          >
+                            {notifying === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 text-emerald-600" />}
+                          </Button>
                           {c.image_url ? (
                             <Button
                               variant="ghost"

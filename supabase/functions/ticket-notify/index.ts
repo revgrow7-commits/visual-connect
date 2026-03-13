@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              from: "CS Indústria Visual <mayara@industriavisual.com.br>",
+              from: "Indústria Visual <noreply@industriavisual.com.br>",
               to: [payload.responsible_email],
               subject: `[${payload.ticket_code}] Ticket atribuído — ${payload.customer_name} (${priorityLabels[payload.priority] || payload.priority})`,
               html: `
