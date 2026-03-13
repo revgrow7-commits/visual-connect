@@ -201,7 +201,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
               const val = job.flexfields?.[ff.key];
               if (val == null || val === "") return null;
               return (
-                <span key={ff.key} className="text-[10px] bg-[#2a3040] text-gray-400 rounded px-1.5 py-0.5 border border-[#3a3f4b]">
+                <span key={ff.key} className="text-xs bg-[#2a3040] text-gray-400 rounded px-2 py-0.5 border border-[#3a3f4b]">
                   {ff.label}: {String(val)}
                 </span>
               );
