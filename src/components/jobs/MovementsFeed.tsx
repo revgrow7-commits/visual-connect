@@ -10,10 +10,12 @@ interface Movement {
   job_code: number | null;
   job_title: string | null;
   customer_name: string | null;
+  board_name: string | null;
   from_stage_name: string | null;
   to_stage_name: string;
   moved_by: string | null;
   movement_type: string;
+  metadata: Record<string, unknown> | null;
   created_at: string;
   archived?: boolean;
 }
@@ -36,11 +38,11 @@ const MovementsFeed: React.FC<{ maxItems?: number }> = ({ maxItems = 8 }) => {
   const fetchMovements = async () => {
     const { data } = await supabase
       .from("job_stage_movements")
-      .select("id, job_id, job_code, job_title, customer_name, from_stage_name, to_stage_name, moved_by, movement_type, created_at, archived")
+      .select("id, job_id, job_code, job_title, customer_name, board_name, from_stage_name, to_stage_name, moved_by, movement_type, metadata, created_at, archived")
       .eq("archived", false)
       .order("created_at", { ascending: false })
       .limit(maxItems);
-    if (data) setMovements(data);
+    if (data) setMovements(data as Movement[]);
   };
 
   useEffect(() => {
@@ -110,6 +112,11 @@ const MovementsFeed: React.FC<{ maxItems?: number }> = ({ maxItems = 8 }) => {
               <span className="font-mono font-semibold text-blue-600 shrink-0">
                 {m.job_code ? `J${m.job_code}` : m.job_id.slice(0, 8)}
               </span>
+              {m.metadata?.micro_board && (
+                <Badge variant="outline" className="text-[9px] h-3.5 px-1 border-purple-200 text-purple-600 shrink-0">
+                  {(m.metadata.micro_board_name as string) || m.board_name}
+                </Badge>
+              )}
               <span className="text-gray-400 truncate max-w-[80px]" title={m.from_stage_name || ""}>
                 {m.from_stage_name || "—"}
               </span>
