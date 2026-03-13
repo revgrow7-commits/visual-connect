@@ -10,10 +10,12 @@ interface Movement {
   job_code: number | null;
   job_title: string | null;
   customer_name: string | null;
+  board_name: string | null;
   from_stage_name: string | null;
   to_stage_name: string;
   moved_by: string | null;
   movement_type: string;
+  metadata: Record<string, unknown> | null;
   created_at: string;
   archived?: boolean;
 }
