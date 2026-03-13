@@ -44,7 +44,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = React.memo(({
   }, [col.jobs, onArchive]);
 
   return (
-    <div className="min-w-[220px] flex-1 max-w-[260px] flex flex-col">
+    <div className="min-w-[260px] flex-1 max-w-[310px] flex flex-col">
       {/* Column header */}
       <div
         onClick={() => onDrillDownToStage(col.stage.id)}
@@ -52,12 +52,12 @@ const KanbanColumn: React.FC<KanbanColumnProps> = React.memo(({
         style={{ borderTopWidth: 3, borderTopColor: col.stage.color }}
       >
         <div className="flex items-center justify-between">
-          <p className="font-bold text-xs text-gray-200 group-hover:text-gray-100 transition-colors truncate">{col.stage.name}</p>
+          <p className="font-bold text-sm text-gray-200 group-hover:text-gray-100 transition-colors truncate">{col.stage.name}</p>
           <Badge className="text-[10px] text-gray-900 font-bold px-2 py-0.5 rounded-full bg-white border-2 border-white shadow-md shadow-white/30">
             {col.jobs.length}
           </Badge>
         </div>
-        <p className="text-[10px] text-gray-500 mt-0.5 font-medium">{formatBRL(col.totalValue)}</p>
+        <p className="text-xs text-gray-500 mt-1 font-medium">{formatBRL(col.totalValue)}</p>
       </div>
 
       {/* Column body */}

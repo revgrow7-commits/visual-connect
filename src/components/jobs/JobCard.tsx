@@ -127,37 +127,37 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
         </div>
       )}
 
-      <div className="p-3.5 space-y-2.5">
+      <div className="p-4 space-y-3">
         {/* Header: Job number + unit + status */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-rose-300 bg-gradient-to-r from-rose-500/25 to-rose-600/15 border border-rose-400/40 rounded-md px-2.5 py-1 shadow-sm shadow-rose-500/20 ring-1 ring-rose-500/10">
+            <span className="text-sm font-bold text-rose-300 bg-gradient-to-r from-rose-500/25 to-rose-600/15 border border-rose-400/40 rounded-md px-3 py-1.5 shadow-sm shadow-rose-500/20 ring-1 ring-rose-500/10">
               # {job.code || job.id.substring(0, 6)}
             </span>
             {job._unit_key && (
-              <span className="text-[10px] font-semibold text-sky-300 bg-sky-500/10 rounded px-1.5 py-0.5 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-sky-300 bg-sky-500/10 rounded px-2 py-0.5 uppercase tracking-wider">
                 {job._unit_key === "poa" ? "POA" : "SP"}
               </span>
             )}
             {boardAssignments && boardAssignments.length > 0 && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-violet-300 bg-violet-500/15 border border-violet-400/30 rounded-md px-1.5 py-0.5 shadow-sm shadow-violet-500/20 animate-pulse" title={`Espelhado em ${boardAssignments.length} board(s)`}>
-                <GitFork className="h-3 w-3" />
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-violet-300 bg-violet-500/15 border border-violet-400/30 rounded-md px-2 py-1 shadow-sm shadow-violet-500/20 animate-pulse" title={`Espelhado em ${boardAssignments.length} board(s)`}>
+                <GitFork className="h-3.5 w-3.5" />
                 {boardAssignments.length}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             {job.urgent && (
-              <span className="flex items-center gap-0.5 text-[10px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded px-1.5 py-0.5">
-                <Zap className="h-3 w-3" /> URGENTE
+              <span className="flex items-center gap-1 text-xs font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded px-2 py-1">
+                <Zap className="h-3.5 w-3.5" /> URGENTE
               </span>
             )}
-            {job.has_alert && <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-lg shadow-red-500/40" />}
+            {job.has_alert && <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse shadow-lg shadow-red-500/40" />}
           </div>
         </div>
 
         {/* Title / Description */}
-        <p className="text-[13px] font-semibold text-gray-100 leading-tight line-clamp-2 tracking-tight">
+        <p className="text-sm font-semibold text-gray-100 leading-snug line-clamp-2 tracking-tight">
           {job.description || job.title || "Sem título"}
         </p>
 
@@ -167,7 +167,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
             {etiquetas.map((et) => (
               <span
                 key={et.id}
-                className="inline-flex items-center gap-0.5 text-[10px] font-bold text-white rounded px-2 py-0.5 shadow-sm"
+                className="inline-flex items-center gap-0.5 text-xs font-bold text-white rounded px-2.5 py-0.5 shadow-sm"
                 style={{ backgroundColor: ETIQUETA_BG_MAP[et.cor] || "#6b7280" }}
               >
                 {et.nome}
@@ -176,19 +176,19 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
           </div>
         )}
 
-        <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
-          <Users className="h-3 w-3 text-gray-500 flex-shrink-0" />
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          <Users className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
           <span className="truncate">{job.client_name}</span>
         </div>
 
         {/* Delivery date */}
         {job.delivery_date && (
-          <div className="flex items-center gap-1.5">
-            <CalendarClock className={`h-3 w-3 flex-shrink-0 ${overdue ? "text-red-400" : "text-gray-500"}`} />
-            <span className={`text-[11px] font-medium ${overdue ? "text-red-400" : "text-gray-400"}`}>
+          <div className="flex items-center gap-2">
+            <CalendarClock className={`h-3.5 w-3.5 flex-shrink-0 ${overdue ? "text-red-400" : "text-gray-500"}`} />
+            <span className={`text-xs font-medium ${overdue ? "text-red-400" : "text-gray-400"}`}>
               PREVISÃO DE ENTREGA
             </span>
-            <span className={`text-[11px] font-bold ml-auto ${overdue ? "text-red-400" : "text-gray-300"}`}>
+            <span className={`text-xs font-bold ml-auto ${overdue ? "text-red-400" : "text-gray-300"}`}>
               {deliveryDateFormatted}
             </span>
           </div>
@@ -201,7 +201,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
               const val = job.flexfields?.[ff.key];
               if (val == null || val === "") return null;
               return (
-                <span key={ff.key} className="text-[10px] bg-[#2a3040] text-gray-400 rounded px-1.5 py-0.5 border border-[#3a3f4b]">
+                <span key={ff.key} className="text-xs bg-[#2a3040] text-gray-400 rounded px-2 py-0.5 border border-[#3a3f4b]">
                   {ff.label}: {String(val)}
                 </span>
               );
@@ -215,7 +215,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
             {boardAssignments?.map((a, i) => (
               <span
                 key={`ba-${i}`}
-                className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-white rounded px-1.5 py-0.5"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-white rounded px-2 py-0.5"
                 style={{ backgroundColor: a.board_color || "#6366f1" }}
               >
                 <LayoutGrid className="h-2.5 w-2.5" />
@@ -224,7 +224,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
               </span>
             ))}
             {collabAssignments && collabAssignments.length > 0 && (
-              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded px-1.5 py-0.5">
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded px-2 py-0.5">
                 <Users className="h-2.5 w-2.5" />
                 {collabAssignments.length <= 2
                   ? [...new Set(collabAssignments.map(c => c.collaborator_name))].join(", ")
@@ -240,10 +240,10 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
 
         {/* Value + m² */}
         <div className="flex items-center justify-between">
-          <p className="text-sm font-bold text-emerald-400">{formatBRL(job.value)}</p>
+          <p className="text-base font-bold text-emerald-400">{formatBRL(job.value)}</p>
           {(job.total_m2 ?? 0) > 0 && (
-            <span className="flex items-center gap-1 text-[10px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-2 py-0.5 font-semibold">
-              <Ruler className="h-3 w-3" />
+            <span className="flex items-center gap-1 text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-2.5 py-0.5 font-semibold">
+              <Ruler className="h-3.5 w-3.5" />
               {job.total_m2?.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m²
             </span>
           )}
@@ -261,23 +261,23 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
               style={{ width: `${Math.min(job.progress_percent, 100)}%` }}
             />
           </div>
-          <span className="text-[10px] font-bold text-gray-300 tabular-nums w-8 text-right">
+          <span className="text-xs font-bold text-gray-300 tabular-nums w-9 text-right">
             {job.progress_percent}%
           </span>
         </div>
 
         {/* Footer: Actions */}
-        <div className="flex items-center gap-1.5 pt-1.5 border-t border-[#2a3040]">
-          <span className="flex items-center gap-0.5 text-[10px] text-gray-500">
-            <Clock className="h-3 w-3" />
+        <div className="flex items-center gap-2 pt-2 border-t border-[#2a3040]">
+          <span className="flex items-center gap-1 text-xs text-gray-500">
+            <Clock className="h-3.5 w-3.5" />
             {job.time_tracked || formatTimeMins(job.time_spent_minutes)}
           </span>
           {job.responsible.length > 0 && (
-            <span className="text-[10px] text-gray-500 truncate max-w-[80px]">
+            <span className="text-xs text-gray-500 truncate max-w-[90px]">
               {job.responsible[0].name}
             </span>
           )}
-          <span className="text-[10px] text-gray-600 bg-[#2a3040] rounded px-1.5 py-0.5">
+          <span className="text-xs text-gray-600 bg-[#2a3040] rounded px-2 py-0.5">
             {job.items_count} {job.items_count === 1 ? "item" : "itens"}
           </span>
           <div className="ml-auto flex items-center gap-0.5">
