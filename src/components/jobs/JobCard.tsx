@@ -215,7 +215,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
             {boardAssignments?.map((a, i) => (
               <span
                 key={`ba-${i}`}
-                className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-white rounded px-1.5 py-0.5"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-white rounded px-2 py-0.5"
                 style={{ backgroundColor: a.board_color || "#6366f1" }}
               >
                 <LayoutGrid className="h-2.5 w-2.5" />
