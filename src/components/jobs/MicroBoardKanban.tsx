@@ -20,6 +20,7 @@ const MicroBoardKanban: React.FC<Props> = ({ board }) => {
   const updateStage = useUpdateMicroStage();
   const completeAssignment = useCompleteMicroAssignment();
   const recordMovement = useRecordMovement();
+  const queryClient = useQueryClient();
 
   // Group cards by stage
   const byStage = useMemo(() => {
