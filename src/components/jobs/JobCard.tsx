@@ -131,7 +131,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
         {/* Header: Job number + unit + status */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-rose-300 bg-gradient-to-r from-rose-500/25 to-rose-600/15 border border-rose-400/40 rounded-md px-3 py-1.5 shadow-sm shadow-rose-500/20 ring-1 ring-rose-500/10">
+            <span className="text-base font-bold text-rose-300 bg-gradient-to-r from-rose-500/25 to-rose-600/15 border border-rose-400/40 rounded-md px-3 py-1.5 shadow-sm shadow-rose-500/20 ring-1 ring-rose-500/10">
               # {job.code || job.id.substring(0, 6)}
             </span>
             {job._unit_key && (
