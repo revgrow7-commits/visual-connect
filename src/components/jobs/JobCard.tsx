@@ -261,7 +261,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
               style={{ width: `${Math.min(job.progress_percent, 100)}%` }}
             />
           </div>
-          <span className="text-[10px] font-bold text-gray-300 tabular-nums w-8 text-right">
+          <span className="text-xs font-bold text-gray-300 tabular-nums w-9 text-right">
             {job.progress_percent}%
           </span>
         </div>
