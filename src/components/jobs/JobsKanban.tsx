@@ -748,8 +748,8 @@ const JobsKanban: React.FC = () => {
 
             {/* Scroll right */}
             <button onClick={() => scrollKanban("right")}
-              className={`flex-shrink-0 w-8 flex items-center justify-center z-20 transition-all duration-300 ${canScrollRight ? "opacity-100 cursor-pointer" : "opacity-0 pointer-events-none"}`}>
-              <div className="bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/30 rounded-full p-2 hover:scale-110 transition-transform">
+              className={`flex-shrink-0 w-10 flex items-center justify-center z-20 transition-all duration-300 ${canScrollRight ? "opacity-100 cursor-pointer" : "opacity-0 pointer-events-none"}`}>
+              <div className="bg-gradient-to-br from-rose-500 to-rose-700 hover:from-rose-400 hover:to-rose-600 text-white shadow-xl shadow-rose-600/40 rounded-full p-2.5 hover:scale-110 transition-transform animate-pulse ring-2 ring-rose-400/20">
                 <ChevronRight className="h-5 w-5" />
               </div>
             </button>
