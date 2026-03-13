@@ -240,7 +240,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
 
         {/* Value + m² */}
         <div className="flex items-center justify-between">
-          <p className="text-base font-bold text-emerald-400">{formatBRL(job.value)}</p>
+          <p className="text-lg font-bold text-emerald-400">{formatBRL(job.value)}</p>
           {(job.total_m2 ?? 0) > 0 && (
             <span className="flex items-center gap-1 text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-2.5 py-0.5 font-semibold">
               <Ruler className="h-3.5 w-3.5" />
