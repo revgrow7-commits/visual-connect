@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Loader2, ThumbsUp, MessageCircle, ShieldAlert, Eye, EyeOff, Sparkles, Image as ImageIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, ThumbsUp, MessageCircle, ShieldAlert, Eye, EyeOff, Sparkles, Image as ImageIcon, Send } from "lucide-react";
 
 interface Comunicado {
   id: string;
