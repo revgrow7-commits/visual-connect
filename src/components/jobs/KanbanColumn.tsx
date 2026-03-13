@@ -44,7 +44,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = React.memo(({
   }, [col.jobs, onArchive]);
 
   return (
-    <div className="min-w-[220px] flex-1 max-w-[260px] flex flex-col">
+    <div className="min-w-[260px] flex-1 max-w-[310px] flex flex-col">
       {/* Column header */}
       <div
         onClick={() => onDrillDownToStage(col.stage.id)}
