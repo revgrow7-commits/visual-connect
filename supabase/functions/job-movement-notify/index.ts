@@ -236,8 +236,10 @@ Deno.serve(async (req) => {
       `);
 
       const results = [];
-      for (const recipient of emails) {
+      for (let i = 0; i < emails.length; i++) {
+        const recipient = emails[i];
         try {
+          if (i > 0) await delay(600);
           const r = await sendEmail(RESEND_API_KEY, recipient.email, subject, htmlContent);
           results.push({ email: recipient.email, ...r });
         } catch (err) {
