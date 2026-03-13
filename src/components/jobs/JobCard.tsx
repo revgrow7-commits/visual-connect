@@ -127,7 +127,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
         </div>
       )}
 
-      <div className="p-4 space-y-3">
+      <div className="p-5 space-y-3">
         {/* Header: Job number + unit + status */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
