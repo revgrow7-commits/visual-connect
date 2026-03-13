@@ -80,10 +80,21 @@ const MicroBoardKanban: React.FC<Props> = ({ board }) => {
           to_stage: dstStage.name,
         },
       }).then(() => {});
+
+      // 4. Update job_board_assignments stage_name so parent board reflects micro board position
+      supabase.from("job_board_assignments")
+        .update({ stage_name: `${board.name}: ${dstStage.name}` } as any)
+        .eq("job_id", card.job_id)
+        .eq("board_id", board.id)
+        .eq("is_active", true)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ["all-board-assignments-badges"] });
+          queryClient.invalidateQueries({ queryKey: ["board-assignments"] });
+        });
     }
 
     toast({ title: "Card movido", description: `→ ${dstStage.name}` });
-  }, [board, cards, updateStage, recordMovement]);
+  }, [board, cards, updateStage, recordMovement, queryClient]);
 
   const handleComplete = (card: MicroBoardAssignment) => {
     completeAssignment.mutate({

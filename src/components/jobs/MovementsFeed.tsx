@@ -112,6 +112,11 @@ const MovementsFeed: React.FC<{ maxItems?: number }> = ({ maxItems = 8 }) => {
               <span className="font-mono font-semibold text-blue-600 shrink-0">
                 {m.job_code ? `J${m.job_code}` : m.job_id.slice(0, 8)}
               </span>
+              {m.metadata?.micro_board && (
+                <Badge variant="outline" className="text-[9px] h-3.5 px-1 border-purple-200 text-purple-600 shrink-0">
+                  {(m.metadata.micro_board_name as string) || m.board_name}
+                </Badge>
+              )}
               <span className="text-gray-400 truncate max-w-[80px]" title={m.from_stage_name || ""}>
                 {m.from_stage_name || "—"}
               </span>
