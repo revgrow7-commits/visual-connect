@@ -75,18 +75,79 @@ const TabEquipe: React.FC<Props> = ({ job }) => {
 
   const handleSave = async () => {
     try {
+      // Collect unique collaborators and their items for notification
+      const collabItemsMap = new Map<string, string[]>();
+
       for (const item of allItems) {
         const itemAssigns = assignments[item.name.toLowerCase().trim()];
         if (!itemAssigns) continue;
-        const collabs = Object.values(itemAssigns).filter(Boolean);
+        const collabs = Object.values(itemAssigns).filter(v => v && v !== "—");
         if (collabs.length === 0) continue;
         await assignItems.mutateAsync({
           items: [{ item_id: item.source === "local" ? item.id : undefined, item_name: item.name }],
           collaborators: collabs,
           deadline: null,
         });
+        // Track for notification
+        for (const colabName of collabs) {
+          if (!collabItemsMap.has(colabName)) collabItemsMap.set(colabName, []);
+          collabItemsMap.get(colabName)!.push(item.name);
+        }
       }
       toast({ title: "Distribuição salva" });
+
+      // Auto-send PCP invite email to assigned collaborators
+      if (collabItemsMap.size > 0) {
+        try {
+          // Lookup emails for assigned collaborators
+          const collabNames = Array.from(collabItemsMap.keys());
+          const { data: collabData } = await supabase
+            .from("colaboradores")
+            .select("nome, email_pessoal")
+            .in("nome", collabNames)
+            .eq("status", "ativo");
+
+          const recipients = (collabData || [])
+            .filter(c => c.email_pessoal)
+            .map(c => ({ name: c.nome, email: c.email_pessoal! }));
+
+          if (recipients.length > 0) {
+            const itemsList = allItems.map(i => ({ name: i.name }));
+            const membersList = collabNames.map(n => ({ nome: n }));
+
+            await supabase.functions.invoke("pcp-invite-notify", {
+              body: {
+                recipients,
+                job_id: job.id,
+                job_code: job.code,
+                job_title: job.description || job.client_name,
+                customer_name: job.client_name,
+                board_name: "Produção",
+                stage_name: "Atribuído",
+                tags: [],
+                members: membersList,
+                items: itemsList,
+                invited_by: "Sistema",
+              },
+            });
+
+            await logHistory(
+              job.id,
+              "notification_sent",
+              `E-mail PCP enviado automaticamente para ${recipients.length} colaborador(es): ${recipients.map(r => r.name).join(", ")}`,
+              { notified_count: String(recipients.length) }
+            );
+
+            toast({
+              title: "📧 E-mail enviado",
+              description: `${recipients.length} colaborador(es) notificado(s) automaticamente`,
+            });
+          }
+        } catch (notifyErr: any) {
+          console.error("Erro ao enviar notificação automática:", notifyErr);
+          // Don't fail the save if notification fails
+        }
+      }
     } catch (err: any) {
       toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
     }
