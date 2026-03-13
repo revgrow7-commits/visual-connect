@@ -57,7 +57,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = React.memo(({
             {col.jobs.length}
           </Badge>
         </div>
-        <p className="text-[10px] text-gray-500 mt-0.5 font-medium">{formatBRL(col.totalValue)}</p>
+        <p className="text-xs text-gray-500 mt-1 font-medium">{formatBRL(col.totalValue)}</p>
       </div>
 
       {/* Column body */}

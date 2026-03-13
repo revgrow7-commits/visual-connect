@@ -267,17 +267,17 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
         </div>
 
         {/* Footer: Actions */}
-        <div className="flex items-center gap-1.5 pt-1.5 border-t border-[#2a3040]">
-          <span className="flex items-center gap-0.5 text-[10px] text-gray-500">
-            <Clock className="h-3 w-3" />
+        <div className="flex items-center gap-2 pt-2 border-t border-[#2a3040]">
+          <span className="flex items-center gap-1 text-xs text-gray-500">
+            <Clock className="h-3.5 w-3.5" />
             {job.time_tracked || formatTimeMins(job.time_spent_minutes)}
           </span>
           {job.responsible.length > 0 && (
-            <span className="text-[10px] text-gray-500 truncate max-w-[80px]">
+            <span className="text-xs text-gray-500 truncate max-w-[90px]">
               {job.responsible[0].name}
             </span>
           )}
-          <span className="text-[10px] text-gray-600 bg-[#2a3040] rounded px-1.5 py-0.5">
+          <span className="text-xs text-gray-600 bg-[#2a3040] rounded px-2 py-0.5">
             {job.items_count} {job.items_count === 1 ? "item" : "itens"}
           </span>
           <div className="ml-auto flex items-center gap-0.5">
