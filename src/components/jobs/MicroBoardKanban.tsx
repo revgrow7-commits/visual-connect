@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { CheckCircle, Loader2 } from "lucide-react";
+import { useRecordMovement } from "@/hooks/useJobStageMovements";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   board: Board;
