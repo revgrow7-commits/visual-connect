@@ -135,13 +135,13 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
               # {job.code || job.id.substring(0, 6)}
             </span>
             {job._unit_key && (
-              <span className="text-[10px] font-semibold text-sky-300 bg-sky-500/10 rounded px-1.5 py-0.5 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-sky-300 bg-sky-500/10 rounded px-2 py-0.5 uppercase tracking-wider">
                 {job._unit_key === "poa" ? "POA" : "SP"}
               </span>
             )}
             {boardAssignments && boardAssignments.length > 0 && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-violet-300 bg-violet-500/15 border border-violet-400/30 rounded-md px-1.5 py-0.5 shadow-sm shadow-violet-500/20 animate-pulse" title={`Espelhado em ${boardAssignments.length} board(s)`}>
-                <GitFork className="h-3 w-3" />
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-violet-300 bg-violet-500/15 border border-violet-400/30 rounded-md px-2 py-1 shadow-sm shadow-violet-500/20 animate-pulse" title={`Espelhado em ${boardAssignments.length} board(s)`}>
+                <GitFork className="h-3.5 w-3.5" />
                 {boardAssignments.length}
               </span>
             )}
