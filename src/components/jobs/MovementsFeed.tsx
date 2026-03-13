@@ -38,11 +38,11 @@ const MovementsFeed: React.FC<{ maxItems?: number }> = ({ maxItems = 8 }) => {
   const fetchMovements = async () => {
     const { data } = await supabase
       .from("job_stage_movements")
-      .select("id, job_id, job_code, job_title, customer_name, from_stage_name, to_stage_name, moved_by, movement_type, created_at, archived")
+      .select("id, job_id, job_code, job_title, customer_name, board_name, from_stage_name, to_stage_name, moved_by, movement_type, metadata, created_at, archived")
       .eq("archived", false)
       .order("created_at", { ascending: false })
       .limit(maxItems);
-    if (data) setMovements(data);
+    if (data) setMovements(data as Movement[]);
   };
 
   useEffect(() => {
