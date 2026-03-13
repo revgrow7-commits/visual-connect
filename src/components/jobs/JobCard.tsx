@@ -176,8 +176,8 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
           </div>
         )}
 
-        <div className="flex items-center gap-2 text-xs text-gray-400">
-          <Users className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
+        <div className="flex items-center gap-2 text-sm text-gray-400">
+          <Users className="h-4 w-4 text-gray-500 flex-shrink-0" />
           <span className="truncate">{job.client_name}</span>
         </div>
 
