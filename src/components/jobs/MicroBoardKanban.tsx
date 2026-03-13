@@ -18,12 +18,14 @@ interface Props {
   onBoardUpdate?: (updated: Board) => void;
 }
 
-const MicroBoardKanban: React.FC<Props> = ({ board }) => {
+const MicroBoardKanban: React.FC<Props> = ({ board, onBoardUpdate }) => {
   const { data: cards = [], isLoading } = useMicroBoardCards(board.id);
   const updateStage = useUpdateMicroStage();
   const completeAssignment = useCompleteMicroAssignment();
   const recordMovement = useRecordMovement();
   const queryClient = useQueryClient();
+  const [editingStageId, setEditingStageId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
 
   // Group cards by stage
   const byStage = useMemo(() => {
