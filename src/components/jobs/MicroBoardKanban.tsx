@@ -123,10 +123,59 @@ const MicroBoardKanban: React.FC<Props> = ({ board, onBoardUpdate }) => {
         {byStage.map(col => (
           <div key={col.stage.id} className="min-w-[200px] flex-1 max-w-[260px] flex flex-col">
             <div
-              className="rounded-t-lg p-2.5 border border-b-0"
+              className="rounded-t-lg p-2.5 border border-b-0 group/header"
               style={{ borderTopWidth: 3, borderTopColor: col.stage.color }}
             >
-              <p className="font-bold text-[13px]">{col.stage.name}</p>
+              {editingStageId === col.stage.id ? (
+                <form
+                  className="flex items-center gap-1"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const trimmed = editingName.trim();
+                    if (!trimmed || trimmed === col.stage.name) {
+                      setEditingStageId(null);
+                      return;
+                    }
+                    const updatedBoard = {
+                      ...board,
+                      stages: board.stages.map(s =>
+                        s.id === col.stage.id ? { ...s, name: trimmed } : s
+                      ),
+                    };
+                    try {
+                      await saveBoardToDB(updatedBoard);
+                      onBoardUpdate?.(updatedBoard);
+                      queryClient.invalidateQueries({ queryKey: ["kanban-boards"] });
+                      toast({ title: "Etapa renomeada", description: `→ ${trimmed}` });
+                    } catch {
+                      toast({ title: "Erro ao salvar", variant: "destructive" });
+                    }
+                    setEditingStageId(null);
+                  }}
+                >
+                  <Input
+                    autoFocus
+                    className="h-6 text-[13px] font-bold px-1.5"
+                    value={editingName}
+                    onChange={e => setEditingName(e.target.value)}
+                    onBlur={() => setEditingStageId(null)}
+                    onKeyDown={e => e.key === "Escape" && setEditingStageId(null)}
+                  />
+                  <Button type="submit" size="sm" variant="ghost" className="h-6 w-6 p-0" onMouseDown={e => e.preventDefault()}>
+                    <Check className="h-3.5 w-3.5 text-emerald-500" />
+                  </Button>
+                </form>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <p className="font-bold text-[13px]">{col.stage.name}</p>
+                  <button
+                    className="opacity-0 group-hover/header:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted"
+                    onClick={() => { setEditingStageId(col.stage.id); setEditingName(col.stage.name); }}
+                  >
+                    <Pencil className="h-3 w-3 text-muted-foreground" />
+                  </button>
+                </div>
+              )}
               <p className="text-[11px] text-muted-foreground">{col.cards.length} cards</p>
             </div>
             <Droppable droppableId={col.stage.id}>
