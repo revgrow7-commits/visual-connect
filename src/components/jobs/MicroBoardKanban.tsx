@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { CheckCircle, Loader2 } from "lucide-react";
+import { useRecordMovement } from "@/hooks/useJobStageMovements";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   board: Board;
@@ -16,6 +18,7 @@ const MicroBoardKanban: React.FC<Props> = ({ board }) => {
   const { data: cards = [], isLoading } = useMicroBoardCards(board.id);
   const updateStage = useUpdateMicroStage();
   const completeAssignment = useCompleteMicroAssignment();
+  const recordMovement = useRecordMovement();
 
   // Group cards by stage
   const byStage = useMemo(() => {
@@ -31,17 +34,54 @@ const MicroBoardKanban: React.FC<Props> = ({ board }) => {
     const { source, destination, draggableId } = result;
     if (!destination || (source.droppableId === destination.droppableId && source.index === destination.index)) return;
 
+    const srcStage = board.stages.find(s => s.id === source.droppableId);
     const dstStage = board.stages.find(s => s.id === destination.droppableId);
     if (!dstStage) return;
 
+    const card = cards.find(c => c.id === draggableId);
+
+    // 1. Update micro_board_assignments stage
     updateStage.mutate({
       assignmentId: draggableId,
       micro_stage_id: dstStage.id,
       micro_stage_name: dstStage.name,
     });
 
+    // 2. Record in job_stage_movements for Produção Completa visibility
+    if (card) {
+      recordMovement.mutate({
+        job_id: card.job_id,
+        job_code: card.job_code ?? undefined,
+        job_title: card.job_title ?? undefined,
+        customer_name: card.customer_name ?? undefined,
+        board_id: board.id,
+        board_name: board.name,
+        from_stage_id: srcStage?.id,
+        from_stage_name: srcStage?.name,
+        to_stage_id: dstStage.id,
+        to_stage_name: dstStage.name,
+        moved_by: "Operador",
+        movement_type: "drag_drop",
+        metadata: { micro_board: true, micro_board_id: board.id, micro_board_name: board.name },
+      });
+
+      // 3. Log in job_history for agent context
+      supabase.from("job_history").insert({
+        job_id: card.job_id,
+        event_type: "micro_board_move",
+        content: `Movido de "${srcStage?.name || '—'}" para "${dstStage.name}" no board "${board.name}"`,
+        user_name: "Operador",
+        metadata: {
+          micro_board_id: board.id,
+          micro_board_name: board.name,
+          from_stage: srcStage?.name,
+          to_stage: dstStage.name,
+        },
+      }).then(() => {});
+    }
+
     toast({ title: "Card movido", description: `→ ${dstStage.name}` });
-  }, [board.stages, updateStage]);
+  }, [board, cards, updateStage, recordMovement]);
 
   const handleComplete = (card: MicroBoardAssignment) => {
     completeAssignment.mutate({
