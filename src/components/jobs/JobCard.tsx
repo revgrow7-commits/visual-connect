@@ -102,13 +102,13 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
           ? "shadow-2xl ring-2 ring-emerald-400/60 rotate-1 scale-[1.03]"
           : isSelected
           ? "shadow-lg ring-2 ring-emerald-400/60"
-          : "hover:shadow-xl hover:-translate-y-0.5 hover:border-[#3a3f4b]"
+          : "hover:shadow-xl hover:-translate-y-0.5 hover:border-[#454b5a]"
       }`}
       style={{
         background: isSelected
-          ? "linear-gradient(135deg, #1a2e28 0%, #1c2936 100%)"
-          : "linear-gradient(135deg, #1e2330 0%, #242938 50%, #1a1f2e 100%)",
-        borderColor: isSelected ? "#10b981" : isDragging ? "#10b981" : "#2a2f3d",
+          ? "linear-gradient(135deg, #243832 0%, #263540 100%)"
+          : "linear-gradient(135deg, #272d3a 0%, #2c3244 50%, #252b38 100%)",
+        borderColor: isSelected ? "#10b981" : isDragging ? "#10b981" : "#363c4d",
         borderLeftWidth: 4,
         borderLeftColor: isSelected ? "#10b981" : overdue ? "#ef4444" : job.urgent ? "#f59e0b" : "#3b82f6",
       }}
@@ -127,11 +127,11 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
         </div>
       )}
 
-      <div className="p-4 space-y-3">
+      <div className="p-5 space-y-3">
         {/* Header: Job number + unit + status */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-rose-300 bg-gradient-to-r from-rose-500/25 to-rose-600/15 border border-rose-400/40 rounded-md px-3 py-1.5 shadow-sm shadow-rose-500/20 ring-1 ring-rose-500/10">
+            <span className="text-base font-bold text-rose-300 bg-gradient-to-r from-rose-500/25 to-rose-600/15 border border-rose-400/40 rounded-md px-3 py-1.5 shadow-sm shadow-rose-500/20 ring-1 ring-rose-500/10">
               # {job.code || job.id.substring(0, 6)}
             </span>
             {job._unit_key && (
@@ -157,7 +157,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
         </div>
 
         {/* Title / Description */}
-        <p className="text-sm font-semibold text-gray-100 leading-snug line-clamp-2 tracking-tight">
+        <p className="text-[15px] font-semibold text-gray-100 leading-snug line-clamp-2 tracking-tight">
           {job.description || job.title || "Sem título"}
         </p>
 
@@ -176,19 +176,19 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
           </div>
         )}
 
-        <div className="flex items-center gap-2 text-xs text-gray-400">
-          <Users className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
+        <div className="flex items-center gap-2 text-sm text-gray-400">
+          <Users className="h-4 w-4 text-gray-500 flex-shrink-0" />
           <span className="truncate">{job.client_name}</span>
         </div>
 
         {/* Delivery date */}
         {job.delivery_date && (
-          <div className="flex items-center gap-2">
-            <CalendarClock className={`h-3.5 w-3.5 flex-shrink-0 ${overdue ? "text-red-400" : "text-gray-500"}`} />
-            <span className={`text-xs font-medium ${overdue ? "text-red-400" : "text-gray-400"}`}>
+           <div className="flex items-center gap-2">
+            <CalendarClock className={`h-4 w-4 flex-shrink-0 ${overdue ? "text-red-400" : "text-gray-500"}`} />
+            <span className={`text-sm font-medium ${overdue ? "text-red-400" : "text-gray-400"}`}>
               PREVISÃO DE ENTREGA
             </span>
-            <span className={`text-xs font-bold ml-auto ${overdue ? "text-red-400" : "text-gray-300"}`}>
+            <span className={`text-sm font-bold ml-auto ${overdue ? "text-red-400" : "text-gray-300"}`}>
               {deliveryDateFormatted}
             </span>
           </div>
@@ -240,7 +240,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
 
         {/* Value + m² */}
         <div className="flex items-center justify-between">
-          <p className="text-base font-bold text-emerald-400">{formatBRL(job.value)}</p>
+          <p className="text-lg font-bold text-emerald-400">{formatBRL(job.value)}</p>
           {(job.total_m2 ?? 0) > 0 && (
             <span className="flex items-center gap-1 text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-2.5 py-0.5 font-semibold">
               <Ruler className="h-3.5 w-3.5" />
@@ -251,7 +251,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
 
         {/* Progress bar */}
         <div className="flex items-center gap-2">
-          <div className="flex-1 h-1.5 rounded-full bg-[#2a3040] overflow-hidden">
+          <div className="flex-1 h-2 rounded-full bg-[#333a4d] overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
                 job.progress_percent >= 100 ? "bg-emerald-500" :
@@ -267,7 +267,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
         </div>
 
         {/* Footer: Actions */}
-        <div className="flex items-center gap-2 pt-2 border-t border-[#2a3040]">
+        <div className="flex items-center gap-2 pt-2 border-t border-[#363c4d]">
           <span className="flex items-center gap-1 text-xs text-gray-500">
             <Clock className="h-3.5 w-3.5" />
             {job.time_tracked || formatTimeMins(job.time_spent_minutes)}
