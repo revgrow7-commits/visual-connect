@@ -538,9 +538,15 @@ const JobsKanban: React.FC = () => {
     <div className="flex flex-col h-full min-h-[calc(100vh-120px)]">
       {/* ── Header ── */}
       <div className="px-6 pt-5 pb-3 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Jobs</h1>
-          <p className="text-sm text-white/60">{filteredData?.total || 0} job(s) encontrado(s)</p>
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => window.history.back()}
+            className="h-9 w-9 text-white/70 hover:text-white hover:bg-[#1e2330] border border-[#2a2f3d]">
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Jobs</h1>
+            <p className="text-sm text-white/60">{filteredData?.total || 0} job(s) encontrado(s)</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => refetch()} disabled={isFetching}
