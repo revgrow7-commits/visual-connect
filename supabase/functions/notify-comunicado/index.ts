@@ -2,7 +2,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const APP_URL = "https://rh-visual.lovable.app";
@@ -38,31 +38,33 @@ function emailWrapper(content: string) {
 </body></html>`;
 }
 
+function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function sendEmail(apiKey: string, to: string[], subject: string, html: string) {
-  // Resend supports batch sending up to 100 recipients
-  const batchSize = 50;
   const results = [];
 
-  for (let i = 0; i < to.length; i += batchSize) {
-    const batch = to.slice(i, i + batchSize);
-    // Send individually to avoid BCC exposure
-    for (const email of batch) {
-      try {
-        const res = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            from: "Indústria Visual <noreply@industriavisual.com.br>",
-            to: [email],
-            subject,
-            html,
-          }),
-        });
-        const data = await res.json();
-        results.push({ email, success: res.ok, id: data.id, error: data.message });
-      } catch (err) {
-        results.push({ email, success: false, error: String(err) });
-      }
+  for (let i = 0; i < to.length; i++) {
+    const email = to[i];
+    try {
+      // Rate limit: max 2 req/s — wait 600ms between each
+      if (i > 0) await delay(600);
+
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: "Indústria Visual <noreply@industriavisual.com.br>",
+          to: [email],
+          subject,
+          html,
+        }),
+      });
+      const data = await res.json();
+      results.push({ email, success: res.ok, id: data.id, error: data.message });
+    } catch (err) {
+      results.push({ email, success: false, error: String(err) });
     }
   }
 

@@ -2,7 +2,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const APP_URL = "https://rh-visual.lovable.app";
@@ -57,6 +57,10 @@ function buildCtaButton(url: string, label: string) {
     </a>
     <p style="color:#9ca3af;font-size:11px;margin:8px 0 0;">Clique para acessar diretamente a etapa no sistema</p>
   </div>`;
+}
+
+function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function sendEmail(apiKey: string, to: string, subject: string, html: string) {
@@ -166,8 +170,10 @@ Deno.serve(async (req) => {
       `);
 
       const results = [];
-      for (const recipient of emails) {
+      for (let i = 0; i < emails.length; i++) {
+        const recipient = emails[i];
         try {
+          if (i > 0) await delay(600);
           const r = await sendEmail(RESEND_API_KEY, recipient.email, subject, htmlContent);
           results.push({ email: recipient.email, ...r });
         } catch (err) {
@@ -230,8 +236,10 @@ Deno.serve(async (req) => {
       `);
 
       const results = [];
-      for (const recipient of emails) {
+      for (let i = 0; i < emails.length; i++) {
+        const recipient = emails[i];
         try {
+          if (i > 0) await delay(600);
           const r = await sendEmail(RESEND_API_KEY, recipient.email, subject, htmlContent);
           results.push({ email: recipient.email, ...r });
         } catch (err) {
@@ -324,8 +332,10 @@ Deno.serve(async (req) => {
     `);
 
     const results = [];
-    for (const recipient of emails) {
+    for (let i = 0; i < emails.length; i++) {
+      const recipient = emails[i];
       try {
+        if (i > 0) await delay(600);
         const r = await sendEmail(RESEND_API_KEY, recipient.email, subject, htmlContent);
         results.push({ email: recipient.email, ...r });
       } catch (err) {
