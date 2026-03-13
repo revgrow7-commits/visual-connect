@@ -146,13 +146,13 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             {job.urgent && (
-              <span className="flex items-center gap-0.5 text-[10px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded px-1.5 py-0.5">
-                <Zap className="h-3 w-3" /> URGENTE
+              <span className="flex items-center gap-1 text-xs font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded px-2 py-1">
+                <Zap className="h-3.5 w-3.5" /> URGENTE
               </span>
             )}
-            {job.has_alert && <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-lg shadow-red-500/40" />}
+            {job.has_alert && <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse shadow-lg shadow-red-500/40" />}
           </div>
         </div>
 
