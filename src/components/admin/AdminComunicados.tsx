@@ -111,13 +111,44 @@ const AdminComunicados = () => {
       if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
       else toast({ title: "Comunicado atualizado" });
     } else {
-      const { error } = await supabase.from("comunicados").insert(form);
+      const { data, error } = await supabase.from("comunicados").insert(form).select().single();
       if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-      else toast({ title: "Comunicado criado" });
+      else {
+        toast({ title: "Comunicado criado" });
+        // Auto-notify on creation if active
+        if (form.status === "ativo" && data) {
+          handleNotify(data as Comunicado);
+        }
+      }
     }
     setSaving(false);
     setDialogOpen(false);
     fetchComunicados();
+  };
+
+  const handleNotify = async (c: Comunicado) => {
+    setNotifying(c.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("notify-comunicado", {
+        body: {
+          comunicado_id: c.id,
+          titulo: c.titulo,
+          conteudo: c.conteudo,
+          categoria: c.categoria,
+          unidade: c.unidade,
+        },
+      });
+      if (error) throw error;
+      toast({
+        title: "Notificações enviadas!",
+        description: `${data?.notified || 0} colaboradores notificados por e-mail.`,
+      });
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: "Erro ao notificar", description: e.message, variant: "destructive" });
+    } finally {
+      setNotifying(null);
+    }
   };
 
   const handleDelete = async (id: string) => {
