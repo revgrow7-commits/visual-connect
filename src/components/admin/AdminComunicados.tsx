@@ -364,6 +364,15 @@ const AdminComunicados = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Enviar notificação por e-mail"
+                            onClick={() => handleNotify(c)}
+                            disabled={notifying === c.id || c.status !== "ativo"}
+                          >
+                            {notifying === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 text-emerald-600" />}
+                          </Button>
                           {c.image_url ? (
                             <Button
                               variant="ghost"
