@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { CheckCircle, Loader2, Pencil, Check } from "lucide-react";
 import { useRecordMovement } from "@/hooks/useJobStageMovements";
+import { useTrackStageTransition } from "@/hooks/useStageTracking";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -23,6 +24,7 @@ const MicroBoardKanban: React.FC<Props> = ({ board, onBoardUpdate }) => {
   const updateStage = useUpdateMicroStage();
   const completeAssignment = useCompleteMicroAssignment();
   const recordMovement = useRecordMovement();
+  const trackStage = useTrackStageTransition();
   const queryClient = useQueryClient();
   const [editingStageId, setEditingStageId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
@@ -86,7 +88,23 @@ const MicroBoardKanban: React.FC<Props> = ({ board, onBoardUpdate }) => {
         },
       }).then(() => {});
 
-      // 4. Update job_board_assignments stage_name so parent board reflects micro board position
+      // 4. Track stage with timestamps (start/end) and collaborator
+      trackStage.mutate({
+        job_id: card.job_id,
+        job_code: card.job_code ?? undefined,
+        job_title: card.job_title ?? undefined,
+        customer_name: card.customer_name ?? undefined,
+        board_id: board.id,
+        board_name: board.name,
+        from_stage_id: srcStage?.id,
+        from_stage_name: srcStage?.name,
+        to_stage_id: dstStage.id,
+        to_stage_name: dstStage.name,
+        collaborator_name: "Operador",
+        metadata: { micro_board: true, micro_board_id: board.id, micro_board_name: board.name },
+      });
+
+      // 5. Update job_board_assignments stage_name so parent board reflects micro board position
       supabase.from("job_board_assignments")
         .update({ stage_name: `${board.name}: ${dstStage.name}` } as any)
         .eq("job_id", card.job_id)

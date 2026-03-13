@@ -2803,6 +2803,66 @@ export type Database = {
         }
         Relationships: []
       }
+      stage_tracking: {
+        Row: {
+          board_id: string
+          board_name: string
+          collaborator_name: string | null
+          created_at: string
+          customer_name: string | null
+          duration_seconds: number | null
+          ended_at: string | null
+          id: string
+          is_active: boolean
+          job_code: number | null
+          job_id: string
+          job_title: string | null
+          metadata: Json | null
+          stage_id: string
+          stage_name: string
+          started_at: string
+          updated_at: string
+        }
+        Insert: {
+          board_id: string
+          board_name: string
+          collaborator_name?: string | null
+          created_at?: string
+          customer_name?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          is_active?: boolean
+          job_code?: number | null
+          job_id: string
+          job_title?: string | null
+          metadata?: Json | null
+          stage_id: string
+          stage_name: string
+          started_at?: string
+          updated_at?: string
+        }
+        Update: {
+          board_id?: string
+          board_name?: string
+          collaborator_name?: string | null
+          created_at?: string
+          customer_name?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          is_active?: boolean
+          job_code?: number | null
+          job_id?: string
+          job_title?: string | null
+          metadata?: Json | null
+          stage_id?: string
+          stage_name?: string
+          started_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       team_pipeline_status: {
         Row: {
           concluido_em: string | null
