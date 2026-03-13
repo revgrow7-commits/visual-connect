@@ -1,12 +1,14 @@
 import React, { useMemo, useState, useCallback } from "react";
 import type { Board } from "@/stores/boardsStore";
+import { saveBoardToDB } from "@/stores/boardsStore";
 import { useMicroBoardCards, useUpdateMicroStage, useCompleteMicroAssignment, type MicroBoardAssignment } from "@/hooks/useMicroBoardAssignments";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
-import { CheckCircle, Loader2 } from "lucide-react";
+import { CheckCircle, Loader2, Pencil, Check } from "lucide-react";
 import { useRecordMovement } from "@/hooks/useJobStageMovements";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
