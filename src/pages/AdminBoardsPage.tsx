@@ -70,7 +70,7 @@ function StageRow({ stage, onUpdate, onDelete }: { stage: BoardStage; onUpdate: 
     <div className="flex items-center gap-3 p-2 rounded-lg border border-border bg-muted/30">
       <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab shrink-0" />
       <input type="color" value={stage.color} onChange={(e) => onUpdate({ ...stage, color: e.target.value })} className="w-7 h-7 rounded border-0 cursor-pointer shrink-0" />
-      <Input value={stage.name} onChange={(e) => onUpdate({ ...stage, name: e.target.value, id: e.target.value.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "") })} className="h-8 text-sm flex-1" />
+      <Input value={stage.name} onChange={(e) => onUpdate({ ...stage, name: e.target.value })} className="h-8 text-sm flex-1" />
       <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0" onClick={onDelete}><X className="h-3.5 w-3.5" /></Button>
     </div>
   );
