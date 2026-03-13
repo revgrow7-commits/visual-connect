@@ -267,7 +267,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
         </div>
 
         {/* Footer: Actions */}
-        <div className="flex items-center gap-2 pt-2 border-t border-[#2a3040]">
+        <div className="flex items-center gap-2 pt-2 border-t border-[#363c4d]">
           <span className="flex items-center gap-1 text-xs text-gray-500">
             <Clock className="h-3.5 w-3.5" />
             {job.time_tracked || formatTimeMins(job.time_spent_minutes)}
