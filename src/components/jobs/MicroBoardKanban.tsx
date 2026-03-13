@@ -15,6 +15,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 interface Props {
   board: Board;
+  onBoardUpdate?: (updated: Board) => void;
 }
 
 const MicroBoardKanban: React.FC<Props> = ({ board }) => {
