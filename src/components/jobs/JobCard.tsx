@@ -167,7 +167,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
             {etiquetas.map((et) => (
               <span
                 key={et.id}
-                className="inline-flex items-center gap-0.5 text-[10px] font-bold text-white rounded px-2 py-0.5 shadow-sm"
+                className="inline-flex items-center gap-0.5 text-xs font-bold text-white rounded px-2.5 py-0.5 shadow-sm"
                 style={{ backgroundColor: ETIQUETA_BG_MAP[et.cor] || "#6b7280" }}
               >
                 {et.nome}
