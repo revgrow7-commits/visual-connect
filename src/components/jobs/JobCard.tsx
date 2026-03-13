@@ -183,12 +183,12 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
 
         {/* Delivery date */}
         {job.delivery_date && (
-          <div className="flex items-center gap-1.5">
-            <CalendarClock className={`h-3 w-3 flex-shrink-0 ${overdue ? "text-red-400" : "text-gray-500"}`} />
-            <span className={`text-[11px] font-medium ${overdue ? "text-red-400" : "text-gray-400"}`}>
+          <div className="flex items-center gap-2">
+            <CalendarClock className={`h-3.5 w-3.5 flex-shrink-0 ${overdue ? "text-red-400" : "text-gray-500"}`} />
+            <span className={`text-xs font-medium ${overdue ? "text-red-400" : "text-gray-400"}`}>
               PREVISÃO DE ENTREGA
             </span>
-            <span className={`text-[11px] font-bold ml-auto ${overdue ? "text-red-400" : "text-gray-300"}`}>
+            <span className={`text-xs font-bold ml-auto ${overdue ? "text-red-400" : "text-gray-300"}`}>
               {deliveryDateFormatted}
             </span>
           </div>
