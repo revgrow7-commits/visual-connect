@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { CheckCircle, Loader2, Pencil, Check } from "lucide-react";
 import { useRecordMovement } from "@/hooks/useJobStageMovements";
+import { useTrackStageTransition } from "@/hooks/useStageTracking";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 
