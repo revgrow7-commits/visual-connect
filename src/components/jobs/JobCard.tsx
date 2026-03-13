@@ -116,14 +116,14 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
       {/* Selection indicator */}
       {(selectionMode || isSelected) && (
         <div
-          className={`absolute -top-1 -left-1 z-10 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-all ${
+          className={`absolute -top-1.5 -left-1.5 z-10 w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
             isSelected
-              ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30"
-              : "bg-[#1e2330] border-[#4b5563] hover:border-emerald-400"
+              ? "bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/50 scale-110 ring-2 ring-emerald-400/30"
+              : "bg-[#1e2330] border-[#4b5563] hover:border-emerald-400 hover:scale-110"
           }`}
           onClick={(e) => { e.stopPropagation(); onToggleSelect?.(job.id, e); }}
         >
-          {isSelected && <Check className="h-3 w-3" />}
+          {isSelected && <Check className="h-3.5 w-3.5" />}
         </div>
       )}
 
@@ -131,7 +131,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
         {/* Header: Job number + unit + status */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded px-2 py-0.5">
+            <span className="text-xs font-bold text-rose-300 bg-gradient-to-r from-rose-500/25 to-rose-600/15 border border-rose-400/40 rounded-md px-2.5 py-1 shadow-sm shadow-rose-500/20 ring-1 ring-rose-500/10">
               # {job.code || job.id.substring(0, 6)}
             </span>
             {job._unit_key && (
