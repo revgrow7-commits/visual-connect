@@ -9,6 +9,7 @@ import { toast } from "@/hooks/use-toast";
 import { CheckCircle, Loader2 } from "lucide-react";
 import { useRecordMovement } from "@/hooks/useJobStageMovements";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Props {
   board: Board;
