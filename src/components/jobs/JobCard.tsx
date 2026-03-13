@@ -102,13 +102,13 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
           ? "shadow-2xl ring-2 ring-emerald-400/60 rotate-1 scale-[1.03]"
           : isSelected
           ? "shadow-lg ring-2 ring-emerald-400/60"
-          : "hover:shadow-xl hover:-translate-y-0.5 hover:border-[#3a3f4b]"
+          : "hover:shadow-xl hover:-translate-y-0.5 hover:border-[#454b5a]"
       }`}
       style={{
         background: isSelected
-          ? "linear-gradient(135deg, #1a2e28 0%, #1c2936 100%)"
-          : "linear-gradient(135deg, #1e2330 0%, #242938 50%, #1a1f2e 100%)",
-        borderColor: isSelected ? "#10b981" : isDragging ? "#10b981" : "#2a2f3d",
+          ? "linear-gradient(135deg, #243832 0%, #263540 100%)"
+          : "linear-gradient(135deg, #272d3a 0%, #2c3244 50%, #252b38 100%)",
+        borderColor: isSelected ? "#10b981" : isDragging ? "#10b981" : "#363c4d",
         borderLeftWidth: 4,
         borderLeftColor: isSelected ? "#10b981" : overdue ? "#ef4444" : job.urgent ? "#f59e0b" : "#3b82f6",
       }}
