@@ -18,6 +18,7 @@ const MicroBoardKanban: React.FC<Props> = ({ board }) => {
   const { data: cards = [], isLoading } = useMicroBoardCards(board.id);
   const updateStage = useUpdateMicroStage();
   const completeAssignment = useCompleteMicroAssignment();
+  const recordMovement = useRecordMovement();
 
   // Group cards by stage
   const byStage = useMemo(() => {
