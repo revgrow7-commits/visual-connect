@@ -251,7 +251,7 @@ const JobCard: React.FC<Props> = React.memo(({ job, onClick, isDragging, visible
 
         {/* Progress bar */}
         <div className="flex items-center gap-2">
-          <div className="flex-1 h-1.5 rounded-full bg-[#2a3040] overflow-hidden">
+          <div className="flex-1 h-2 rounded-full bg-[#333a4d] overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
                 job.progress_percent >= 100 ? "bg-emerald-500" :
