@@ -59,6 +59,10 @@ function buildCtaButton(url: string, label: string) {
   </div>`;
 }
 
+function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function sendEmail(apiKey: string, to: string, subject: string, html: string) {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
